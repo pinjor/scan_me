@@ -10,6 +10,8 @@
 	<string>ScanMe</string>
 	<key>NSCameraUsageDescription</key>
 	<string>ScanMe needs camera access to scan documents.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>ScanMe needs photo library access to convert images into a PDF.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -17,7 +19,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>scanme</string>
+	<string>ScanMe</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

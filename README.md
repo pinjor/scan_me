@@ -1,14 +1,11 @@
 # ScanMe
 
-Offline CamScanner-style document scanner for Android and iOS.
+Offline CamScanner-style document scanner by **Apptriangle**.
 
-## Features
-
-- Multi-page scan (ML Kit Document Scanner on Android, VisionKit on iOS)
-- Review: zoom/pan, reorder, retake, rotate, delete
-- CamScanner-style Black & White filter (SLI proposal-form pipeline)
-- Export compressed PDF and/or JPEG images (long edge ≤ 1600, quality 82)
-- Local-only storage, light/dark/system theme
+- **Package ID:** `app.atl.scanme`
+- Android: Google ML Kit Document Scanner  
+- iOS: VisionKit  
+- Local-only storage · Apptriangle watermark on exports  
 
 ## Run
 
@@ -17,4 +14,11 @@ flutter pub get
 flutter run
 ```
 
-Android emulator/device required for ML Kit scanner. iOS device/simulator for VisionKit.
+## Release / Play Store
+
+See [docs/PLAY_STORE.md](docs/PLAY_STORE.md).
+
+```bash
+# After android/key.properties is filled:
+flutter build appbundle --release
+```

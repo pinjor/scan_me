@@ -28,7 +28,7 @@ import VisionKit
     scannerChannelRegistered = true
 
     let channel = FlutterMethodChannel(
-      name: "com.scanme.scanme/document_scanner",
+      name: "app.atl.scanme/document_scanner",
       binaryMessenger: messenger
     )
     channel.setMethodCallHandler { [weak self] call, result in

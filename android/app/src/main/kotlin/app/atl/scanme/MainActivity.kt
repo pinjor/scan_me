@@ -1,4 +1,4 @@
-package com.scanme.scanme
+package app.atl.scanme
 
 import io.flutter.embedding.android.FlutterActivity
 

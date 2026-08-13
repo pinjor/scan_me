@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/app_ui.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -15,10 +16,10 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
             child: Text(
               'Appearance',
               style: text.titleSmall?.copyWith(
@@ -27,35 +28,42 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
-          RadioGroup<ThemeMode>(
-            groupValue: mode,
-            onChanged: (ThemeMode? v) {
-              if (v != null) {
-                ref.read(themeModeProvider.notifier).setMode(v);
-              }
-            },
-            child: const Column(
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: Column(
               children: [
-                RadioListTile<ThemeMode>(
-                  title: Text('Match phone setting'),
-                  subtitle: Text('Follows system light or dark mode'),
-                  value: ThemeMode.system,
+                _ThemeOption(
+                  icon: Icons.phone_android_outlined,
+                  title: 'Match phone setting',
+                  description: 'Follows system light or dark mode',
+                  selected: mode == ThemeMode.system,
+                  onTap: () =>
+                      ref.read(themeModeProvider.notifier).setMode(ThemeMode.system),
                 ),
-                RadioListTile<ThemeMode>(
-                  title: Text('Light'),
-                  value: ThemeMode.light,
+                Divider(height: 1, color: scheme.outlineVariant),
+                _ThemeOption(
+                  icon: Icons.light_mode_outlined,
+                  title: 'Light',
+                  description: 'Bright, clear workspace',
+                  selected: mode == ThemeMode.light,
+                  onTap: () =>
+                      ref.read(themeModeProvider.notifier).setMode(ThemeMode.light),
                 ),
-                RadioListTile<ThemeMode>(
-                  title: Text('Dark'),
-                  value: ThemeMode.dark,
+                Divider(height: 1, color: scheme.outlineVariant),
+                _ThemeOption(
+                  icon: Icons.dark_mode_outlined,
+                  title: 'Dark',
+                  description: 'Easier on the eyes at night',
+                  selected: mode == ThemeMode.dark,
+                  onTap: () =>
+                      ref.read(themeModeProvider.notifier).setMode(ThemeMode.dark),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Divider(height: 1, color: scheme.outlineVariant),
+          const SizedBox(height: 28),
           Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
             child: Text(
               'About',
               style: text.titleSmall?.copyWith(
@@ -64,16 +72,159 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: Text(
-              'ScanMe keeps scans on your phone. No account, no cloud. '
-              'Exports use practical compression so files stay readable and easy to send.',
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          AppCard(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: scheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: const EdgeInsets.all(10),
+                  child: Image.asset(
+                    'assets/branding/app_icon.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, _, _) => Icon(
+                      Icons.document_scanner,
+                      color: scheme.primary,
+                      size: 32,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text('ScanMe', style: text.headlineSmall),
+                const SizedBox(height: 4),
+                Text(
+                  'by Apptriangle',
+                  style: text.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Version 1.0.0',
+                  style: text.labelMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const _AboutRow(
+                  icon: Icons.lock_outline,
+                  label: 'Privacy focused — nothing leaves this phone',
+                ),
+                const SizedBox(height: 10),
+                const _AboutRow(
+                  icon: Icons.cloud_off_outlined,
+                  label: 'Offline scanner — no account required',
+                ),
+                const SizedBox(height: 10),
+                const _AboutRow(
+                  icon: Icons.compress,
+                  label: 'Practical compression for easy sharing',
+                ),
+              ],
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  const _ThemeOption({
+    required this.icon,
+    required this.title,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: selected
+                    ? scheme.primaryContainer
+                    : scheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: selected ? scheme.primary : scheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: text.titleMedium),
+                  const SizedBox(height: 2),
+                  Text(
+                    description,
+                    style: text.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected ? scheme.primary : scheme.onSurfaceVariant,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AboutRow extends StatelessWidget {
+  const _AboutRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: scheme.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+          ),
+        ),
+      ],
     );
   }
 }

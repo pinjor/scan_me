@@ -20,9 +20,9 @@ class ScanError extends ScanOutcome {
 
 /// Platform scanner: ML Kit on Android, VisionKit channel on iOS.
 class DocumentScannerService {
-  static const _iosChannel = MethodChannel('com.scanme.scanme/document_scanner');
+  static const _iosChannel = MethodChannel('app.atl.scanme/document_scanner');
 
-  Future<ScanOutcome> scan({int pageLimit = 50}) async {
+  Future<ScanOutcome> scan({int pageLimit = 1}) async {
     try {
       if (Platform.isAndroid) {
         return _scanAndroid(pageLimit: pageLimit);

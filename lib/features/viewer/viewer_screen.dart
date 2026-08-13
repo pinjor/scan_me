@@ -7,7 +7,9 @@ import 'package:photo_view/photo_view_gallery.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers.dart';
+import '../../core/theme/app_theme.dart';
 import '../../shared/models/scanned_document.dart';
+import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/apptriangle_watermark_overlay.dart';
 
 class ViewerScreen extends ConsumerStatefulWidget {
@@ -47,8 +49,10 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       _doc = doc;
       _loading = false;
       _error = doc == null
-          ? 'Document not found'
-          : (doc.pages.isEmpty ? 'This document has no pages' : null);
+          ? "We couldn't find this document. It may have been removed."
+          : (doc.pages.isEmpty
+              ? 'This document has no pages to show.'
+              : null);
       if (doc != null && doc.pages.isNotEmpty) {
         _pageController = PageController(initialPage: 0);
       }
@@ -58,15 +62,25 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
     final doc = _doc;
     if (doc == null || _error != null || _pageController == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(child: Text(_error ?? 'Missing document')),
+        body: AppEmptyState(
+          title: 'Document unavailable',
+          subtitle: _error ?? "We couldn't open this file.",
+          primaryLabel: 'Go back',
+          primaryIcon: Icons.arrow_back,
+          onPrimary: () => Navigator.of(context).pop(),
+        ),
       );
     }
+
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -92,59 +106,71 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       body: Column(
         children: [
           Expanded(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                PhotoViewGallery.builder(
-                  itemCount: doc.pages.length,
-                  pageController: _pageController!,
-                  onPageChanged: (i) => setState(() => _index = i),
-                  backgroundDecoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                  ),
-                  builder: (context, index) {
-                    final page = doc.pages[index];
-                    final file = File(page.displayPath);
-                    if (!file.existsSync()) {
-                      return PhotoViewGalleryPageOptions.customChild(
-                        child: Center(
-                          child: Text(
-                            'Missing page file',
-                            style: Theme.of(context).textTheme.bodyLarge,
-                          ),
-                        ),
-                      );
-                    }
-                    return PhotoViewGalleryPageOptions(
-                      imageProvider: FileImage(file),
-                      minScale: PhotoViewComputedScale.contained,
-                      maxScale: PhotoViewComputedScale.covered * 3,
-                      heroAttributes: PhotoViewHeroAttributes(tag: page.id),
-                    );
-                  },
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    PhotoViewGallery.builder(
+                      itemCount: doc.pages.length,
+                      pageController: _pageController!,
+                      onPageChanged: (i) => setState(() => _index = i),
+                      backgroundDecoration: BoxDecoration(
+                        color: scheme.surfaceContainerHighest
+                            .withValues(alpha: 0.4),
+                      ),
+                      builder: (context, index) {
+                        final page = doc.pages[index];
+                        final file = File(page.displayPath);
+                        if (!file.existsSync()) {
+                          return PhotoViewGalleryPageOptions.customChild(
+                            child: Center(
+                              child: Text(
+                                "This page's image couldn't be found.",
+                                style: Theme.of(context).textTheme.bodyLarge,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          );
+                        }
+                        return PhotoViewGalleryPageOptions(
+                          imageProvider: FileImage(file),
+                          minScale: PhotoViewComputedScale.contained,
+                          maxScale: PhotoViewComputedScale.covered * 3,
+                          heroAttributes:
+                              PhotoViewHeroAttributes(tag: page.id),
+                        );
+                      },
+                    ),
+                    const ApptriangleWatermarkOverlay(),
+                  ],
                 ),
-                const ApptriangleWatermarkOverlay(),
-              ],
+              ),
             ),
           ),
           SafeArea(
             top: false,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                border: Border(
-                  top: BorderSide(
-                    color: Theme.of(context).colorScheme.outlineVariant,
-                  ),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Center(
-                  child: Text(
-                    'Page ${_index + 1} of ${doc.pages.length}',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: AppCard(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.description_outlined,
+                      size: 18,
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Page ${_index + 1} of ${doc.pages.length}',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -183,8 +209,15 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     final name = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Rename'),
-        content: TextField(controller: controller, autofocus: true),
+        title: const Text('Rename document'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            hintText: 'e.g. Invoice March 2026',
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -205,24 +238,14 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   }
 
   Future<void> _delete(ScannedDocument doc) async {
-    final ok = await showDialog<bool>(
+    final ok = await showConfirmSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Delete "${doc.name}"?'),
-        content: const Text('Locally stored scan will be removed.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
+      title: 'Delete this document?',
+      message:
+          'This permanently removes “${doc.name}” from this phone. This action cannot be undone.',
+      confirmLabel: 'Delete',
     );
-    if (ok == true && mounted) {
+    if (ok && mounted) {
       await ref.read(documentsProvider.notifier).delete(doc.id);
       if (mounted) Navigator.of(context).pop();
     }

@@ -105,6 +105,7 @@ class EditorController extends StateNotifier<EditorSession?> {
       name: name,
       pages: pages,
     );
+    await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
   }
 
   /// Retake-all: reuse same document id, replace page files (no orphan folder).
@@ -149,6 +150,44 @@ class EditorController extends StateNotifier<EditorSession?> {
       name: name,
       pages: pages,
     );
+    await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
+  }
+
+  /// Append newly scanned pages to the current draft (Add page).
+  Future<void> appendPagesFromScanPaths(List<String> paths) async {
+    if (paths.isEmpty) {
+      throw StateError('No pages returned from scanner');
+    }
+    final s = state;
+    if (s == null) {
+      await startFromScanPaths(paths);
+      return;
+    }
+
+    final pages = [...s.pages];
+    final startIndex = pages.length;
+    for (var i = 0; i < paths.length; i++) {
+      final pageId = _uuid.v4();
+      final dest = await _storage.importOriginal(
+        documentId: s.documentId,
+        sourcePath: paths[i],
+        pageId: pageId,
+      );
+      pages.add(
+        ScannedPage(
+          id: pageId,
+          originalImagePath: dest,
+          pageIndex: startIndex + i,
+        ),
+      );
+    }
+
+    state = s.copyWith(
+      pages: pages,
+      selectedIndex: pages.length - 1,
+    );
+    // applyToAll skips pages already B&W; new pages get CamScan filter.
+    await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
   }
 
   /// Clear session. Deletes draft folder only if never exported (no meta.json).
@@ -235,6 +274,7 @@ class EditorController extends StateNotifier<EditorSession?> {
       clearProcessed: true,
     );
     state = s.copyWith(pages: pages, selectedIndex: index);
+    await applyFilter(PageFilter.blackAndWhite, applyToAll: false);
   }
 
   Future<void> applyFilter(
@@ -244,7 +284,7 @@ class EditorController extends StateNotifier<EditorSession?> {
     final s = state;
     if (s == null || s.pages.isEmpty) return;
 
-    state = s.copyWith(isProcessing: true, processingLabel: 'Applying filter…');
+    state = s.copyWith(isProcessing: true, processingLabel: 'Applying black & white…');
 
     try {
       final pages = [...s.pages];

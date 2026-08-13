@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/app_ui.dart';
 import '../document_editor/editor_controller.dart';
 
 class ExportScreen extends ConsumerStatefulWidget {
@@ -39,66 +41,125 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Save document')),
       body: session == null
-          ? const Center(child: Text('No document'))
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+          ? const AppEmptyState(
+              title: 'Nothing to save',
+              subtitle: 'Go back and capture or import pages first.',
+            )
+          : Column(
               children: [
-                Text('Name', style: text.titleSmall),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _nameController,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    hintText: 'e.g. Lease agreement',
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    children: [
+                      Text('Document name', style: text.titleSmall),
+                      const SizedBox(height: 10),
+                      AppCard(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 4,
+                        ),
+                        child: TextField(
+                          controller: _nameController,
+                          textCapitalization: TextCapitalization.words,
+                          enabled: !_busy,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            filled: false,
+                            hintText: 'e.g. Invoice March 2026',
+                          ),
+                          style: text.titleLarge,
+                          onChanged: (v) => ref
+                              .read(editorSessionProvider.notifier)
+                              .setName(v),
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+                      Text('Format', style: text.titleSmall),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${session.pages.length} '
+                        '${session.pages.length == 1 ? 'page' : 'pages'} · '
+                        'Compressed for sharing · Apptriangle watermark',
+                        style: text.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      _FormatTile(
+                        icon: Icons.picture_as_pdf_outlined,
+                        title: 'PDF',
+                        subtitle: 'One file — easy to email or print',
+                        value: _createPdf,
+                        enabled: !_busy,
+                        onChanged: (v) => setState(() => _createPdf = v),
+                      ),
+                      const SizedBox(height: 10),
+                      _FormatTile(
+                        icon: Icons.photo_library_outlined,
+                        title: 'JPEG images',
+                        subtitle: 'Separate pages (Name_01.jpg…)',
+                        value: _saveImages,
+                        enabled: !_busy,
+                        onChanged: (v) => setState(() => _saveImages = v),
+                      ),
+                      if (_progress != null) ...[
+                        const SizedBox(height: 28),
+                        AppCard(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              const SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: CircularProgressIndicator(strokeWidth: 3),
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _progress!,
+                                textAlign: TextAlign.center,
+                                style: text.titleMedium,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Saving on this device only',
+                                style: text.bodySmall?.copyWith(
+                                  color: scheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              const LinearProgressIndicator(minHeight: 3),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                  onChanged: (v) =>
-                      ref.read(editorSessionProvider.notifier).setName(v),
                 ),
-                const SizedBox(height: 28),
-                Text('Format', style: text.titleSmall),
-                const SizedBox(height: 4),
-                Text(
-                  '${session.pages.length} '
-                  '${session.pages.length == 1 ? 'page' : 'pages'} · '
-                  'files are compressed for sharing without muddy text.',
-                  style: text.bodySmall,
-                ),
-                const SizedBox(height: 12),
-                _FormatTile(
-                  icon: Icons.picture_as_pdf_outlined,
-                  title: 'PDF',
-                  subtitle: 'One file, easy to email or print',
-                  value: _createPdf,
-                  enabled: !_busy,
-                  onChanged: (v) => setState(() => _createPdf = v),
-                ),
-                const SizedBox(height: 8),
-                _FormatTile(
-                  icon: Icons.photo_library_outlined,
-                  title: 'JPEG images',
-                  subtitle: 'Separate pages (Name_01.jpg…)',
-                  value: _saveImages,
-                  enabled: !_busy,
-                  onChanged: (v) => setState(() => _saveImages = v),
-                ),
-                const SizedBox(height: 32),
-                if (_progress != null) ...[
-                  Text(
-                    _progress!,
-                    textAlign: TextAlign.center,
-                    style: text.bodyMedium?.copyWith(
-                      color: scheme.onSurfaceVariant,
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _busy || (!_createPdf && !_saveImages)
+                            ? null
+                            : _export,
+                        style: FilledButton.styleFrom(
+                          minimumSize: const Size(48, 56),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                                BorderRadius.circular(AppTheme.radiusSm),
+                          ),
+                        ),
+                        child: Text(
+                          _busy ? 'Saving…' : 'Save on this device',
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const LinearProgressIndicator(minHeight: 3),
-                  const SizedBox(height: 24),
-                ],
-                FilledButton(
-                  onPressed: _busy || (!_createPdf && !_saveImages)
-                      ? null
-                      : _export,
-                  child: Text(_busy ? 'Saving…' : 'Save on this device'),
                 ),
               ],
             ),
@@ -108,7 +169,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   Future<void> _export() async {
     setState(() {
       _busy = true;
-      _progress = 'Preparing…';
+      _progress = 'Preparing pages…';
     });
     ref.read(editorSessionProvider.notifier).setName(_nameController.text);
     try {
@@ -123,7 +184,6 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Saved on this device')),
       );
-      // Pop first so Review's PopScope discard sees saved meta.json (no-op delete).
       Navigator.of(context).popUntil((route) => route.isFirst);
       ref.read(editorSessionProvider.notifier).clear();
     } catch (e) {
@@ -162,37 +222,38 @@ class _FormatTile extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Material(
-      color: scheme.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: value ? scheme.primary.withValues(alpha: 0.45) : scheme.outlineVariant,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: enabled ? () => onChanged(!value) : null,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-          child: Row(
-            children: [
-              Icon(icon, color: scheme.primary, size: 26),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: text.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: text.bodySmall),
-                  ],
-                ),
-              ),
-              Switch(value: value, onChanged: enabled ? onChanged : null),
-            ],
+    return AppCard(
+      onTap: enabled ? () => onChanged(!value) : null,
+      padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      color: value
+          ? scheme.primaryContainer.withValues(alpha: 0.35)
+          : scheme.surface,
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: scheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: scheme.outlineVariant),
+            ),
+            child: Icon(icon, color: scheme.primary, size: 26),
           ),
-        ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: text.titleMedium),
+                const SizedBox(height: 2),
+                Text(subtitle, style: text.bodySmall),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: enabled ? onChanged : null),
+        ],
       ),
     );
   }
