@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
+import 'app_transitions.dart';
 
 /// Primary / secondary / text actions with 48+ touch targets.
 class AppButton extends StatelessWidget {
@@ -69,8 +70,8 @@ class AppButton extends StatelessWidget {
 
 enum _Variant { filled, outlined, text }
 
-/// Soft surface card with optional border and tap.
-class AppCard extends StatelessWidget {
+/// Soft surface card with optional border, tap, press scale, and light elevation.
+class AppCard extends StatefulWidget {
   const AppCard({
     super.key,
     required this.child,
@@ -80,6 +81,7 @@ class AppCard extends StatelessWidget {
     this.borderRadius,
     this.color,
     this.bordered = true,
+    this.elevated = true,
   });
 
   final Widget child;
@@ -89,30 +91,69 @@ class AppCard extends StatelessWidget {
   final BorderRadius? borderRadius;
   final Color? color;
   final bool bordered;
+  final bool elevated;
+
+  @override
+  State<AppCard> createState() => _AppCardState();
+}
+
+class _AppCardState extends State<AppCard> {
+  var _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final radius = borderRadius ?? BorderRadius.circular(AppTheme.radiusLg);
+    final isLight = Theme.of(context).brightness == Brightness.light;
+    final radius =
+        widget.borderRadius ?? BorderRadius.circular(AppTheme.radiusLg);
+    final canPress = widget.onTap != null;
 
     return Padding(
-      padding: margin ?? EdgeInsets.zero,
-      child: Material(
-        color: color ?? scheme.surface,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: radius,
-          side: bordered
-              ? BorderSide(
-                  color: scheme.outlineVariant.withValues(alpha: 0.85),
-                )
-              : BorderSide.none,
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: radius,
-          child: Padding(padding: padding, child: child),
+      padding: widget.margin ?? EdgeInsets.zero,
+      child: AnimatedScale(
+        scale: _pressed && canPress ? 0.985 : 1,
+        duration: const Duration(milliseconds: 120),
+        curve: Curves.easeOutCubic,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            boxShadow: widget.elevated && isLight
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(
+                        alpha: _pressed ? 0.04 : 0.07,
+                      ),
+                      blurRadius: _pressed ? 6 : 14,
+                      offset: Offset(0, _pressed ? 2 : 4),
+                    ),
+                  ]
+                : null,
+          ),
+          child: Material(
+            color: widget.color ?? scheme.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: radius,
+              side: widget.bordered
+                  ? BorderSide(
+                      color: scheme.outlineVariant.withValues(alpha: 0.9),
+                    )
+                  : BorderSide.none,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: widget.onTap,
+              onTapDown:
+                  canPress ? (_) => setState(() => _pressed = true) : null,
+              onTapUp:
+                  canPress ? (_) => setState(() => _pressed = false) : null,
+              onTapCancel:
+                  canPress ? () => setState(() => _pressed = false) : null,
+              borderRadius: radius,
+              child: Padding(padding: widget.padding, child: widget.child),
+            ),
+          ),
         ),
       ),
     );
@@ -132,6 +173,7 @@ class AppEmptyState extends StatelessWidget {
     this.secondaryLabel,
     this.onSecondary,
     this.secondaryIcon,
+    this.padding = const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
   });
 
   final String title;
@@ -143,54 +185,59 @@ class AppEmptyState extends StatelessWidget {
   final String? secondaryLabel;
   final VoidCallback? onSecondary;
   final IconData? secondaryIcon;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            illustration ??
-                _DefaultDocIllustration(color: scheme.primary),
-            const SizedBox(height: 28),
-            Text(
-              title,
-              style: text.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              subtitle,
-              style: text.bodyLarge?.copyWith(
-                color: scheme.onSurfaceVariant,
-                height: 1.45,
+    return FadeRiseIn(
+      child: Center(
+        child: SingleChildScrollView(
+          padding: padding,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              illustration ??
+                  _DefaultDocIllustration(color: scheme.primary),
+              const SizedBox(height: 20),
+              Text(
+                title,
+                style: text.titleLarge,
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            if (primaryLabel != null && onPrimary != null) ...[
-              const SizedBox(height: 28),
-              AppButton.filled(
-                label: primaryLabel!,
-                onPressed: onPrimary,
-                icon: primaryIcon ?? Icons.document_scanner_outlined,
-                expand: true,
-              ),
+              if (subtitle.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtitle,
+                  style: text.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (primaryLabel != null && onPrimary != null) ...[
+                const SizedBox(height: 20),
+                AppButton.filled(
+                  label: primaryLabel!,
+                  onPressed: onPrimary,
+                  icon: primaryIcon ?? Icons.document_scanner_outlined,
+                  expand: true,
+                ),
+              ],
+              if (secondaryLabel != null && onSecondary != null) ...[
+                const SizedBox(height: 8),
+                AppButton.outlined(
+                  label: secondaryLabel!,
+                  onPressed: onSecondary,
+                  icon: secondaryIcon ?? Icons.picture_as_pdf_outlined,
+                  expand: true,
+                ),
+              ],
             ],
-            if (secondaryLabel != null && onSecondary != null) ...[
-              const SizedBox(height: 12),
-              AppButton.outlined(
-                label: secondaryLabel!,
-                onPressed: onSecondary,
-                icon: secondaryIcon ?? Icons.picture_as_pdf_outlined,
-                expand: true,
-              ),
-            ],
-          ],
+          ),
         ),
       ),
     );
@@ -205,104 +252,86 @@ class _DefaultDocIllustration extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final paper = isDark ? scheme.surfaceContainerHigh : Colors.white;
+    final line = scheme.outlineVariant;
+
     return SizedBox(
-      width: 160,
-      height: 140,
+      width: 168,
+      height: 132,
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // Soft navy glow
           Positioned(
-            left: 18,
-            top: 28,
-            child: Transform.rotate(
-              angle: -0.12,
-              child: Container(
-                width: 72,
-                height: 92,
-                decoration: BoxDecoration(
-                  color: scheme.primaryContainer.withValues(alpha: 0.55),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 16,
-            top: 20,
-            child: Transform.rotate(
-              angle: 0.1,
-              child: Container(
-                width: 78,
-                height: 100,
-                decoration: BoxDecoration(
-                  color: scheme.surface,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: scheme.outline),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.06),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.fromLTRB(10, 12, 10, 10),
-                child: Column(
-                  children: [
-                    Container(
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: scheme.outlineVariant,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      height: 6,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: scheme.outlineVariant.withValues(alpha: 0.7),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      height: 6,
-                      width: 36,
-                      alignment: Alignment.centerLeft,
-                      decoration: BoxDecoration(
-                        color: scheme.outlineVariant.withValues(alpha: 0.5),
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 8,
+            bottom: 18,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              width: 120,
+              height: 28,
               decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.document_scanner, color: Colors.white, size: 18),
-                  SizedBox(width: 6),
-                  Text(
-                    'Scan',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13,
-                    ),
+                borderRadius: BorderRadius.circular(40),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.18),
+                    blurRadius: 28,
+                    spreadRadius: 2,
                   ),
                 ],
+              ),
+            ),
+          ),
+          // Back page
+          Positioned(
+            left: 28,
+            top: 22,
+            child: Transform.rotate(
+              angle: -0.14,
+              child: _DocSheet(
+                width: 78,
+                height: 96,
+                color: color.withValues(alpha: 0.12),
+                border: color.withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+          // Mid page
+          Positioned(
+            right: 30,
+            top: 18,
+            child: Transform.rotate(
+              angle: 0.12,
+              child: _DocSheet(
+                width: 82,
+                height: 100,
+                color: paper,
+                border: line,
+                showLines: true,
+                lineColor: line,
+              ),
+            ),
+          ),
+          // Front page (centered)
+          Positioned(
+            top: 12,
+            child: _DocSheet(
+              width: 88,
+              height: 108,
+              color: paper,
+              border: scheme.outline.withValues(alpha: 0.55),
+              elevated: true,
+              showLines: true,
+              lineColor: line,
+              accentCorner: color,
+            ),
+          ),
+          // Scanner frame corners
+          Positioned(
+            top: 6,
+            child: SizedBox(
+              width: 108,
+              height: 118,
+              child: CustomPaint(
+                painter: _ScanFramePainter(color: color),
               ),
             ),
           ),
@@ -310,6 +339,142 @@ class _DefaultDocIllustration extends StatelessWidget {
       ),
     );
   }
+}
+
+class _DocSheet extends StatelessWidget {
+  const _DocSheet({
+    required this.width,
+    required this.height,
+    required this.color,
+    required this.border,
+    this.showLines = false,
+    this.lineColor,
+    this.elevated = false,
+    this.accentCorner,
+  });
+
+  final double width;
+  final double height;
+  final Color color;
+  final Color border;
+  final bool showLines;
+  final Color? lineColor;
+  final bool elevated;
+  final Color? accentCorner;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: border),
+        boxShadow: elevated
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 14,
+                  offset: const Offset(0, 6),
+                ),
+              ]
+            : null,
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
+      child: showLines
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (accentCorner != null)
+                  Container(
+                    width: 22,
+                    height: 22,
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: accentCorner!.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Icon(
+                      Icons.description_outlined,
+                      size: 14,
+                      color: accentCorner,
+                    ),
+                  )
+                else
+                  const SizedBox(height: 4),
+                _line(lineColor!, 1),
+                const SizedBox(height: 7),
+                _line(lineColor!, 0.85),
+                const SizedBox(height: 7),
+                _line(lineColor!, 0.55),
+              ],
+            )
+          : null,
+    );
+  }
+
+  Widget _line(Color c, double widthFactor) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      alignment: Alignment.centerLeft,
+      child: Container(
+        height: 5,
+        decoration: BoxDecoration(
+          color: c.withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(3),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScanFramePainter extends CustomPainter {
+  _ScanFramePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    const len = 16.0;
+    // Top-left
+    canvas.drawLine(const Offset(0, len), Offset.zero, paint);
+    canvas.drawLine(Offset.zero, const Offset(len, 0), paint);
+    // Top-right
+    canvas.drawLine(Offset(size.width - len, 0), Offset(size.width, 0), paint);
+    canvas.drawLine(Offset(size.width, 0), Offset(size.width, len), paint);
+    // Bottom-left
+    canvas.drawLine(
+      Offset(0, size.height - len),
+      Offset(0, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(0, size.height),
+      Offset(len, size.height),
+      paint,
+    );
+    // Bottom-right
+    canvas.drawLine(
+      Offset(size.width - len, size.height),
+      Offset(size.width, size.height),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(size.width, size.height - len),
+      Offset(size.width, size.height),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanFramePainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// Dimmed overlay with spinner + friendly label.
@@ -331,29 +496,32 @@ class LoadingOverlay extends StatelessWidget {
     return ColoredBox(
       color: Colors.black.withValues(alpha: 0.45),
       child: Center(
-        child: AppCard(
-          padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
-          bordered: false,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 280),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (progress != null)
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 3,
+        child: FadeRiseIn(
+          offset: 10,
+          duration: AppMotion.quick,
+          child: AppCard(
+            padding: const EdgeInsets.fromLTRB(28, 28, 28, 24),
+            bordered: false,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (progress != null)
+                    SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 3,
+                      ),
+                    )
+                  else
+                    const SizedBox(
+                      width: 48,
+                      height: 48,
+                      child: CircularProgressIndicator(strokeWidth: 3),
                     ),
-                  )
-                else
-                  const SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: CircularProgressIndicator(strokeWidth: 3),
-                  ),
                 const SizedBox(height: 18),
                 Text(
                   message,
@@ -372,6 +540,7 @@ class LoadingOverlay extends StatelessWidget {
             ),
           ),
         ),
+        ),
       ),
     );
   }
@@ -384,7 +553,7 @@ class AppCircleIconButton extends StatelessWidget {
     required this.icon,
     required this.onPressed,
     this.tooltip,
-    this.size = 48,
+    this.size = AppTheme.iconTap,
   });
 
   final IconData icon;
@@ -397,7 +566,9 @@ class AppCircleIconButton extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final btn = Material(
       color: scheme.surface,
-      shape: const CircleBorder(),
+      shape: CircleBorder(
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.8)),
+      ),
       elevation: 0,
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -405,12 +576,104 @@ class AppCircleIconButton extends StatelessWidget {
         child: SizedBox(
           width: size,
           height: size,
-          child: Icon(icon, size: 22, color: scheme.onSurface),
+          child: Icon(icon, size: 24, color: scheme.onSurface),
         ),
       ),
     );
     if (tooltip == null) return btn;
     return Tooltip(message: tooltip!, child: btn);
+  }
+}
+
+/// Section label with optional trailing action (Library, Appearance…).
+class SectionHeader extends StatelessWidget {
+  const SectionHeader({
+    super.key,
+    required this.title,
+    this.trailing,
+    this.padding = const EdgeInsets.fromLTRB(8, 4, 8, 8),
+  });
+
+  final String title;
+  final Widget? trailing;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Padding(
+      padding: padding,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              title,
+              style: text.titleSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+                letterSpacing: 0.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          if (trailing != null) trailing!,
+        ],
+      ),
+    );
+  }
+}
+
+/// Privacy / offline trust chip — “stays on this device”.
+class PrivacyBadge extends StatelessWidget {
+  const PrivacyBadge({
+    super.key,
+    this.label = 'Private · On this device',
+    this.compact = false,
+  });
+
+  final String label;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Semantics(
+      label: label,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 10 : 12,
+          vertical: compact ? 6 : 8,
+        ),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: scheme.primary.withValues(alpha: 0.18),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.lock_outline,
+              size: compact ? 16 : 18,
+              color: scheme.primary,
+            ),
+            SizedBox(width: compact ? 6 : 8),
+            Flexible(
+              child: Text(
+                label,
+                style: text.labelMedium?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -424,15 +687,19 @@ class MetaChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(20),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.6),
+        ),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
       ),
     );
@@ -448,12 +715,31 @@ Future<T?> showAppBottomSheet<T>({
     context: context,
     isScrollControlled: isScrollControlled,
     showDragHandle: true,
-    builder: (ctx) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 12),
-        child: builder(ctx),
-      ),
-    ),
+    transitionAnimationController: null,
+    builder: (ctx) {
+      final routeAnim = ModalRoute.of(ctx)?.animation;
+      final content = SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: builder(ctx),
+        ),
+      );
+      if (routeAnim == null) return content;
+      final curved = CurvedAnimation(
+        parent: routeAnim,
+        curve: Curves.easeOutCubic,
+      );
+      return FadeTransition(
+        opacity: curved,
+        child: SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.04),
+            end: Offset.zero,
+          ).animate(curved),
+          child: content,
+        ),
+      );
+    },
   );
 }
 
@@ -495,7 +781,7 @@ Future<bool> showConfirmSheet({
             const SizedBox(height: 8),
             Text(
               message,
-              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+              style: text.bodyLarge?.copyWith(color: scheme.onSurfaceVariant),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -504,6 +790,9 @@ Future<bool> showConfirmSheet({
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx, false),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(48, AppTheme.tapMin),
+                    ),
                     child: Text(cancelLabel),
                   ),
                 ),
@@ -514,8 +803,11 @@ Future<bool> showConfirmSheet({
                         ? FilledButton.styleFrom(
                             backgroundColor: scheme.error,
                             foregroundColor: scheme.onError,
+                            minimumSize: const Size(48, AppTheme.tapMin),
                           )
-                        : null,
+                        : FilledButton.styleFrom(
+                            minimumSize: const Size(48, AppTheme.tapMin),
+                          ),
                     onPressed: () => Navigator.pop(ctx, true),
                     child: Text(confirmLabel),
                   ),

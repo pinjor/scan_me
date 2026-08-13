@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_ui.dart';
+import '../../shared/widgets/app_transitions.dart';
 import '../document_editor/editor_controller.dart';
 import '../document_editor/review_screen.dart';
 import '../../core/providers.dart';
@@ -91,7 +92,7 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
     final session = ref.read(editorSessionProvider);
     if (session == null || session.pages.isEmpty) return;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const ReviewScreen()),
+      AppPageRoute(builder: (_) => const ReviewScreen()),
     );
   }
 

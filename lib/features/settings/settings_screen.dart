@@ -1,14 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_ui.dart';
 
-class SettingsScreen extends ConsumerWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  int _trashDays = 30;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrashDays();
+  }
+
+  Future<void> _loadTrashDays() async {
+    final days =
+        await ref.read(documentStorageProvider).getTrashRetentionDays();
+    if (mounted) setState(() => _trashDays = days);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final mode = ref.watch(themeModeProvider);
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
@@ -16,114 +36,117 @@ class SettingsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+            padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
             child: Text(
               'Appearance',
               style: text.titleSmall?.copyWith(
                 color: scheme.onSurfaceVariant,
-                letterSpacing: 0.3,
               ),
             ),
           ),
           AppCard(
+            elevated: false,
             padding: EdgeInsets.zero,
             child: Column(
               children: [
                 _ThemeOption(
                   icon: Icons.phone_android_outlined,
-                  title: 'Match phone setting',
-                  description: 'Follows system light or dark mode',
+                  title: 'System',
                   selected: mode == ThemeMode.system,
-                  onTap: () =>
-                      ref.read(themeModeProvider.notifier).setMode(ThemeMode.system),
+                  onTap: () => ref
+                      .read(themeModeProvider.notifier)
+                      .setMode(ThemeMode.system),
                 ),
                 Divider(height: 1, color: scheme.outlineVariant),
                 _ThemeOption(
                   icon: Icons.light_mode_outlined,
                   title: 'Light',
-                  description: 'Bright, clear workspace',
                   selected: mode == ThemeMode.light,
-                  onTap: () =>
-                      ref.read(themeModeProvider.notifier).setMode(ThemeMode.light),
+                  onTap: () => ref
+                      .read(themeModeProvider.notifier)
+                      .setMode(ThemeMode.light),
                 ),
                 Divider(height: 1, color: scheme.outlineVariant),
                 _ThemeOption(
                   icon: Icons.dark_mode_outlined,
                   title: 'Dark',
-                  description: 'Easier on the eyes at night',
                   selected: mode == ThemeMode.dark,
-                  onTap: () =>
-                      ref.read(themeModeProvider.notifier).setMode(ThemeMode.dark),
+                  onTap: () => ref
+                      .read(themeModeProvider.notifier)
+                      .setMode(ThemeMode.dark),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 16),
           Padding(
-            padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Text(
-              'About',
+              'Trash',
               style: text.titleSmall?.copyWith(
                 color: scheme.onSurfaceVariant,
-                letterSpacing: 0.3,
               ),
             ),
           ),
           AppCard(
-            padding: const EdgeInsets.all(20),
+            elevated: false,
+            padding: EdgeInsets.zero,
+            child: ListTile(
+              dense: true,
+              leading:
+                  Icon(Icons.auto_delete_outlined, color: scheme.primary),
+              title: const Text('Auto-delete'),
+              subtitle: Text('After $_trashDays days'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final picked = await showDialog<int>(
+                  context: context,
+                  builder: (ctx) => SimpleDialog(
+                    title: const Text('Keep trash for'),
+                    children: [
+                      for (final d in [7, 14, 30, 60, 90])
+                        SimpleDialogOption(
+                          onPressed: () => Navigator.pop(ctx, d),
+                          child: Text('$d days'),
+                        ),
+                    ],
+                  ),
+                );
+                if (picked != null) {
+                  await ref
+                      .read(documentStorageProvider)
+                      .setTrashRetentionDays(picked);
+                  if (mounted) setState(() => _trashDays = picked);
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(
+              'About',
+              style: text.titleSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          AppCard(
+            elevated: false,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: scheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  padding: const EdgeInsets.all(10),
-                  child: Image.asset(
-                    'assets/branding/app_icon.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, _, _) => Icon(
-                      Icons.document_scanner,
-                      color: scheme.primary,
-                      size: 32,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text('ScanMe', style: text.headlineSmall),
-                const SizedBox(height: 4),
+                Text('ScanMe', style: text.titleMedium),
+                const SizedBox(height: 2),
                 Text(
-                  'by Apptriangle',
-                  style: text.bodyMedium?.copyWith(
+                  'Apptriangle · v1.0.0',
+                  style: text.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Version 1.0.0',
-                  style: text.labelMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const _AboutRow(
-                  icon: Icons.lock_outline,
-                  label: 'Privacy focused — nothing leaves this phone',
-                ),
-                const SizedBox(height: 10),
-                const _AboutRow(
-                  icon: Icons.cloud_off_outlined,
-                  label: 'Offline scanner — no account required',
-                ),
-                const SizedBox(height: 10),
-                const _AboutRow(
-                  icon: Icons.compress,
-                  label: 'Practical compression for easy sharing',
                 ),
               ],
             ),
@@ -138,14 +161,12 @@ class _ThemeOption extends StatelessWidget {
   const _ThemeOption({
     required this.icon,
     required this.title,
-    required this.description,
     required this.selected,
     required this.onTap,
   });
 
   final IconData icon;
   final String title;
-  final String description;
   final bool selected;
   final VoidCallback onTap;
 
@@ -157,74 +178,24 @@ class _ThemeOption extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: selected
-                    ? scheme.primaryContainer
-                    : scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                icon,
-                color: selected ? scheme.primary : scheme.onSurfaceVariant,
-              ),
+            Icon(
+              icon,
+              size: 22,
+              color: selected ? scheme.primary : scheme.onSurfaceVariant,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: text.titleMedium),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: text.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: text.titleMedium)),
             Icon(
               selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              size: 22,
               color: selected ? scheme.primary : scheme.onSurfaceVariant,
             ),
           ],
         ),
       ),
-    );
-  }
-}
-
-class _AboutRow extends StatelessWidget {
-  const _AboutRow({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: scheme.primary),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: scheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -1,18 +1,26 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../shared/models/library_models.dart';
 import '../../shared/models/scanned_document.dart';
 
 /// Local folder layout:
 /// `documents/<id>/{originals,processed,thumbnails,export}/` + meta.json
+/// `library/folders.json` — category catalog
 class DocumentStorageService {
   DocumentStorageService();
 
   static const _uuid = Uuid();
+  static const trashRetentionDaysKey = 'trash_retention_days';
+  static const defaultTrashRetentionDays = 30;
+
   Directory? _root;
+  Directory? _libraryDir;
 
   Future<Directory> get root async {
     if (_root != null) return _root!;
@@ -23,6 +31,19 @@ class DocumentStorageService {
     }
     return _root!;
   }
+
+  Future<Directory> get libraryDir async {
+    if (_libraryDir != null) return _libraryDir!;
+    final docs = await getApplicationDocumentsDirectory();
+    _libraryDir = Directory(p.join(docs.path, 'library'));
+    if (!await _libraryDir!.exists()) {
+      await _libraryDir!.create(recursive: true);
+    }
+    return _libraryDir!;
+  }
+
+  Future<File> get _foldersFile async =>
+      File(p.join((await libraryDir).path, 'folders.json'));
 
   Future<Directory> documentDir(String id) async {
     final dir = Directory(p.join((await root).path, id));
@@ -70,11 +91,61 @@ class DocumentStorageService {
     return docs;
   }
 
+  /// Soft-delete: mark deletedAt (files remain until purge / permanent delete).
+  Future<ScannedDocument?> moveToTrash(String id) async {
+    final doc = await loadDocument(id);
+    if (doc == null) return null;
+    final updated = doc.copyMeta(
+      deletedAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+    await saveDocument(updated);
+    return updated;
+  }
+
+  Future<ScannedDocument?> restoreFromTrash(String id) async {
+    final doc = await loadDocument(id);
+    if (doc == null) return null;
+    final updated = doc.copyMeta(
+      clearDeleted: true,
+      updatedAt: DateTime.now(),
+    );
+    await saveDocument(updated);
+    return updated;
+  }
+
   Future<void> deleteDocument(String id) async {
     final dir = Directory(p.join((await root).path, id));
     if (await dir.exists()) {
       await dir.delete(recursive: true);
     }
+  }
+
+  Future<int> getTrashRetentionDays() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(trashRetentionDaysKey) ?? defaultTrashRetentionDays;
+  }
+
+  Future<void> setTrashRetentionDays(int days) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(trashRetentionDaysKey, days.clamp(1, 365));
+  }
+
+  /// Permanently remove trash items older than retention.
+  Future<int> purgeExpiredTrash() async {
+    final days = await getTrashRetentionDays();
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    final list = await listDocuments();
+    var removed = 0;
+    for (final doc in list) {
+      final deletedAt = doc.deletedAt;
+      if (deletedAt == null) continue;
+      if (deletedAt.isBefore(cutoff)) {
+        await deleteDocument(doc.id);
+        removed++;
+      }
+    }
+    return removed;
   }
 
   /// Deletes draft folder only when `meta.json` is missing (never exported).
@@ -108,6 +179,113 @@ class DocumentStorageService {
         await dir.delete(recursive: true);
       }
     }
+  }
+
+  // —— Folders ——
+
+  Future<List<DocFolder>> listFolders() async {
+    final file = await _foldersFile;
+    if (!await file.exists()) {
+      final seeded = await _seedDefaultFolders();
+      return seeded;
+    }
+    try {
+      final raw = jsonDecode(await file.readAsString()) as List<dynamic>;
+      return raw
+          .map((e) => DocFolder.fromJson(e as Map<String, dynamic>))
+          .toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } catch (_) {
+      return _seedDefaultFolders();
+    }
+  }
+
+  Future<List<DocFolder>> _seedDefaultFolders() async {
+    final now = DateTime.now();
+    final folders = kDefaultFolderNames
+        .map(
+          (name) => DocFolder(
+            id: _uuid.v4(),
+            name: name,
+            createdAt: now,
+          ),
+        )
+        .toList();
+    await _saveFolders(folders);
+    return folders;
+  }
+
+  Future<void> _saveFolders(List<DocFolder> folders) async {
+    final file = await _foldersFile;
+    await file.writeAsString(
+      jsonEncode(folders.map((f) => f.toJson()).toList()),
+    );
+  }
+
+  Future<DocFolder> createFolder(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Folder name required');
+    }
+    final folders = await listFolders();
+    final folder = DocFolder(
+      id: _uuid.v4(),
+      name: trimmed,
+      createdAt: DateTime.now(),
+    );
+    folders.add(folder);
+    await _saveFolders(folders);
+    return folder;
+  }
+
+  Future<DocFolder?> renameFolder(String id, String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return null;
+    final folders = await listFolders();
+    final idx = folders.indexWhere((f) => f.id == id);
+    if (idx < 0) return null;
+    folders[idx].name = trimmed;
+    await _saveFolders(folders);
+    return folders[idx];
+  }
+
+  /// Deletes folder and clears [folderId] on documents that used it.
+  Future<void> deleteFolder(String id) async {
+    final folders = await listFolders();
+    folders.removeWhere((f) => f.id == id);
+    await _saveFolders(folders);
+    final docs = await listDocuments();
+    for (final doc in docs) {
+      if (doc.folderId == id) {
+        await saveDocument(
+          doc.copyMeta(clearFolder: true, updatedAt: DateTime.now()),
+        );
+      }
+    }
+  }
+
+  Future<ScannedDocument?> updateDocumentMeta(
+    String id, {
+    String? name,
+    String? folderId,
+    bool clearFolder = false,
+    List<String>? tags,
+    bool? isFavorite,
+    DateTime? exportedAt,
+  }) async {
+    final doc = await loadDocument(id);
+    if (doc == null) return null;
+    final updated = doc.copyMeta(
+      name: name,
+      folderId: folderId,
+      clearFolder: clearFolder,
+      tags: tags,
+      isFavorite: isFavorite,
+      exportedAt: exportedAt,
+      updatedAt: DateTime.now(),
+    );
+    await saveDocument(updated);
+    return updated;
   }
 
   /// Copy [sourcePath] into originals/ and return destination path.
@@ -160,12 +338,14 @@ class DocumentStorageService {
     required String name,
     required int index1Based,
     required List<int> bytes,
+    String extension = 'jpg',
   }) async {
     final dir = await subdir(documentId, 'export');
     final safe = safeFileName(name);
+    final ext = extension.toLowerCase() == 'png' ? 'png' : 'jpg';
     final dest = p.join(
       dir.path,
-      '${safe}_${index1Based.toString().padLeft(2, '0')}.jpg',
+      '${safe}_${index1Based.toString().padLeft(2, '0')}.$ext',
     );
     await File(dest).writeAsBytes(bytes, flush: true);
     return dest;
@@ -205,9 +385,10 @@ class DocumentStorageService {
       final srcPath = doc.exportImagePaths[i];
       final src = File(srcPath);
       if (!await src.exists()) continue;
+      final ext = p.extension(srcPath).isEmpty ? '.jpg' : p.extension(srcPath);
       final dest = p.join(
         exportDir.path,
-        '${safe}_${(i + 1).toString().padLeft(2, '0')}.jpg',
+        '${safe}_${(i + 1).toString().padLeft(2, '0')}$ext',
       );
       if (p.normalize(src.path) != p.normalize(dest)) {
         if (await File(dest).exists()) await File(dest).delete();

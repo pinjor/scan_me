@@ -14,12 +14,14 @@ class DocumentCard extends StatelessWidget {
     required this.onOpen,
     required this.onMore,
     this.onDelete,
+    this.folderName,
   });
 
   final ScannedDocument doc;
   final VoidCallback onOpen;
   final VoidCallback onMore;
   final VoidCallback? onDelete;
+  final String? folderName;
 
   @override
   Widget build(BuildContext context) {
@@ -30,70 +32,108 @@ class DocumentCard extends StatelessWidget {
         ? _formatBytes(doc.fileSizeBytes!)
         : null;
     final date = _friendlyDate(doc.updatedAt);
-    final chips = <String>[
-      '${doc.pageCount} ${doc.pageCount == 1 ? 'Page' : 'Pages'}',
+    final meta = [
+      '${doc.pageCount} ${doc.pageCount == 1 ? 'page' : 'pages'}',
       type,
-      ?size,
+      if (size != null) size,
       date,
+    ].join(' · ');
+    final badges = <String>[
+      if (folderName != null) folderName!,
+      ...doc.tags.take(2),
     ];
 
     final card = AppCard(
       onTap: onOpen,
-      padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
-      borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+      elevated: false,
+      padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Hero(
             tag: 'doc-thumb-${doc.id}',
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
               child: Container(
-                width: 64,
-                height: 84,
+                width: 52,
+                height: 68,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest,
                   border: Border.all(color: scheme.outlineVariant),
                 ),
-                child: doc.thumbnailPath != null &&
-                        File(doc.thumbnailPath!).existsSync()
-                    ? Image.file(
-                        File(doc.thumbnailPath!),
-                        fit: BoxFit.cover,
-                      )
-                    : Icon(
-                        Icons.description_outlined,
-                        color: scheme.onSurfaceVariant,
-                        size: 28,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    doc.thumbnailPath != null &&
+                            File(doc.thumbnailPath!).existsSync()
+                        ? Image.file(
+                            File(doc.thumbnailPath!),
+                            fit: BoxFit.cover,
+                          )
+                        : Icon(
+                            Icons.description_outlined,
+                            color: scheme.onSurfaceVariant,
+                            size: 26,
+                          ),
+                    if (doc.isFavorite)
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.star,
+                            size: 11,
+                            color: Colors.amber,
+                          ),
+                        ),
                       ),
+                  ],
+                ),
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 2),
                 Text(
                   doc.name,
-                  maxLines: 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: text.titleMedium,
                 ),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: chips.map((c) => MetaChip(label: c)).toList(),
+                const SizedBox(height: 4),
+                Text(
+                  meta,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: text.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
+                if (badges.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children:
+                        badges.map((c) => MetaChip(label: c)).toList(),
+                  ),
+                ],
               ],
             ),
           ),
           AppCircleIconButton(
             icon: Icons.more_horiz,
             tooltip: 'Document options',
-            size: 44,
+            size: 40,
             onPressed: onMore,
           ),
         ],
@@ -115,9 +155,9 @@ class DocumentCard extends StatelessWidget {
         padding: const EdgeInsets.only(right: 24),
         decoration: BoxDecoration(
           color: scheme.error.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         ),
-        child: Icon(Icons.delete_outline, color: scheme.error, size: 28),
+        child: Icon(Icons.delete_outline, color: scheme.error, size: 24),
       ),
       child: card,
     );
@@ -144,16 +184,18 @@ class DocumentCard extends StatelessWidget {
   }
 }
 
-/// Expandable FAB: Images to PDF (secondary) + Scan Document (primary).
+/// Speed-dial FAB: fixed circular trigger; actions stack above, right-aligned.
 class ScanFabMenu extends StatefulWidget {
   const ScanFabMenu({
     super.key,
     required this.onScan,
     required this.onImagesToPdf,
+    this.onConverters,
   });
 
   final VoidCallback onScan;
   final VoidCallback onImagesToPdf;
+  final VoidCallback? onConverters;
 
   @override
   State<ScanFabMenu> createState() => _ScanFabMenuState();
@@ -162,7 +204,7 @@ class ScanFabMenu extends StatefulWidget {
 class _ScanFabMenuState extends State<ScanFabMenu>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  late final Animation<double> _expand;
+  late final Animation<double> _t;
   var _open = false;
 
   @override
@@ -170,9 +212,9 @@ class _ScanFabMenuState extends State<ScanFabMenu>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 200),
     );
-    _expand = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _t = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
   }
 
   @override
@@ -190,55 +232,134 @@ class _ScanFabMenuState extends State<ScanFabMenu>
     }
   }
 
+  void _run(VoidCallback action) {
+    if (_open) _toggle();
+    action();
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        SizeTransition(
-          sizeFactor: _expand,
-          axis: Axis.vertical,
-          child: FadeTransition(
-            opacity: _expand,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FloatingActionButton.extended(
-                heroTag: 'images_to_pdf',
-                onPressed: () {
-                  if (_open) _toggle();
-                  widget.onImagesToPdf();
-                },
-                backgroundColor: scheme.surface,
-                foregroundColor: scheme.primary,
-                elevation: 2,
-                icon: const Icon(Icons.photo_library_outlined, size: 22),
-                label: const Text('Images to PDF'),
+    // Keep dial pinned to the FAB's right edge (SizeTransition defaults to center).
+    return Align(
+      alignment: Alignment.bottomRight,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          SizeTransition(
+            sizeFactor: _t,
+            axis: Axis.vertical,
+            alignment: Alignment.bottomRight,
+            // Critical: keep expanding panel flush right, not centered.
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: FadeTransition(
+                opacity: _t,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (widget.onConverters != null) ...[
+                        _SpeedDialAction(
+                          label: 'Converters',
+                          icon: Icons.auto_awesome_outlined,
+                          background: scheme.surface,
+                          foreground: scheme.primary,
+                          onPressed: () => _run(widget.onConverters!),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      _SpeedDialAction(
+                        label: 'Images to PDF',
+                        icon: Icons.photo_library_outlined,
+                        background: scheme.surface,
+                        foreground: scheme.primary,
+                        onPressed: () => _run(widget.onImagesToPdf),
+                      ),
+                      const SizedBox(height: 12),
+                      _SpeedDialAction(
+                        label: 'Scan Document',
+                        icon: Icons.document_scanner_outlined,
+                        background: scheme.primary,
+                        foreground: scheme.onPrimary,
+                        onPressed: () => _run(widget.onScan),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
-        FloatingActionButton.extended(
-          heroTag: 'new_scan',
-          onPressed: () {
-            if (_open) {
-              widget.onScan();
-              _toggle();
-            } else {
-              _toggle();
-            }
-          },
-          icon: AnimatedRotation(
-            turns: _open ? 0.125 : 0,
-            duration: const Duration(milliseconds: 220),
-            child: Icon(
-              _open ? Icons.document_scanner_outlined : Icons.add,
-              size: 22,
+          FloatingActionButton(
+            heroTag: 'fab_menu_toggle',
+            tooltip: _open ? 'Close' : 'New',
+            onPressed: _toggle,
+            child: AnimatedRotation(
+              turns: _open ? 0.125 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(_open ? Icons.close : Icons.add, size: 26),
             ),
           ),
-          label: Text(_open ? 'Scan Document' : 'New'),
+        ],
+      ),
+    );
+  }
+}
+
+class _SpeedDialAction extends StatelessWidget {
+  const _SpeedDialAction({
+    required this.label,
+    required this.icon,
+    required this.background,
+    required this.foreground,
+    required this.onPressed,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color background;
+  final Color foreground;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Material(
+          color: scheme.surface,
+          elevation: 2,
+          shadowColor: Colors.black.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Text(
+              label,
+              style: text.labelLarge?.copyWith(color: scheme.onSurface),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 60,
+          height: 60,
+          child: FloatingActionButton(
+            heroTag: 'fab_$label',
+            tooltip: label,
+            backgroundColor: background,
+            foregroundColor: foreground,
+            elevation: 2,
+            onPressed: onPressed,
+            child: Icon(icon, size: 24),
+          ),
         ),
       ],
     );

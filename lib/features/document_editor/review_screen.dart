@@ -10,6 +10,7 @@ import '../export/export_screen.dart';
 import '../scanner/document_scanner_service.dart';
 import '../../core/providers.dart';
 import '../../shared/widgets/app_ui.dart';
+import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/apptriangle_watermark_overlay.dart';
 import 'editor_controller.dart';
 
@@ -64,13 +65,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             child: FilledButton(
               onPressed: session.isProcessing
                   ? null
-                  : () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ExportScreen(),
-                        ),
-                      );
-                    },
+                      : () {
+                          AppPageRoute.push(context, const ExportScreen());
+                        },
               child: const Text('Finish'),
             ),
           ),
@@ -103,9 +100,14 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                               backgroundDecoration: const BoxDecoration(
                                 color: Colors.transparent,
                               ),
+                              initialScale:
+                                  PhotoViewComputedScale.contained,
                               minScale: PhotoViewComputedScale.contained,
                               maxScale: PhotoViewComputedScale.covered * 3,
                               filterQuality: FilterQuality.high,
+                              enableRotation: false,
+                              gestureDetectorBehavior:
+                                  HitTestBehavior.opaque,
                             ),
                           ),
                         ),
@@ -171,6 +173,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
 
   Future<void> _showFilterSheet(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
+    final previewPath =
+        ref.read(editorSessionProvider)?.selectedPage?.displayPath;
     final choice = await showAppBottomSheet<({PageFilter filter, bool all})>(
       context: context,
       builder: (ctx) {
@@ -188,7 +192,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               _EnhanceOptionCard(
                 icon: Icons.image_outlined,
                 title: 'Original',
-                subtitle: 'Keep colors as captured',
+                previewPath: previewPath,
+                grayscalePreview: false,
                 onTap: () => Navigator.pop(
                   ctx,
                   (filter: PageFilter.original, all: false),
@@ -197,25 +202,27 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               const SizedBox(height: 8),
               _EnhanceOptionCard(
                 icon: Icons.contrast,
-                title: 'Black & white',
-                subtitle: 'Clearer text, cleaner paper',
+                title: 'Black & White',
+                previewPath: previewPath,
+                grayscalePreview: true,
                 onTap: () => Navigator.pop(
                   ctx,
                   (filter: PageFilter.blackAndWhite, all: false),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
-                'Apply to all pages',
+                'All pages',
                 style: text.titleSmall?.copyWith(
                   color: Theme.of(ctx).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               _EnhanceOptionCard(
                 icon: Icons.done_all,
-                title: 'Black & white on all',
-                subtitle: 'Enhance every page the same way',
+                title: 'Black & white',
+                previewPath: previewPath,
+                grayscalePreview: true,
                 onTap: () => Navigator.pop(
                   ctx,
                   (filter: PageFilter.blackAndWhite, all: true),
@@ -224,8 +231,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               const SizedBox(height: 8),
               _EnhanceOptionCard(
                 icon: Icons.restart_alt,
-                title: 'Original on all',
-                subtitle: 'Turn off black & white everywhere',
+                title: 'Original',
+                previewPath: previewPath,
+                grayscalePreview: false,
                 onTap: () => Navigator.pop(
                   ctx,
                   (filter: PageFilter.original, all: true),
@@ -381,51 +389,60 @@ class _EnhanceOptionCard extends StatelessWidget {
   const _EnhanceOptionCard({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.onTap,
+    this.previewPath,
+    this.grayscalePreview = false,
   });
 
   final IconData icon;
   final String title;
-  final String subtitle;
   final VoidCallback onTap;
+  final String? previewPath;
+  final bool grayscalePreview;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final path = previewPath;
     return AppCard(
+      elevated: false,
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.7),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: scheme.primary),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: text.titleMedium),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+          if (path != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 40,
+                height: 48,
+                child: ColorFiltered(
+                  colorFilter: grayscalePreview
+                      ? const ColorFilter.matrix(<double>[
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0.2126, 0.7152, 0.0722, 0, 0,
+                          0, 0, 0, 1, 0,
+                        ])
+                      : const ColorFilter.mode(
+                          Colors.transparent,
+                          BlendMode.dst,
+                        ),
+                  child: Image.file(
+                    File(path),
+                    fit: BoxFit.cover,
+                    cacheWidth: 96,
                   ),
                 ),
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_right, color: scheme.onSurfaceVariant),
+              ),
+            )
+          else
+            Icon(icon, color: scheme.primary),
+          const SizedBox(width: 12),
+          Expanded(child: Text(title, style: text.titleMedium)),
+          Icon(Icons.chevron_right, color: scheme.onSurfaceVariant, size: 20),
         ],
       ),
     );
@@ -624,44 +641,56 @@ class _EditToolbar extends StatelessWidget {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-        child: Material(
-          color: scheme.surface,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-            side: BorderSide(color: scheme.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _Tool(
-                  icon: Icons.tune,
-                  label: 'Enhance',
-                  onTap: busy ? null : onFilter,
-                ),
-                _Tool(
-                  icon: Icons.rotate_90_degrees_ccw,
-                  label: 'Rotate',
-                  onTap: busy ? null : onRotate,
-                ),
-                _Tool(
-                  icon: Icons.camera_alt_outlined,
-                  label: 'Retake',
-                  onTap: busy ? null : onRetake,
-                ),
-                _Tool(
-                  icon: Icons.delete_outline,
-                  label: 'Delete',
-                  onTap: busy ? null : onDelete,
-                ),
-                _Tool(
-                  icon: Icons.more_horiz,
-                  label: 'More',
-                  onTap: busy ? null : onMore,
-                ),
-              ],
+          child: Material(
+            color: scheme.surface,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+              side: BorderSide(color: scheme.outlineVariant),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _Tool(
+                    icon: Icons.tune,
+                    label: 'Enhance',
+                    onTap: busy ? null : onFilter,
+                  ),
+                  _Tool(
+                    icon: Icons.rotate_90_degrees_ccw,
+                    label: 'Rotate',
+                    onTap: busy ? null : onRotate,
+                  ),
+                  _Tool(
+                    icon: Icons.camera_alt_outlined,
+                    label: 'Retake',
+                    onTap: busy ? null : onRetake,
+                  ),
+                  _Tool(
+                    icon: Icons.delete_outline,
+                    label: 'Delete',
+                    onTap: busy ? null : onDelete,
+                  ),
+                  _Tool(
+                    icon: Icons.more_horiz,
+                    label: 'More',
+                    onTap: busy ? null : onMore,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -685,33 +714,38 @@ class _Tool extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final enabled = onTap != null;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        width: 64,
-        height: 64,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 22,
-              color: enabled
-                  ? scheme.onSurface
-                  : scheme.onSurface.withValues(alpha: 0.38),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: enabled
-                        ? scheme.onSurfaceVariant
-                        : scheme.onSurface.withValues(alpha: 0.38),
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
-          ],
+    return Semantics(
+      button: true,
+      label: label,
+      enabled: enabled,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 68,
+          height: 68,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: enabled
+                    ? scheme.onSurface
+                    : scheme.onSurface.withValues(alpha: 0.38),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: enabled
+                          ? scheme.onSurfaceVariant
+                          : scheme.onSurface.withValues(alpha: 0.38),
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            ],
+          ),
         ),
       ),
     );

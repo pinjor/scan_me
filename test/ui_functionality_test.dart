@@ -12,12 +12,11 @@ import 'package:scanme/core/theme/app_theme.dart';
 import 'package:scanme/features/document_editor/editor_controller.dart';
 import 'package:scanme/features/document_editor/review_screen.dart';
 import 'package:scanme/features/export/export_screen.dart';
-import 'package:scanme/features/home/home_screen.dart';
+import 'package:scanme/features/converters/converters_hub_screen.dart';
 import 'package:scanme/features/scanner/document_scanner_service.dart';
 import 'package:scanme/features/scanner/scan_capture_screen.dart';
-import 'package:scanme/features/settings/settings_screen.dart';
-import 'package:scanme/features/viewer/viewer_screen.dart';
 import 'package:scanme/main.dart';
+import 'package:scanme/shared/models/library_models.dart';
 import 'package:scanme/shared/models/scanned_document.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -60,9 +59,51 @@ class _FakeDocs
   Future<void> delete(String id) async {
     deleted.add(id);
     state = AsyncValue.data(
+      (state.value ?? []).map((d) {
+        if (d.id != id) return d;
+        return d.copyMeta(deletedAt: DateTime.now());
+      }).toList(),
+    );
+  }
+
+  @override
+  Future<void> restore(String id) async {
+    state = AsyncValue.data(
+      (state.value ?? []).map((d) {
+        if (d.id != id) return d;
+        return d.copyMeta(clearDeleted: true);
+      }).toList(),
+    );
+  }
+
+  @override
+  Future<void> permanentlyDelete(String id) async {
+    state = AsyncValue.data(
       (state.value ?? []).where((d) => d.id != id).toList(),
     );
   }
+
+  @override
+  Future<void> setFavorite(String id, bool value) async {
+    state = AsyncValue.data(
+      (state.value ?? []).map((d) {
+        if (d.id != id) return d;
+        return d.copyMeta(isFavorite: value);
+      }).toList(),
+    );
+  }
+
+  @override
+  Future<void> setFolder(String id, String? folderId) async {}
+
+  @override
+  Future<void> setTags(String id, List<String> tags) async {}
+
+  @override
+  Future<void> addTag(String id, String tag) async {}
+
+  @override
+  Future<void> removeTag(String id, String tag) async {}
 
   @override
   Future<void> rename(String id, String name) async {
@@ -74,6 +115,29 @@ class _FakeDocs
     state = AsyncValue.data(list);
   }
 }
+
+class _FakeFolders
+    extends StateNotifier<AsyncValue<List<DocFolder>>>
+    implements FoldersController {
+  _FakeFolders() : super(const AsyncValue.data([]));
+
+  @override
+  Future<void> refresh() async {}
+
+  @override
+  Future<DocFolder?> create(String name) async => null;
+
+  @override
+  Future<void> rename(String id, String name) async {}
+
+  @override
+  Future<void> delete(String id) async {}
+}
+
+List<Override> _libraryOverrides([_FakeDocs? docs]) => [
+      documentsProvider.overrideWith((ref) => docs ?? _FakeDocs()),
+      foldersProvider.overrideWith((ref) => _FakeFolders()),
+    ];
 
 class _FakeScanner extends DocumentScannerService {
   _FakeScanner({this.outcome});
@@ -133,14 +197,12 @@ void main() {
   }
 
   group('Home — empty state', () {
-    testWidgets('shows brand, empty copy, Scan Document + Create PDF',
+    testWidgets('shows brand, empty copy, Scan Document',
         (tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs()),
-          ],
+          overrides: _libraryOverrides(),
           child: const ScanMeApp(),
         ),
       );
@@ -148,18 +210,16 @@ void main() {
 
       expect(find.text('ScanMe'), findsWidgets);
       expect(find.text('No documents yet'), findsOneWidget);
-      expect(find.text('Scan Document'), findsOneWidget);
-      expect(find.text('Create PDF'), findsOneWidget);
-      expect(find.text('New'), findsOneWidget);
+      expect(find.text('Scan Document'), findsWidgets);
+      expect(find.text('Create PDF'), findsNothing);
+      expect(find.byTooltip('New'), findsOneWidget);
     });
 
     testWidgets('Settings button opens Settings', (tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs()),
-          ],
+          overrides: _libraryOverrides(),
           child: const ScanMeApp(),
         ),
       );
@@ -177,18 +237,17 @@ void main() {
       await tallSurface(tester);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs()),
-          ],
+          overrides: _libraryOverrides(),
           child: const ScanMeApp(),
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('New'));
+      await tester.tap(find.byTooltip('New'));
       await tester.pumpAndSettle();
       expect(find.text('Scan Document'), findsWidgets);
-      expect(find.text('Images to PDF'), findsOneWidget);
+      expect(find.text('Images to PDF'), findsWidgets);
+      expect(find.text('Converters'), findsOneWidget);
     });
 
     testWidgets('Scan Document (empty) opens ScanCapture then cancels back',
@@ -198,7 +257,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs()),
+            ..._libraryOverrides(),
             documentScannerProvider.overrideWithValue(scanner),
           ],
           child: const ScanMeApp(),
@@ -206,7 +265,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Scan Document'));
+      await tester.ensureVisible(
+        find.widgetWithText(FilledButton, 'Scan Document'),
+      );
+      await tester.tap(find.widgetWithText(FilledButton, 'Scan Document'));
       await tester.pump(); // start route
       await tester.pump(const Duration(milliseconds: 100));
       // Auto-start scan cancels → pop back to home
@@ -237,16 +299,14 @@ void main() {
       doc.thumbnailPath = null;
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs([doc])),
-          ],
+          overrides: _libraryOverrides(_FakeDocs([doc])),
           child: const ScanMeApp(),
         ),
       );
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Lease agreement'), findsOneWidget);
-      expect(find.textContaining('Page'), findsWidgets);
+      expect(find.text('Lease agreement'), findsWidgets);
+      expect(find.textContaining('page'), findsWidgets);
       expect(find.byTooltip('Document options'), findsOneWidget);
     });
 
@@ -254,9 +314,7 @@ void main() {
       await tallSurface(tester);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs([doc])),
-          ],
+          overrides: _libraryOverrides(_FakeDocs([doc])),
           child: const ScanMeApp(),
         ),
       );
@@ -267,7 +325,7 @@ void main() {
       expect(find.text('Open'), findsOneWidget);
       expect(find.text('Rename'), findsOneWidget);
       expect(find.text('Share'), findsOneWidget);
-      expect(find.text('Delete'), findsOneWidget);
+      expect(find.text('Move to Trash'), findsOneWidget);
     });
 
     testWidgets('Delete confirm sheet → deletes document', (tester) async {
@@ -275,9 +333,7 @@ void main() {
       final docs = _FakeDocs([doc]);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            documentsProvider.overrideWith((ref) => docs),
-          ],
+          overrides: _libraryOverrides(docs),
           child: const ScanMeApp(),
         ),
       );
@@ -285,10 +341,10 @@ void main() {
 
       await tester.tap(find.byTooltip('Document options'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete'));
+      await tester.tap(find.text('Move to Trash'));
       await tester.pumpAndSettle();
-      expect(find.text('Delete this document?'), findsOneWidget);
-      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      expect(find.text('Move to Trash?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Move to Trash'));
       await tester.pumpAndSettle();
       expect(docs.deleted, contains('doc-1'));
     });
@@ -300,9 +356,7 @@ void main() {
       await tallSurface(tester);
       await tester.pumpWidget(
         ProviderScope(
-          overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs()),
-          ],
+          overrides: _libraryOverrides(),
           child: const ScanMeApp(),
         ),
       );
@@ -317,12 +371,12 @@ void main() {
       await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Match phone setting'));
+      await tester.tap(find.text('System'));
       await tester.pumpAndSettle();
 
       expect(find.text('ScanMe'), findsWidgets);
-      expect(find.text('by Apptriangle'), findsOneWidget);
-      expect(find.text('Version 1.0.0'), findsOneWidget);
+      expect(find.textContaining('Apptriangle'), findsOneWidget);
+      expect(find.textContaining('1.0.0'), findsOneWidget);
     });
   });
 
@@ -334,7 +388,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            documentsProvider.overrideWith((ref) => _FakeDocs()),
+            ..._libraryOverrides(),
             documentScannerProvider.overrideWithValue(scanner),
           ],
           child: MaterialApp(
@@ -489,7 +543,7 @@ void main() {
       await tester.pump(); // start navigation
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Save document'), findsOneWidget);
-      expect(find.text('Save on this device'), findsOneWidget);
+      expect(find.text('Save'), findsOneWidget);
     });
   });
 
@@ -523,13 +577,13 @@ void main() {
 
       expect(find.text('Save document'), findsOneWidget);
       expect(find.text('PDF'), findsOneWidget);
-      expect(find.text('JPEG images'), findsOneWidget);
-      expect(find.text('Save on this device'), findsOneWidget);
+      expect(find.text('Images'), findsOneWidget);
+      expect(find.text('Save'), findsOneWidget);
 
       await tester.tap(find.text('PDF'));
       await tester.pump(const Duration(milliseconds: 50));
       final saveBtn = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Save on this device'),
+        find.widgetWithText(FilledButton, 'Save'),
       );
       expect(saveBtn.onPressed, isNull);
     });
@@ -637,6 +691,134 @@ void main() {
         "We couldn't find this document. It may have been removed.",
         contains('couldn\'t find'),
       );
+    });
+  });
+
+  group('Home — filters & trash', () {
+    late Directory tmp;
+    late File jpeg;
+    late ScannedDocument fav;
+    late ScannedDocument plain;
+
+    setUp(() async {
+      tmp = await Directory.systemTemp.createTemp('scanme_filt_');
+      jpeg = await _writeTempJpeg(tmp, 't.jpg');
+      final now = DateTime.now();
+      fav = ScannedDocument(
+        id: 'fav-1',
+        name: 'Favorite doc',
+        createdAt: now,
+        updatedAt: now,
+        isFavorite: true,
+        tags: const ['school'],
+        pages: [
+          ScannedPage(
+            id: 'p1',
+            originalImagePath: jpeg.path,
+            pageIndex: 0,
+          ),
+        ],
+      );
+      plain = ScannedDocument(
+        id: 'plain-1',
+        name: 'Plain doc',
+        createdAt: now.subtract(const Duration(days: 1)),
+        updatedAt: now.subtract(const Duration(days: 1)),
+        pages: [
+          ScannedPage(
+            id: 'p2',
+            originalImagePath: jpeg.path,
+            pageIndex: 0,
+          ),
+        ],
+      );
+    });
+
+    tearDown(() async {
+      if (await tmp.exists()) await tmp.delete(recursive: true);
+    });
+
+    testWidgets('Favorites chip filters list', (tester) async {
+      await tallSurface(tester);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _libraryOverrides(_FakeDocs([fav, plain])),
+          child: const ScanMeApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Favorite doc'), findsOneWidget);
+      expect(find.text('Plain doc'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilterChip, 'Favorites'));
+      await tester.pumpAndSettle();
+      expect(find.text('Favorite doc'), findsOneWidget);
+      expect(find.text('Plain doc'), findsNothing);
+    });
+
+    testWidgets('Search filters by name', (tester) async {
+      await tallSurface(tester);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _libraryOverrides(_FakeDocs([fav, plain])),
+          child: const ScanMeApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).first, 'Plain');
+      await tester.pumpAndSettle();
+      expect(find.text('Plain doc'), findsOneWidget);
+      expect(find.text('Favorite doc'), findsNothing);
+    });
+
+    testWidgets('Trash toggle shows soft-deleted docs', (tester) async {
+      await tallSurface(tester);
+      final trashed = ScannedDocument(
+        id: 'trash-1',
+        name: 'In trash',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+        deletedAt: DateTime.now(),
+        pages: [
+          ScannedPage(
+            id: 'pt',
+            originalImagePath: jpeg.path,
+            pageIndex: 0,
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: _libraryOverrides(_FakeDocs([fav, trashed])),
+          child: const ScanMeApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('In trash'), findsNothing);
+
+      await tester.tap(find.byTooltip('Trash'));
+      await tester.pumpAndSettle();
+      expect(find.text('Trash'), findsWidgets);
+      expect(find.text('In trash'), findsOneWidget);
+      expect(find.text('Favorite doc'), findsNothing);
+    });
+  });
+
+  group('Converters hub', () {
+    testWidgets('shows convert tiles', (tester) async {
+      await tallSurface(tester);
+      await tester.pumpWidget(
+        const ProviderScope(
+          child: MaterialApp(home: ConvertersHubScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PDF → Text'), findsOneWidget);
+      expect(find.text('PowerPoint → PDF'), findsOneWidget);
+      expect(find.text('PNG → JPG'), findsOneWidget);
+      expect(find.text('JPG → PNG'), findsOneWidget);
     });
   });
 }

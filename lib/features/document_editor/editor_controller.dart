@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../core/providers.dart';
 import '../../core/services/scan_compression.dart';
 import '../../core/storage/document_storage_service.dart';
+import '../../shared/models/library_models.dart';
 import '../../shared/models/scanned_document.dart';
 import '../export/pdf_export_service.dart';
 import '../filters/cam_scan_bw_filter.dart';
@@ -353,28 +354,31 @@ class EditorController extends StateNotifier<EditorSession?> {
   }
 
   Future<ScannedDocument> export({
-    required bool createPdf,
-    required bool saveImages,
+    required ExportSettings settings,
     void Function(String label)? onProgress,
   }) async {
     final s = state;
     if (s == null || s.pages.isEmpty) {
       throw StateError('Nothing to export');
     }
+    if (!settings.createPdf && !settings.saveImages) {
+      throw StateError('Select PDF and/or images');
+    }
 
-    // Compress (+ rotate) once per page; do not write into processed/ for Original.
-    final ready = <Uint8List>[];
+    final pdfReady = <Uint8List>[];
     for (var i = 0; i < s.pages.length; i++) {
       final page = s.pages[i];
       onProgress?.call('Preparing page ${i + 1} of ${s.pages.length}…');
       final alreadyCompressed =
           page.selectedFilter == PageFilter.blackAndWhite &&
           page.processedImagePath != null;
-      ready.add(
+      pdfReady.add(
         await prepareExportJpeg(
           imagePath: page.displayPath,
           rotation: page.rotation,
           alreadyCompressed: alreadyCompressed,
+          maxLongEdge: settings.pdfQuality.maxLongEdge,
+          quality: settings.pdfQuality.jpegQuality,
         ),
       );
     }
@@ -382,10 +386,12 @@ class EditorController extends StateNotifier<EditorSession?> {
     String? pdfPath;
     final exportImages = <String>[];
 
-    if (createPdf) {
+    if (settings.createPdf) {
       onProgress?.call('Creating PDF…');
       final pdfBytes = await PdfExportService.buildPdfFromJpegs(
-        jpegPages: ready,
+        jpegPages: pdfReady,
+        pageSize: settings.pdfPageSize,
+        orientation: settings.pdfOrientation,
         onProgress: (cur, total) {
           onProgress?.call('Creating PDF… Page $cur of $total');
         },
@@ -397,44 +403,90 @@ class EditorController extends StateNotifier<EditorSession?> {
       );
     }
 
-    if (saveImages) {
-      for (var i = 0; i < ready.length; i++) {
-        onProgress?.call('Saving images… ${i + 1} of ${ready.length}');
+    if (settings.saveImages) {
+      final indexes = _imageIndexes(settings, s.pages.length);
+      var outIndex = 0;
+      for (final i in indexes) {
+        outIndex++;
+        onProgress?.call('Saving images… $outIndex of ${indexes.length}');
+        final page = s.pages[i];
+        final alreadyCompressed =
+            page.selectedFilter == PageFilter.blackAndWhite &&
+            page.processedImagePath != null;
+        final bytes = await prepareExportImageBytes(
+          imagePath: page.displayPath,
+          rotation: page.rotation,
+          alreadyCompressed: alreadyCompressed,
+          format: settings.imageFormat,
+          qualityPreset: settings.imageQuality,
+        );
         final path = await _storage.writeExportImage(
           documentId: s.documentId,
           name: s.name,
-          index1Based: i + 1,
-          bytes: ready[i],
+          index1Based: outIndex,
+          bytes: bytes,
+          extension: settings.imageFormat == ImageExportFormat.png ? 'png' : 'jpg',
         );
         exportImages.add(path);
       }
     }
 
-    // Thumbnail respects rotation (from prepared bytes).
     onProgress?.call('Saving thumbnail…');
-    final thumb = ImageCompressionService.makeThumbnail(ready.first);
+    final thumbSource = pdfReady.isNotEmpty
+        ? pdfReady.first
+        : await prepareExportJpeg(
+            imagePath: s.pages.first.displayPath,
+            rotation: s.pages.first.rotation,
+            alreadyCompressed:
+                s.pages.first.selectedFilter == PageFilter.blackAndWhite &&
+                s.pages.first.processedImagePath != null,
+          );
+    final thumb = ImageCompressionService.makeThumbnail(thumbSource);
     final thumbPath = await _storage.writeThumbnail(
       documentId: s.documentId,
       bytes: thumb,
     );
 
-    // Persist page metadata without polluting Original with export paths.
-    final pages = [...s.pages];
-
+    final existing = await _storage.loadDocument(s.documentId);
     final now = DateTime.now();
     final doc = ScannedDocument(
       id: s.documentId,
       name: s.name,
-      createdAt: now,
+      createdAt: existing?.createdAt ?? now,
       updatedAt: now,
-      pages: pages,
+      pages: [...s.pages],
       thumbnailPath: thumbPath,
-      pdfPath: pdfPath,
-      exportImagePaths: exportImages,
+      pdfPath: pdfPath ?? existing?.pdfPath,
+      exportImagePaths:
+          exportImages.isNotEmpty ? exportImages : (existing?.exportImagePaths ?? []),
+      folderId: existing?.folderId,
+      tags: existing?.tags ?? const [],
+      isFavorite: existing?.isFavorite ?? false,
+      deletedAt: existing?.deletedAt,
+      exportedAt: now,
     );
     doc.fileSizeBytes = await _storage.calculateSize(doc);
     await _storage.saveDocument(doc);
     await _ref.read(documentsProvider.notifier).refresh();
     return doc;
+  }
+
+  List<int> _imageIndexes(ExportSettings settings, int pageCount) {
+    switch (settings.imageScope) {
+      case ImageExportScope.currentPage:
+        final i = settings.currentPageIndex.clamp(0, pageCount - 1);
+        return [i];
+      case ImageExportScope.selectedPages:
+        final selected = settings.selectedPageIndexes
+            .where((i) => i >= 0 && i < pageCount)
+            .toList()
+          ..sort();
+        if (selected.isEmpty) {
+          return List.generate(pageCount, (i) => i);
+        }
+        return selected;
+      case ImageExportScope.entireDocument:
+        return List.generate(pageCount, (i) => i);
+    }
   }
 }

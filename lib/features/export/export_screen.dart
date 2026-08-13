@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../shared/models/library_models.dart';
 import '../../shared/widgets/app_ui.dart';
+import '../../shared/widgets/app_transitions.dart';
 import '../document_editor/editor_controller.dart';
 
 class ExportScreen extends ConsumerStatefulWidget {
@@ -14,16 +16,22 @@ class ExportScreen extends ConsumerStatefulWidget {
 
 class _ExportScreenState extends ConsumerState<ExportScreen> {
   late final TextEditingController _nameController;
-  bool _createPdf = true;
-  bool _saveImages = false;
+  late ExportSettings _settings;
   bool _busy = false;
   String? _progress;
 
   @override
   void initState() {
     super.initState();
-    final name = ref.read(editorSessionProvider)?.name ?? 'Scan';
+    final session = ref.read(editorSessionProvider);
+    final name = session?.name ?? 'Scan';
     _nameController = TextEditingController(text: name);
+    _settings = ExportSettings(
+      currentPageIndex: session?.selectedIndex ?? 0,
+      selectedPageIndexes: {
+        for (var i = 0; i < (session?.pages.length ?? 0); i++) i,
+      },
+    );
   }
 
   @override
@@ -35,8 +43,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(editorSessionProvider);
-    final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final pageCount = session?.pages.length ?? 0;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Save document')),
@@ -51,12 +59,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
-                      Text('Document name', style: text.titleSmall),
-                      const SizedBox(height: 10),
+                      Text('Name', style: text.titleSmall),
+                      const SizedBox(height: 6),
                       AppCard(
+                        elevated: false,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 4,
-                          vertical: 4,
+                          vertical: 2,
                         ),
                         child: TextField(
                           controller: _nameController,
@@ -67,70 +76,156 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
                             filled: false,
-                            hintText: 'e.g. Invoice March 2026',
+                            isDense: true,
+                            hintText: 'Document name',
                           ),
-                          style: text.titleLarge,
+                          style: text.titleMedium,
                           onChanged: (v) => ref
                               .read(editorSessionProvider.notifier)
                               .setName(v),
                         ),
                       ),
-                      const SizedBox(height: 28),
-                      Text('Format', style: text.titleSmall),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 16),
                       Text(
-                        '${session.pages.length} '
-                        '${session.pages.length == 1 ? 'page' : 'pages'} · '
-                        'Compressed for sharing · Apptriangle watermark',
-                        style: text.bodySmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
+                        'Format · $pageCount '
+                        '${pageCount == 1 ? 'page' : 'pages'}',
+                        style: text.titleSmall,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 8),
                       _FormatTile(
                         icon: Icons.picture_as_pdf_outlined,
                         title: 'PDF',
-                        subtitle: 'One file — easy to email or print',
-                        value: _createPdf,
+                        value: _settings.createPdf,
                         enabled: !_busy,
-                        onChanged: (v) => setState(() => _createPdf = v),
+                        onChanged: (v) =>
+                            setState(() => _settings.createPdf = v),
                       ),
+                      if (_settings.createPdf) ...[
+                        const SizedBox(height: 12),
+                        _sectionLabel(context, 'PDF quality'),
+                        _chipRow<PdfQualityPreset>(
+                          values: PdfQualityPreset.values,
+                          labelOf: (v) => v.label,
+                          selected: _settings.pdfQuality,
+                          onSelect: (v) =>
+                              setState(() => _settings.pdfQuality = v),
+                        ),
+                        const SizedBox(height: 12),
+                        _sectionLabel(context, 'Page size'),
+                        _chipRow<PdfPageSizeOption>(
+                          values: PdfPageSizeOption.values,
+                          labelOf: (v) => v.label,
+                          selected: _settings.pdfPageSize,
+                          onSelect: (v) =>
+                              setState(() => _settings.pdfPageSize = v),
+                        ),
+                        const SizedBox(height: 12),
+                        _sectionLabel(context, 'Orientation'),
+                        _chipRow<PdfOrientationOption>(
+                          values: PdfOrientationOption.values,
+                          labelOf: (v) => v.label,
+                          selected: _settings.pdfOrientation,
+                          onSelect: (v) =>
+                              setState(() => _settings.pdfOrientation = v),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       _FormatTile(
                         icon: Icons.photo_library_outlined,
-                        title: 'JPEG images',
-                        subtitle: 'Separate pages (Name_01.jpg…)',
-                        value: _saveImages,
+                        title: 'Images',
+                        value: _settings.saveImages,
                         enabled: !_busy,
-                        onChanged: (v) => setState(() => _saveImages = v),
+                        onChanged: (v) =>
+                            setState(() => _settings.saveImages = v),
                       ),
+                      if (_settings.saveImages) ...[
+                        const SizedBox(height: 12),
+                        _sectionLabel(context, 'Image format'),
+                        _chipRow<ImageExportFormat>(
+                          values: ImageExportFormat.values,
+                          labelOf: (v) =>
+                              v == ImageExportFormat.jpg ? 'JPG' : 'PNG',
+                          selected: _settings.imageFormat,
+                          onSelect: (v) =>
+                              setState(() => _settings.imageFormat = v),
+                        ),
+                        const SizedBox(height: 12),
+                        _sectionLabel(context, 'Image quality'),
+                        _chipRow<ImageExportQuality>(
+                          values: ImageExportQuality.values,
+                          labelOf: (v) => v.label,
+                          selected: _settings.imageQuality,
+                          onSelect: (v) =>
+                              setState(() => _settings.imageQuality = v),
+                        ),
+                        const SizedBox(height: 12),
+                        _sectionLabel(context, 'Export pages'),
+                        _chipRow<ImageExportScope>(
+                          values: ImageExportScope.values,
+                          labelOf: (v) => v.label,
+                          selected: _settings.imageScope,
+                          onSelect: (v) =>
+                              setState(() => _settings.imageScope = v),
+                        ),
+                        if (_settings.imageScope ==
+                            ImageExportScope.selectedPages) ...[
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              for (var i = 0; i < pageCount; i++)
+                                FilterChip(
+                                  label: Text('Page ${i + 1}'),
+                                  selected: _settings.selectedPageIndexes
+                                      .contains(i),
+                                  onSelected: _busy
+                                      ? null
+                                      : (sel) {
+                                          setState(() {
+                                            final next = {
+                                              ..._settings.selectedPageIndexes,
+                                            };
+                                            if (sel) {
+                                              next.add(i);
+                                            } else {
+                                              next.remove(i);
+                                            }
+                                            _settings.selectedPageIndexes =
+                                                next;
+                                          });
+                                        },
+                                ),
+                            ],
+                          ),
+                        ],
+                      ],
                       if (_progress != null) ...[
                         const SizedBox(height: 28),
-                        AppCard(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            children: [
-                              const SizedBox(
-                                width: 40,
-                                height: 40,
-                                child: CircularProgressIndicator(strokeWidth: 3),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _progress!,
-                                textAlign: TextAlign.center,
-                                style: text.titleMedium,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Saving on this device only',
-                                style: text.bodySmall?.copyWith(
-                                  color: scheme.onSurfaceVariant,
+                        AnimatedSwitcher(
+                          duration: AppMotion.medium,
+                          child: AppCard(
+                            key: ValueKey(_progress),
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              children: [
+                                const SizedBox(
+                                  width: 40,
+                                  height: 40,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 3,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 14),
-                              const LinearProgressIndicator(minHeight: 3),
-                            ],
+                                const SizedBox(height: 16),
+                                Text(
+                                  _progress!,
+                                  textAlign: TextAlign.center,
+                                  style: text.titleMedium,
+                                ),
+                                const SizedBox(height: 12),
+                                const LinearProgressIndicator(minHeight: 3),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -144,7 +239,8 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                     child: SizedBox(
                       width: double.infinity,
                       child: FilledButton(
-                        onPressed: _busy || (!_createPdf && !_saveImages)
+                        onPressed: _busy ||
+                                (!_settings.createPdf && !_settings.saveImages)
                             ? null
                             : _export,
                         style: FilledButton.styleFrom(
@@ -155,7 +251,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                           ),
                         ),
                         child: Text(
-                          _busy ? 'Saving…' : 'Save on this device',
+                          _busy ? 'Saving…' : 'Save',
                         ),
                       ),
                     ),
@@ -166,23 +262,60 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     );
   }
 
+  Widget _sectionLabel(BuildContext context, String label) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+      ),
+    );
+  }
+
+  Widget _chipRow<T>({
+    required List<T> values,
+    required String Function(T) labelOf,
+    required T selected,
+    required ValueChanged<T> onSelect,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final v in values)
+          ChoiceChip(
+            label: Text(labelOf(v)),
+            selected: selected == v,
+            onSelected: _busy
+                ? null
+                : (sel) {
+                    if (sel) onSelect(v);
+                  },
+          ),
+      ],
+    );
+  }
+
   Future<void> _export() async {
     setState(() {
       _busy = true;
       _progress = 'Preparing pages…';
     });
     ref.read(editorSessionProvider.notifier).setName(_nameController.text);
+    _settings.currentPageIndex =
+        ref.read(editorSessionProvider)?.selectedIndex ?? 0;
     try {
       await ref.read(editorSessionProvider.notifier).export(
-            createPdf: _createPdf,
-            saveImages: _saveImages,
+            settings: _settings,
             onProgress: (label) {
               if (mounted) setState(() => _progress = label);
             },
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved on this device')),
+        const SnackBar(content: Text('Saved')),
       );
       Navigator.of(context).popUntil((route) => route.isFirst);
       ref.read(editorSessionProvider.notifier).clear();
@@ -204,7 +337,6 @@ class _FormatTile extends StatelessWidget {
   const _FormatTile({
     required this.icon,
     required this.title,
-    required this.subtitle,
     required this.value,
     required this.enabled,
     required this.onChanged,
@@ -212,7 +344,6 @@ class _FormatTile extends StatelessWidget {
 
   final IconData icon;
   final String title;
-  final String subtitle;
   final bool value;
   final bool enabled;
   final ValueChanged<bool> onChanged;
@@ -223,35 +354,18 @@ class _FormatTile extends StatelessWidget {
     final text = Theme.of(context).textTheme;
 
     return AppCard(
+      elevated: false,
       onTap: enabled ? () => onChanged(!value) : null,
-      padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+      padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       borderRadius: BorderRadius.circular(AppTheme.radiusMd),
       color: value
           ? scheme.primaryContainer.withValues(alpha: 0.35)
           : scheme.surface,
       child: Row(
         children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: scheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: scheme.outlineVariant),
-            ),
-            child: Icon(icon, color: scheme.primary, size: 26),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: text.titleMedium),
-                const SizedBox(height: 2),
-                Text(subtitle, style: text.bodySmall),
-              ],
-            ),
-          ),
+          Icon(icon, color: scheme.primary, size: 24),
+          const SizedBox(width: 12),
+          Expanded(child: Text(title, style: text.titleMedium)),
           Switch(value: value, onChanged: enabled ? onChanged : null),
         ],
       ),
