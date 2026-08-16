@@ -130,6 +130,21 @@ void main() {
       const LibraryQuery(search: 'beta'),
     );
     expect(byName.map((d) => d.id), ['b']);
+
+    // Docs store tag ids; search resolves display names via map.
+    final uuidDocs = [
+      _doc(id: 'u1', name: 'Tagged file', tags: ['id-urgent']),
+      _doc(id: 'u2', name: 'Other', tags: ['id-work']),
+    ];
+    final byTagName = filterAndSortDocuments(
+      uuidDocs,
+      const LibraryQuery(search: 'urgent'),
+      tagNamesById: const {
+        'id-urgent': 'Urgent',
+        'id-work': 'Work',
+      },
+    );
+    expect(byTagName.map((d) => d.id), ['u1']);
   });
 
   test('sort name / pages / size / dates', () {

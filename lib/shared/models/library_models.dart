@@ -10,6 +10,34 @@ const kDefaultFolderNames = [
   'Finance',
 ];
 
+/// Seed tags: name + ARGB color.
+const kDefaultTagSeeds = <(String, int)>[
+  ('Urgent', 0xFFC62828),
+  ('Work', 0xFF1565C0),
+  ('Personal', 0xFF2E7D32),
+  ('Receipt', 0xFFEF6C00),
+  ('ID', 0xFF6A1B9A),
+  ('Finance', 0xFF00838F),
+];
+
+/// Colors user can pick in Settings / new-tag flow.
+const kTagColorPalette = <int>[
+  0xFFC62828,
+  0xFFD81B60,
+  0xFF6A1B9A,
+  0xFF4527A0,
+  0xFF1565C0,
+  0xFF0277BD,
+  0xFF00838F,
+  0xFF00695C,
+  0xFF2E7D32,
+  0xFF558B2F,
+  0xFFEF6C00,
+  0xFFF9A825,
+  0xFF5D4037,
+  0xFF546E7A,
+];
+
 class DocFolder {
   DocFolder({
     required this.id,
@@ -31,6 +59,36 @@ class DocFolder {
         id: json['id'] as String,
         name: json['name'] as String,
         createdAt: DateTime.parse(json['createdAt'] as String),
+      );
+}
+
+/// Library tag definition (name + color). Documents store [id] in `tags`.
+class TagDef {
+  TagDef({
+    required this.id,
+    required this.name,
+    required this.color,
+    required this.createdAt,
+  });
+
+  final String id;
+  String name;
+  int color;
+  final DateTime createdAt;
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'color': color,
+        'createdAt': createdAt.toIso8601String(),
+      };
+
+  factory TagDef.fromJson(Map<String, dynamic> json) => TagDef(
+        id: json['id'] as String,
+        name: json['name'] as String,
+        color: (json['color'] as num?)?.toInt() ?? 0xFF546E7A,
+        createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+            DateTime.now(),
       );
 }
 
@@ -134,6 +192,7 @@ class ExportSettings {
   ExportSettings({
     this.createPdf = true,
     this.saveImages = false,
+    this.alsoSaveToDevice = true,
     this.pdfQuality = PdfQualityPreset.balanced,
     this.pdfPageSize = PdfPageSizeOption.original,
     this.pdfOrientation = PdfOrientationOption.auto,
@@ -146,6 +205,8 @@ class ExportSettings {
 
   bool createPdf;
   bool saveImages;
+  /// Also prompt system file manager (“Save as”) for PDF / export images.
+  bool alsoSaveToDevice;
   PdfQualityPreset pdfQuality;
   PdfPageSizeOption pdfPageSize;
   PdfOrientationOption pdfOrientation;

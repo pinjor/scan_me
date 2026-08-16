@@ -181,6 +181,9 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
                                       fit: BoxFit.contain,
                                       width: double.infinity,
                                       height: double.infinity,
+                                      // Downsample for display (~xxhdpi phone width).
+                                      cacheWidth: 1080,
+                                      filterQuality: FilterQuality.medium,
                                     ),
                                   ),
                                 ),

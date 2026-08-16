@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#010C20</color>
+    <color name="ic_alias_pdf_bg">#EF6C00</color>
+    <color name="ic_alias_txt_bg">#1565C0</color>
+    <color name="ic_alias_image_bg">#2E7D32</color>
+    <color name="ic_alias_pptx_bg">#C62828</color>
+    <color name="ic_alias_view_bg">#1B3A4B</color>
 </resources>

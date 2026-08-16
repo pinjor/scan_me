@@ -200,6 +200,17 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                           ),
                         ],
                       ],
+                      const SizedBox(height: 10),
+                      _FormatTile(
+                        icon: Icons.folder_outlined,
+                        title: 'Also save to device',
+                        subtitle:
+                            'Opens your file manager so you choose folder & name',
+                        value: _settings.alsoSaveToDevice,
+                        enabled: !_busy,
+                        onChanged: (v) =>
+                            setState(() => _settings.alsoSaveToDevice = v),
+                      ),
                       if (_progress != null) ...[
                         const SizedBox(height: 28),
                         AnimatedSwitcher(
@@ -315,7 +326,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saved')),
+        SnackBar(
+          content: Text(
+            _settings.alsoSaveToDevice
+                ? 'Saved to library — pick a folder in the file manager for device copy'
+                : 'Saved to library',
+          ),
+        ),
       );
       Navigator.of(context).popUntil((route) => route.isFirst);
       ref.read(editorSessionProvider.notifier).clear();
@@ -340,10 +357,12 @@ class _FormatTile extends StatelessWidget {
     required this.value,
     required this.enabled,
     required this.onChanged,
+    this.subtitle,
   });
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final bool value;
   final bool enabled;
   final ValueChanged<bool> onChanged;
@@ -365,7 +384,23 @@ class _FormatTile extends StatelessWidget {
         children: [
           Icon(icon, color: scheme.primary, size: 24),
           const SizedBox(width: 12),
-          Expanded(child: Text(title, style: text.titleMedium)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: text.titleMedium),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: text.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
           Switch(value: value, onChanged: enabled ? onChanged : null),
         ],
       ),

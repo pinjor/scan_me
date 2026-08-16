@@ -106,6 +106,9 @@ class _FakeDocs
   Future<void> removeTag(String id, String tag) async {}
 
   @override
+  Future<void> toggleTag(String id, String tagId) async {}
+
+  @override
   Future<void> rename(String id, String name) async {
     renamed.add((id, name));
     final list = (state.value ?? []).map((d) {
@@ -477,7 +480,7 @@ void main() {
       container.dispose();
     });
 
-    Future<void> _pumpReview(WidgetTester tester) async {
+    Future<void> pumpReview(WidgetTester tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
         UncontrolledProviderScope(
@@ -493,16 +496,16 @@ void main() {
 
     testWidgets('toolbar + B&W/Original + Finish visible; rotate works',
         (tester) async {
-      await _pumpReview(tester);
+      await pumpReview(tester);
 
       expect(find.text('Review'), findsOneWidget);
       expect(find.text('Enhance'), findsOneWidget);
       expect(find.text('Rotate'), findsOneWidget);
-      expect(find.text('Retake'), findsOneWidget);
+      expect(find.text('Retake'), findsWidgets);
       expect(find.text('Delete'), findsOneWidget);
-      expect(find.text('More'), findsOneWidget);
+      expect(find.text('Retake all'), findsOneWidget);
       expect(find.text('B&W'), findsOneWidget);
-      expect(find.text('Original'), findsOneWidget);
+      expect(find.byType(ChoiceChip), findsNWidgets(6));
       expect(find.text('Finish'), findsOneWidget);
 
       final before =
@@ -514,6 +517,7 @@ void main() {
         equals((before + 90) % 360),
       );
 
+      await tester.ensureVisible(find.text('Original'));
       await tester.tap(find.text('Original'));
       await tester.pump(const Duration(milliseconds: 50));
       expect(
@@ -529,15 +533,15 @@ void main() {
       expect(ctrl.state!.pages.length, 1);
     });
 
-    testWidgets('More → Retake all sheet', (tester) async {
-      await _pumpReview(tester);
-      await tester.tap(find.text('More'));
+    testWidgets('Retake all opens confirm dialog', (tester) async {
+      await pumpReview(tester);
+      await tester.tap(find.text('Retake all'));
       await tester.pump(const Duration(milliseconds: 50));
-      expect(find.text('Retake all pages'), findsOneWidget);
+      expect(find.text('Retake all pages?'), findsOneWidget);
     });
 
     testWidgets('Finish opens Export screen', (tester) async {
-      await _pumpReview(tester);
+      await pumpReview(tester);
       await tester.ensureVisible(find.text('Finish'));
       await tester.tap(find.text('Finish'));
       await tester.pump(); // start navigation

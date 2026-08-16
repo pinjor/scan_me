@@ -1,0 +1,20 @@
+18 PASS / 1 FAIL / 19 total
+PASS: Home launch ScanMe, Trash, Settings, All, Favorites, Folders, Tags, Unfiled, Sort, No documents yet, Scan Document, Images to PDF
+PASS: Settings open Back, Settings, Appearance, System, Light, Dark, Trash, Auto-delete&#10;After 30 days, About, ScanMe&#10;Apptriangle · v1.0.0
+PASS: Settings Light theme tap 
+PASS: Settings trash section visible 
+PASS: Back to Home from Settings 
+PASS: Favorites filter 
+PASS: All filter 
+PASS: Folders expand / chips ['ScanMe', 'Trash', 'Settings', 'All', 'Favorites', 'Folders', 'Tags', 'Unfiled', 'Sort', 'Certificates', 'Finance', 'IDs', 'Personal', 'Receipts', 'Work', 'No documents yet', 'Scan Document', 'Images to PDF', 'New']
+PASS: Tags filter 
+PASS: Unfiled filter 
+PASS: Sort menu Recently modified, Recently created, Name A–Z, Name Z–A, Number of pages, File size, Dismiss menu
+PASS: Trash view Trash, Library, Settings, Trash is empty, Back to library
+PASS: Return Library from Trash 
+PASS: FAB expand ScanMe, Trash, Settings, All, Favorites, Folders, Tags, Unfiled, Sort, No documents yet, Scan Document, Images to PDF, Converters, Close
+PASS: Converters hub Back, Converters, PDF → Text, PowerPoint → PDF, PNG → JPG, JPG → PNG
+PASS: Images to PDF opens picker/system UI ScanMe, Trash, Settings, All, Favorites, Folders, Tags, Unfiled, Sort, No documents yet, Scan Document, Images to PDF, Converters, Close
+PASS: Scan Document opens scanner/capture labels=['Something went wrong', 'Try again later', 'Cancel'] mlkit=True
+FAIL: After scan cancel back to Home 
+PASS: No FATAL for app in recent logcat 

@@ -264,6 +264,163 @@ class DocumentStorageService {
     }
   }
 
+  // —— Tags (colored catalog; docs store tag ids) ——
+
+  Future<File> get _tagsFile async =>
+      File(p.join((await libraryDir).path, 'tags.json'));
+
+  Future<List<TagDef>> listTags() async {
+    final file = await _tagsFile;
+    if (!await file.exists()) {
+      return _seedDefaultTags();
+    }
+    try {
+      final raw = jsonDecode(await file.readAsString()) as List<dynamic>;
+      return raw
+          .map((e) => TagDef.fromJson(e as Map<String, dynamic>))
+          .toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    } catch (_) {
+      return _seedDefaultTags();
+    }
+  }
+
+  Future<List<TagDef>> _seedDefaultTags() async {
+    final now = DateTime.now();
+    final tags = [
+      for (final (name, color) in kDefaultTagSeeds)
+        TagDef(id: _uuid.v4(), name: name, color: color, createdAt: now),
+    ];
+    await _saveTags(tags);
+    return tags;
+  }
+
+  Future<void> _saveTags(List<TagDef> tags) async {
+    final file = await _tagsFile;
+    await file.writeAsString(
+      jsonEncode(tags.map((t) => t.toJson()).toList()),
+    );
+  }
+
+  Future<TagDef> createTag(String name, int color) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw ArgumentError('Tag name required');
+    final tags = await listTags();
+    final dup = tags.any((t) => t.name.toLowerCase() == trimmed.toLowerCase());
+    if (dup) throw StateError('A tag named "$trimmed" already exists');
+    final tag = TagDef(
+      id: _uuid.v4(),
+      name: trimmed,
+      color: color,
+      createdAt: DateTime.now(),
+    );
+    tags.add(tag);
+    await _saveTags(tags);
+    return tag;
+  }
+
+  Future<TagDef?> updateTag(
+    String id, {
+    String? name,
+    int? color,
+  }) async {
+    final tags = await listTags();
+    final idx = tags.indexWhere((t) => t.id == id);
+    if (idx < 0) return null;
+    if (name != null) {
+      final trimmed = name.trim();
+      if (trimmed.isEmpty) return null;
+      final clash = tags.any(
+        (t) => t.id != id && t.name.toLowerCase() == trimmed.toLowerCase(),
+      );
+      if (clash) throw StateError('A tag named "$trimmed" already exists');
+      tags[idx].name = trimmed;
+    }
+    if (color != null) tags[idx].color = color;
+    await _saveTags(tags);
+    return tags[idx];
+  }
+
+  /// Remove tag from catalog and from all documents.
+  Future<void> deleteTag(String id) async {
+    final tags = await listTags();
+    tags.removeWhere((t) => t.id == id);
+    await _saveTags(tags);
+    final docs = await listDocuments();
+    for (final doc in docs) {
+      if (!doc.tags.contains(id)) continue;
+      await saveDocument(
+        doc.copyMeta(
+          tags: doc.tags.where((t) => t != id).toList(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+    }
+  }
+
+  /// Convert legacy free-text tags on documents into catalog ids.
+  Future<void> migrateLegacyTags() async {
+    var catalog = await listTags();
+    final byId = {for (final t in catalog) t.id: t};
+    final byName = {
+      for (final t in catalog) t.name.toLowerCase(): t,
+    };
+    final docs = await listDocuments();
+    var paletteI = 0;
+    for (final doc in docs) {
+      if (doc.tags.isEmpty) continue;
+      final next = <String>[];
+      var changed = false;
+      for (final raw in doc.tags) {
+        final key = raw.trim();
+        if (key.isEmpty) {
+          changed = true;
+          continue;
+        }
+        if (byId.containsKey(key)) {
+          if (!next.contains(key)) next.add(key);
+          continue;
+        }
+        final existing = byName[key.toLowerCase()];
+        if (existing != null) {
+          if (!next.contains(existing.id)) next.add(existing.id);
+          changed = true;
+          continue;
+        }
+        final color = kTagColorPalette[paletteI % kTagColorPalette.length];
+        paletteI++;
+        final created = TagDef(
+          id: _uuid.v4(),
+          name: key,
+          color: color,
+          createdAt: DateTime.now(),
+        );
+        try {
+          final tags = await listTags();
+          tags.add(created);
+          await _saveTags(tags);
+        } catch (_) {
+          // race / duplicate — reload
+        }
+        catalog = await listTags();
+        final again = catalog.cast<TagDef?>().firstWhere(
+              (t) => t!.name.toLowerCase() == key.toLowerCase(),
+              orElse: () => null,
+            );
+        final resolved = again ?? created;
+        byId[resolved.id] = resolved;
+        byName[resolved.name.toLowerCase()] = resolved;
+        next.add(resolved.id);
+        changed = true;
+      }
+      if (changed) {
+        await saveDocument(
+          doc.copyMeta(tags: next, updatedAt: DateTime.now()),
+        );
+      }
+    }
+  }
+
   Future<ScannedDocument?> updateDocumentMeta(
     String id, {
     String? name,

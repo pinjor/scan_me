@@ -9,9 +9,8 @@ Offline CamScanner-style document scanner by **Apptriangle**.
 
 ## Docs
 
-- **[UI pages (full)](docs/UI_PAGES.md)** — every screen, sheet, flow, and motion  
-- [Play Store](docs/PLAY_STORE.md)  
-- [Test report](docs/TEST_REPORT.md)  
+- **[Project log (living)](docs/PROJECT_LOG.md)** — status, task history, Play / test / audit (agents update after every task)
+- **[UI pages (deep)](docs/UI_PAGES.md)** — every screen, sheet, flow, motion  
 
 ## Run
 
@@ -22,7 +21,7 @@ flutter run
 
 ## Release / Play Store
 
-See [docs/PLAY_STORE.md](docs/PLAY_STORE.md).
+See [Project log → Play Store readiness](docs/PROJECT_LOG.md#play-store-readiness).
 
 ```bash
 # After android/key.properties is filled:

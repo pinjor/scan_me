@@ -1,23 +1,18 @@
-# Keep Flutter + ML Kit Document Scanner
--keep class io.flutter.app.** { *; }
--keep class io.flutter.plugin.** { *; }
--keep class io.flutter.util.** { *; }
--keep class io.flutter.view.** { *; }
--keep class io.flutter.** { *; }
--keep class io.flutter.plugins.** { *; }
+# ScanMe release ProGuard / R8
+# Prefer Flutter + plugin consumer rules; avoid blanket -keep of entire SDKs
+# (that tanks Play Console shrink / obfuscation rates).
 
--keep class com.google.mlkit.** { *; }
--keep class com.google.android.gms.** { *; }
+# ML Kit Document Scanner (JNI / reflection)
+-keep class com.google.mlkit.vision.documentscanner.** { *; }
+-keep class com.google.mlkit.common.** { *; }
 -dontwarn com.google.mlkit.**
 -dontwarn com.google.android.gms.**
 
-# Flutter deferred components / Play Core (optional; not used by ScanMe)
+# Unused Play Core split APIs referenced by some Flutter tooling
 -dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
 -dontwarn com.google.android.play.core.splitinstall.**
 -dontwarn com.google.android.play.core.tasks.**
+-dontwarn com.google.android.play.core.**
 
-# Kotlin / coroutines used by plugins
+# Coroutines (plugins)
 -dontwarn kotlinx.coroutines.**
--keepclassmembers class * {
-    @android.webkit.JavascriptInterface <methods>;
-}

@@ -1,0 +1,20 @@
+---
+description: Keep docs/PROJECT_LOG.md updated after every user task
+alwaysApply: true
+---
+
+# Project log (mandatory)
+
+Canonical living doc: `docs/PROJECT_LOG.md`
+
+After **every** user task (feature, fix, doc, Play, UI, test, reminder):
+
+1. Do the work.
+2. **Before the final reply:** append a **Task log** entry — date · request · done · key files · leftover.
+3. Update **Current status** / Open-watch / version if they changed.
+4. Keep entries terse; preserve technical facts.
+
+**Do not skip the log update.** No “forgot” / “later” — log is part of done. Do not commit unless user asks.
+Never commit `android/key.properties` or `*.jks`.
+
+If user asks “what’s left / status”, answer from `PROJECT_LOG.md` first.

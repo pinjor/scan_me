@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../shared/widgets/app_transitions.dart';
+
 const _kThemeModeKey = 'theme_mode';
 
 final themeModeProvider =
@@ -418,19 +420,35 @@ class _ScanMePageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final curved = CurvedAnimation(
+    if (MediaQuery.disableAnimationsOf(context)) return child;
+    final incoming = CurvedAnimation(
       parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
+      curve: AppMotion.emphasizedDecelerate,
+      reverseCurve: AppMotion.emphasizedAccelerate,
     );
-    return FadeTransition(
-      opacity: curved,
+    final outgoing = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: AppMotion.emphasized,
+    );
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: Offset.zero,
+        end: const Offset(-0.12, 0),
+      ).animate(outgoing),
       child: SlideTransition(
         position: Tween<Offset>(
-          begin: const Offset(0.03, 0.02),
+          begin: const Offset(0.22, 0),
           end: Offset.zero,
-        ).animate(curved),
-        child: child,
+        ).animate(incoming),
+        child: FadeTransition(
+          opacity: Tween<double>(begin: 0, end: 1).animate(
+            CurvedAnimation(
+              parent: animation,
+              curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+            ),
+          ),
+          child: child,
+        ),
       ),
     );
   }

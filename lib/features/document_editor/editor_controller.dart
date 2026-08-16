@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../core/providers.dart';
+import '../../core/services/device_save_service.dart';
 import '../../core/services/scan_compression.dart';
 import '../../core/storage/document_storage_service.dart';
 import '../../shared/models/library_models.dart';
@@ -285,7 +286,7 @@ class EditorController extends StateNotifier<EditorSession?> {
     final s = state;
     if (s == null || s.pages.isEmpty) return;
 
-    state = s.copyWith(isProcessing: true, processingLabel: 'Applying black & white…');
+    state = s.copyWith(isProcessing: true, processingLabel: 'Applying filter…');
 
     try {
       final pages = [...s.pages];
@@ -293,6 +294,8 @@ class EditorController extends StateNotifier<EditorSession?> {
           ? List.generate(pages.length, (i) => i)
           : [s.selectedIndex];
 
+      // Only pages that need real work (for honest progress copy).
+      final work = <int>[];
       for (final i in indices) {
         final page = pages[i];
         if (filter == PageFilter.original) {
@@ -302,18 +305,24 @@ class EditorController extends StateNotifier<EditorSession?> {
           );
           continue;
         }
-
-        // Skip recompute if already B&W processed.
-        if (page.selectedFilter == PageFilter.blackAndWhite &&
+        if (page.selectedFilter == filter &&
             page.processedImagePath != null &&
             await File(page.processedImagePath!).exists()) {
           pages[i] = page.copyWith(selectedFilter: filter);
           continue;
         }
+        work.add(i);
+      }
 
+      for (var n = 0; n < work.length; n++) {
+        final i = work[n];
+        final page = pages[i];
+        final label = work.length <= 1
+            ? 'Applying filter…'
+            : 'Applying filter · ${n + 1} of ${work.length}…';
         state = state!.copyWith(
           isProcessing: true,
-          processingLabel: 'Filter page ${i + 1} of ${indices.length}…',
+          processingLabel: label,
         );
 
         final originalBytes = await File(page.originalImagePath).readAsBytes();
@@ -341,7 +350,7 @@ class EditorController extends StateNotifier<EditorSession?> {
       if (kDebugMode) debugPrint('applyFilter: $e\n$st');
       state = state?.copyWith(
         isProcessing: false,
-        processingLabel: 'Filter failed',
+        processingLabel: "Couldn't apply filter",
       );
       rethrow;
     }
@@ -370,8 +379,7 @@ class EditorController extends StateNotifier<EditorSession?> {
       final page = s.pages[i];
       onProgress?.call('Preparing page ${i + 1} of ${s.pages.length}…');
       final alreadyCompressed =
-          page.selectedFilter == PageFilter.blackAndWhite &&
-          page.processedImagePath != null;
+          page.selectedFilter.isProcessed && page.processedImagePath != null;
       pdfReady.add(
         await prepareExportJpeg(
           imagePath: page.displayPath,
@@ -379,6 +387,8 @@ class EditorController extends StateNotifier<EditorSession?> {
           alreadyCompressed: alreadyCompressed,
           maxLongEdge: settings.pdfQuality.maxLongEdge,
           quality: settings.pdfQuality.jpegQuality,
+          // Corner mark drawn in PDF layer so every page shows in any viewer.
+          applyWatermark: false,
         ),
       );
     }
@@ -392,6 +402,7 @@ class EditorController extends StateNotifier<EditorSession?> {
         jpegPages: pdfReady,
         pageSize: settings.pdfPageSize,
         orientation: settings.pdfOrientation,
+        drawCornerWatermark: true,
         onProgress: (cur, total) {
           onProgress?.call('Creating PDF… Page $cur of $total');
         },
@@ -411,7 +422,7 @@ class EditorController extends StateNotifier<EditorSession?> {
         onProgress?.call('Saving images… $outIndex of ${indexes.length}');
         final page = s.pages[i];
         final alreadyCompressed =
-            page.selectedFilter == PageFilter.blackAndWhite &&
+            page.selectedFilter.isProcessed &&
             page.processedImagePath != null;
         final bytes = await prepareExportImageBytes(
           imagePath: page.displayPath,
@@ -438,7 +449,7 @@ class EditorController extends StateNotifier<EditorSession?> {
             imagePath: s.pages.first.displayPath,
             rotation: s.pages.first.rotation,
             alreadyCompressed:
-                s.pages.first.selectedFilter == PageFilter.blackAndWhite &&
+                s.pages.first.selectedFilter.isProcessed &&
                 s.pages.first.processedImagePath != null,
           );
     final thumb = ImageCompressionService.makeThumbnail(thumbSource);
@@ -468,6 +479,23 @@ class EditorController extends StateNotifier<EditorSession?> {
     doc.fileSizeBytes = await _storage.calculateSize(doc);
     await _storage.saveDocument(doc);
     await _ref.read(documentsProvider.notifier).refresh();
+
+    if (settings.alsoSaveToDevice) {
+      onProgress?.call('Saving to device…');
+      try {
+        if (pdfPath != null) {
+          await DeviceSaveService.saveFile(sourcePath: pdfPath);
+        }
+        for (final path in exportImages) {
+          await DeviceSaveService.saveFile(sourcePath: path);
+        }
+      } catch (e, st) {
+        if (kDebugMode) debugPrint('alsoSaveToDevice: $e\n$st');
+        // Library save already succeeded; surface soft failure via rethrow only
+        // if nothing was written to library — keep going.
+      }
+    }
+
     return doc;
   }
 

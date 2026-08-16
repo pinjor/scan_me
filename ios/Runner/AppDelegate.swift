@@ -11,14 +11,26 @@ import VisionKit
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    if let url = launchOptions?[.url] as? URL {
+      OpenFileIntentHandler.shared.handle(url: url)
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
-    registerDocumentScannerChannel(
-      messenger: engineBridge.applicationRegistrar.messenger()
-    )
+    let messenger = engineBridge.applicationRegistrar.messenger()
+    registerDocumentScannerChannel(messenger: messenger)
+    OpenFileIntentHandler.shared.register(messenger: messenger)
+  }
+
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    OpenFileIntentHandler.shared.handle(url: url)
+    return super.application(app, open: url, options: options)
   }
 
   private func registerDocumentScannerChannel(

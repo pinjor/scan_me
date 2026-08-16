@@ -111,11 +111,14 @@ class _AppCardState extends State<AppCard> {
     return Padding(
       padding: widget.margin ?? EdgeInsets.zero,
       child: AnimatedScale(
-        scale: _pressed && canPress ? 0.985 : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
+        scale: _pressed && canPress ? 0.97 : 1,
+        duration: AppMotion.press,
+        curve: _pressed
+            ? AppMotion.emphasizedAccelerate
+            : AppMotion.softSpring,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
+          duration: AppMotion.press,
+          curve: AppMotion.emphasized,
           decoration: BoxDecoration(
             borderRadius: radius,
             boxShadow: widget.elevated && isLight
@@ -616,7 +619,7 @@ class SectionHeader extends StatelessWidget {
               ),
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );
@@ -679,27 +682,36 @@ class PrivacyBadge extends StatelessWidget {
 
 /// Meta chip for document cards (pages, PDF, size, date).
 class MetaChip extends StatelessWidget {
-  const MetaChip({super.key, required this.label});
+  const MetaChip({
+    super.key,
+    required this.label,
+    this.color,
+  });
 
   final String label;
+  /// Optional brand/tag color (fill + contrasting label).
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final bg = color?.withValues(alpha: 0.18) ??
+        scheme.surfaceContainerHighest.withValues(alpha: 0.85);
+    final fg = color ?? scheme.onSurfaceVariant;
+    final border = color?.withValues(alpha: 0.45) ??
+        scheme.outlineVariant.withValues(alpha: 0.6);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.85),
+        color: bg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: 0.6),
-        ),
+        border: Border.all(color: border),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
+              color: fg,
+              fontWeight: FontWeight.w700,
             ),
       ),
     );
@@ -727,16 +739,21 @@ Future<T?> showAppBottomSheet<T>({
       if (routeAnim == null) return content;
       final curved = CurvedAnimation(
         parent: routeAnim,
-        curve: Curves.easeOutCubic,
+        curve: AppMotion.emphasizedDecelerate,
+        reverseCurve: AppMotion.emphasizedAccelerate,
       );
       return FadeTransition(
         opacity: curved,
         child: SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.04),
+            begin: const Offset(0, 0.06),
             end: Offset.zero,
           ).animate(curved),
-          child: content,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.98, end: 1).animate(curved),
+            alignment: Alignment.bottomCenter,
+            child: content,
+          ),
         ),
       );
     },

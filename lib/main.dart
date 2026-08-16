@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/open_file_intent_bridge.dart';
 import 'core/theme/app_theme.dart';
-import 'features/home/home_screen.dart';
+import 'features/home/main_shell_screen.dart';
 import 'shared/widgets/scanme_widget_bridge.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Edge-to-edge on all Android versions (required path for SDK 35+).
+  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarDividerColor: Colors.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ),
+  );
   ScanMeWidgetRouter.onNewScan = (_) async {};
+  OpenFileIntentBridge.ensureListening();
   runApp(const ProviderScope(child: ScanMeApp()));
 }
 
@@ -20,6 +33,7 @@ class ScanMeApp extends ConsumerWidget {
 
     return MaterialApp(
       title: 'ScanMe',
+      navigatorKey: scanMeNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
@@ -30,12 +44,28 @@ class ScanMeApp extends ConsumerWidget {
           minScaleFactor: 1.0,
           maxScaleFactor: 1.35,
         );
-        return MediaQuery(
-          data: mq.copyWith(textScaler: scaler),
-          child: child ?? const SizedBox.shrink(),
+        final brightness = Theme.of(context).brightness;
+        final lightBars = brightness == Brightness.light;
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarDividerColor: Colors.transparent,
+            systemNavigationBarContrastEnforced: false,
+            statusBarIconBrightness:
+                lightBars ? Brightness.dark : Brightness.light,
+            statusBarBrightness:
+                lightBars ? Brightness.light : Brightness.dark,
+            systemNavigationBarIconBrightness:
+                lightBars ? Brightness.dark : Brightness.light,
+          ),
+          child: MediaQuery(
+            data: mq.copyWith(textScaler: scaler),
+            child: child ?? const SizedBox.shrink(),
+          ),
         );
       },
-      home: const HomeScreen(),
+      home: const MainShellScreen(),
     );
   }
 }

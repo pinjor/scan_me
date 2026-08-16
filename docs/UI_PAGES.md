@@ -1,5 +1,7 @@
 # ScanMe — UI pages reference
 
+> **Living project status / task log:** [`PROJECT_LOG.md`](PROJECT_LOG.md) (update that after every task). This file = deep UI detail only.
+
 Offline CamScanner-style app (Flutter). Brand: **ScanMe** / Apptriangle. Theme: navy + paper surfaces, **Plus Jakarta Sans**, light / dark / system.
 
 This doc describes every in-app screen, sheet, overlay, and system UI the user hits — including library organization, export options, converters, print, trash, and motion.
@@ -9,20 +11,14 @@ This doc describes every in-app screen, sheet, overlay, and system UI the user h
 ## Navigation map
 
 ```
-Home (library)
-├── Settings
-│   ├── Appearance (system / light / dark)
-│   └── Trash retention (7–90 days)
-├── FAB (+) speed dial
-│   ├── Scan Document → [System scanner] → Scan capture → Review → Save document → Home
-│   ├── Images to PDF → [Gallery picker] → Review → Save document → Home
-│   └── Converters → pick file → convert → Share
-├── Trash toggle (header) → soft-deleted docs (restore / delete forever)
-├── Filters: folders · favorites · tags · search · sort
-└── Document row / ⋯ / open → Viewer
-    ├── Favorite · Print · Share
-    ├── Rename · Move folder · Tags · Activity
-    └── Move to Trash → Home
+MainShell (bottom nav)
+├── Home dashboard — search · tools grid · Recents
+├── Files — full library (filters / trash / sort)
+├── Camera FAB — Scan capture → Review → Export
+├── Tools — converters hub (PDF↔TXT, PPTX→PDF, PNG↔JPG) → Save / Share
+└── Me — Settings (theme · trash · tags · about)
+
+Legacy push routes still: Scan capture · Review · Export · Viewer
 ```
 
 System UIs (not Flutter screens):
@@ -31,8 +27,8 @@ System UIs (not Flutter screens):
 |----|----------|------|
 | Google ML Kit Document Scanner | Android | Each single-page capture / retake |
 | VisionKit document camera | iOS | Each single-page capture / retake |
-| System photo / gallery picker | Both | Images to PDF |
-| File picker | Both | Converters (PDF / PPTX / images) |
+| System photo / gallery picker | Both | Import Images |
+| File picker | Both | Tools converters |
 | System share sheet | Both | Share PDF, images, or convert outputs |
 | Native print dialog | Both | Viewer → Print (`printing`) |
 
@@ -45,52 +41,41 @@ System UIs (not Flutter screens):
 
 | Motion | Where |
 |--------|--------|
-| `AppPageRoute` — fade + slight rise | Push/pop between Home, Settings, Scan, Review, Export, Viewer, Converters |
-| `AppBodySwitch` | Home loading ↔ empty ↔ list |
-| `StaggeredListItem` | Document list rows, favorites strip |
-| `FadeRiseIn` | Empty states, converters hub, loading overlay |
-| `AppCard` press scale | Tappable cards |
-| Bottom sheet content fade/slide | `showAppBottomSheet` |
-| Hero `doc-thumb-<id>` | Home list thumbnail → Viewer |
-| AnimatedSwitcher | Export progress text, Viewer page footer, favorite star |
-| FAB speed dial | Size/fade expand of actions |
+| `AppPageRoute` — fade + rise + soft scale | Push/pop Scan, Review, Export, Viewer, Tools |
+| `AppBodySwitch` | Files loading ↔ empty ↔ list |
+| `StaggeredListItem` | Document list rows (subtle stagger) |
+| `FadeRiseIn` | Empty states, Tools hub, Home tools grid, FAB |
+| `PressableScale` | Tool tiles, bottom nav |
+| `AppCard` soft press | Tappable cards |
+| Bottom sheet settle | `showAppBottomSheet` |
+| Hero `doc-thumb-<id>` | Files / Recents thumb → Viewer |
+| AnimatedSwitcher | Export progress, Viewer footer, Tools progress, nav icons |
+| FAB speed dial | Size/fade expand (legacy Files FAB if shown) |
+| Curves | M3 emphasized / decelerate / soft spring via `AppMotion` |
+| A11y | Honors `MediaQuery.disableAnimations` |
 
 ---
 
-## 1. Home (`HomeScreen`)
+## 1. Main shell + Home dashboard
 
-**File:** `lib/features/home/home_screen.dart`  
-**Entry:** App launch (`MaterialApp.home`)
+**Files:** `main_shell_screen.dart`, `home_dashboard_screen.dart`, `home_screen.dart` (Files tab)  
+**Entry:** `MaterialApp.home` → `MainShellScreen`
 
-### Purpose
-Local document library: browse, filter, sort, trash, start scan / images-to-PDF / converters.
+### Shell
+Bottom bar: **Home · Files · (camera FAB) · Tools · Me**. Navy FAB opens Smart Scan. Brand colors stay navy (not CamScanner teal).
 
-### Layout
-- **Header:** logo + **ScanMe** (or **Trash**) · Trash / Settings icons
-- **Search** · hint *Search…*
-- **Filter chips + Sort** (one row)
-- **Body:** list / empty / skeleton
-- **FAB:** speed dial
+### Home dashboard
+- Search (submits / non-empty → Files tab with query)
+- **Tools grid (customizable):** defaults **Smart Scan · Convert · Import Images · Files** + **Add**
+  - **Add** → sheet of catalog (Tags, Favorites, Trash, convert shortcuts…) — no Folders / Settings
+  - Long-press tile → remove (keeps ≥1). Reset in sheet.
+  - Choice persisted (`dashboard_tool_ids_v1`)
+- **Recents:** up to 8 docs · View all → Files
 
-### Empty states
-- Title only + action buttons (no long marketing copy)
-
-### Document card
-- Thumb · name · meta line · optional folder/tag badges · **⋯**
-
-### FAB speed dial
-1. Scan Document · 2. Images to PDF · 3. Converters
-
-### Flows from Home
-
-| Control | Next |
-|---------|------|
-| Scan Document | Scan capture (auto-opens system scanner) |
-| Images to PDF | Multi-image picker → import + auto B&W → Review (`discardOnPop: true`) |
-| Converters | Converters hub |
-| Open row / Open | Viewer |
-| Trash toggle | Soft-deleted list |
-| Sort / folder / tag / search | Filtered `filterAndSortDocuments` list |
+### Files tab (`HomeScreen` embedded)
+- Header **Files** / **Trash** · trash toggle
+- Search · filter chips · sort · document list (same as prior library)
+- No local FAB (shell camera covers scan)
 
 ---
 
@@ -100,12 +85,13 @@ Local document library: browse, filter, sort, trash, start scan / images-to-PDF 
 **Entry:** Home → settings icon
 
 ### Purpose
-Theme, trash auto-empty, about.
+Theme, trash auto-empty, tag catalog, about.
 
 ### Layout
 - App bar: `Settings`
 - **Appearance** — Match phone setting · Light · Dark (persisted)
 - **Trash** — Auto-empty after **7 / 14 / 30 / 60 / 90** days (default 30)
+- **Tags** — catalog list (color dot + name); tap → edit name/color; Delete in dialog or long-press; **Add tag**
 - **About** — ScanMe by Apptriangle · version · privacy / offline / compression copy
 
 ---
@@ -162,13 +148,12 @@ Inspect pages, B&W vs Original, enhance / rotate / retake / reorder / delete, th
 ### Layout
 - **App bar:** `Review` + **Finish** → Save document
 - **Main:** zoom/pan (`PhotoView`) + Apptriangle watermark
-- **This page** bar: **B&W** | **Original**
+- **This page** chips: B&W · Greyscale · Auto · Vivid · Lighten · Original
 - **Thumbnail strip:** reorderable + **+** add page
-- **Toolbar:** Enhance · Rotate · Retake · Delete · More (Retake all)
+- **Toolbar:** Enhance · Rotate · Retake · Delete · **Retake all**
 
 ### Enhance sheet
-- Original (this page) · Black & white (this page)  
-- Black & white on all pages · Original on all pages
+- This page / All pages: Original · Black & white · Greyscale · Auto enhance · Vivid color · Lighten
 
 ### Processing
 Full-screen dim + spinner + label.
@@ -201,7 +186,8 @@ Name document; write PDF and/or images locally (compressed, watermarked) with ad
     - Export pages: Current page · Selected pages · Entire document  
     - Page chips when **Selected pages**
 - Progress card (animated) while saving  
-- CTA: **Save on this device** (disabled if both formats off or busy)
+- CTA: **Save** (disabled if both formats off or busy)
+- Toggle: **Also save to device** (default on) → system **Save as** (user picks folder/name)
 
 ### After success
 SnackBar → `popUntil` Home → clear editor session. Sets `exportedAt` on meta.
@@ -221,15 +207,15 @@ Browse saved pages; favorite, print, share, organize, inspect activity.
   - Favorite (animated star)  
   - **Print** (PDF if present, else images → print PDF layout)  
   - **Share**  
-  - **⋯** menu: Rename · Move to folder · Tags · Activity · Move to Trash
-- Optional chip row: folder name + tags
+  - **⋯** menu: Rename · Tags · Activity · Move to Trash
+- Optional chip row: **colored** tag chips (from catalog)
 - **Gallery:** swipe / zoom (`PhotoViewGallery`) + watermark · Hero from list
 - **Footer:** `Page X of Y` (crossfades on page change)
 
 ### Sheets / dialogs
-- **Tags:** add / remove chips  
+- **Tags:** toggle catalog tags (color + name) · create new tag with color picker  
 - **Activity:** Created · Modified · Exported (dates)  
-- **Move to folder:** Unfiled or folder list  
+- **Move to folder:** hidden for now (folder system paused)  
 - Rename dialog · Move to Trash confirm → soft-delete → pop Home
 
 ### States
@@ -237,29 +223,40 @@ Loading · missing doc / no pages · missing page file
 
 ---
 
-## 8. Converters (`ConvertersHubScreen`)
+## 8. Tools (`ConvertersHubScreen`)
 
-**File:** `lib/features/converters/converters_hub_screen.dart`  
-**Service:** `lib/features/converters/document_converter_service.dart`  
-**Entry:** Home FAB → Converters
+**Files:** `converters_hub_screen.dart`, `document_converter_service.dart`  
+**Entry:** Shell **Convert** tab · Home grid **Convert**
+
+Title **Convert** — converters for PDF / text / slides / images (not PDF-only).
 
 ### Purpose
-On-device file conversion (no upload). Outputs under app `converts/` folder.
+On-device file conversion. Outputs under app `converts/`. Result: **Open in ScanMe** · Save · Share.
 
-### Layout
-- App bar: `Converters`
-- Intro: *Convert files on this device…*
-- Tiles:
+### In-app viewers (`lib/features/file_viewer/file_viewer_screen.dart`)
+
+Used when needed (convert result, library **View PDF**, **Open with ScanMe** from system file manager) — no standalone Open-file Tools tile.
+
+| Kind | UI |
+|------|-----|
+| `.txt` | Scrollable selectable text |
+| PDF | `PdfPreview` (printing) |
+| Images | `PhotoView` zoom |
+| `.pptx` | Swipe slides (text + embedded images; best-effort) |
+
+Library document ⋯ **View PDF** when exported PDF exists.
+
+### Tiles
 
 | Tile | Input | Output | Notes |
-|------|-------|--------|--------|
-| PDF → Text | `.pdf` | `.txt` | Text extract; image-only PDFs may be empty |
-| PowerPoint → PDF | `.pptx` | `.pdf` | Best-effort text + embedded images |
-| PNG → JPG | images | `.jpg` | Flattens transparency |
-| JPG → PNG | `.jpg` / `.jpeg` | `.png` | |
+|------|--------|--------|--------|
+| PDF to .txt | `.pdf` | **UTF-8 `.txt`** | Page-by-page Syncfusion extract (`layoutText`); image-only → notice (no OCR) |
+| .txt to PDF | `.txt` / `.md` / `.log` | `.pdf` | Multi-page wrap + Apptriangle footer |
+| PowerPoint to PDF | `.pptx` | `.pdf` | Text + embedded images best-effort |
+| PNG to JPG | images | `.jpg` | Flatten + watermark |
+| JPG to PNG | `.jpg` | `.png` | Re-encode + stamp |
 
-- Progress while converting  
-- **Share** card when result ready
+Picker: path if present, else `PlatformFile.readAsBytes()` → temp file (SAF-safe). Output names use `${base}_${stamp}.ext` (fixed Closure bug).
 
 ---
 
@@ -278,7 +275,8 @@ On-device file conversion (no upload). Outputs under app `converts/` folder.
 | Trash actions sheet | Trash ⋯ | Restore / permanent delete |
 | Move to folder sheet | Home / Viewer | Pick folder |
 | Enhance sheet | Review | Filters |
-| Tags sheet | Viewer | Add / remove tags |
+| Tags sheet | Home ⋯ / Viewer | Toggle colored catalog tags · create tag |
+| Tag edit dialog | Settings / Tags sheet | Name + color palette · Delete |
 | Activity sheet | Viewer | Created / modified / exported |
 | Sort popup | Home | LibrarySort |
 | System share | Home / Viewer / Converters | OS share |
@@ -288,19 +286,21 @@ On-device file conversion (no upload). Outputs under app `converts/` folder.
 
 ## Library data model (UI-facing)
 
-Stored in each document `meta.json` (+ `library/folders.json`):
+Stored in each document `meta.json` (+ `library/folders.json` + `library/tags.json`):
 
 | Field | UI use |
 |-------|--------|
-| `folderId` | Folder chips / move / Unfiled |
-| `tags` | Chips, search, filter |
+| `folderId` | Stored but **UI hidden** for now |
+| `tags` | List of **tag ids** → colored chips, search (by name), Home filter |
 | `isFavorite` | Star, Favorites filter, strip, sort |
 | `deletedAt` | Trash vs library; auto-purge by Settings days |
 | `exportedAt` | Activity “Exported” |
 | `createdAt` / `updatedAt` | Activity + sort |
 | `fileSizeBytes` / pages | Sort + card meta |
 
-Default seeded folders: **Work · Personal · Receipts · IDs · Certificates · Finance**.
+Default seeded folders: kept in storage; **not shown in UI**.
+
+Default seeded tags (name + color): **Urgent · Work · Personal · Receipt · ID · Finance**. Catalog edited in **Settings → Tags** (tap = edit name/color; Delete in dialog or long-press).
 
 ---
 
@@ -313,8 +313,9 @@ Default seeded folders: **Work · Personal · Receipts · IDs · Certificates ·
 | Paper `#F0F2F5` | Light scaffold |
 | Scanner bg `#0E1218` | Scan capture |
 | Plus Jakarta Sans | Typography |
-| Apptriangle watermark | Preview + exports (bottom-right) |
-| App icon | Launcher + Home header (`assets/branding/app_icon.png`) |
+| Apptriangle watermark | Preview overlay · **baked into export images** · **drawn on every PDF page** (any viewer) |
+| Save to device | System Save as (file manager) · Viewer · Tools · Export toggle |
+| App icon | Launcher · Open-with **tool aliases** · Home header (`assets/branding/app_icon.png`) |
 | Radii | Sm 12 · Md 16 · Lg 20 · Xl 24 |
 
 Shared widgets: `lib/shared/widgets/app_ui.dart` (buttons, cards, empty, chips, sheets, loading).

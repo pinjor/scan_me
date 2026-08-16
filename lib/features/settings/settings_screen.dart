@@ -3,10 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../shared/models/library_models.dart';
 import '../../shared/widgets/app_ui.dart';
+import '../../shared/widgets/tag_sheets.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
-  const SettingsScreen({super.key});
+  const SettingsScreen({super.key, this.embedded = false});
+
+  /// When true (Me tab), title is "Me" and body pads for bottom nav.
+  final bool embedded;
 
   @override
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
@@ -34,10 +39,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
+      appBar: widget.embedded
+          ? null
+          : AppBar(title: const Text('Settings')),
+      body: SafeArea(
+        child: ListView(
+        padding: EdgeInsets.fromLTRB(12, 4, 12, widget.embedded ? 100 : 24),
         children: [
+          if (widget.embedded) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+              child: Text('Me', style: text.titleLarge),
+            ),
+          ],
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
             child: Text(
@@ -128,6 +142,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
             child: Text(
+              'Tags',
+              style: text.titleSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          AppCard(
+            elevated: false,
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                ...(ref.watch(tagsProvider).valueOrNull ?? const <TagDef>[])
+                    .map(
+                  (tag) => Column(
+                    children: [
+                      ListTile(
+                        dense: true,
+                        leading: CircleAvatar(
+                          backgroundColor: Color(tag.color),
+                          radius: 12,
+                        ),
+                        title: Text(tag.name),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _editTag(tag),
+                        onLongPress: () => _deleteTag(tag),
+                      ),
+                      Divider(height: 1, color: scheme.outlineVariant),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  dense: true,
+                  leading: Icon(Icons.add, color: scheme.primary),
+                  title: const Text('Add tag'),
+                  onTap: () async {
+                    await showCreateOrEditTagDialog(
+                      context: context,
+                      ref: ref,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(
               'About',
               style: text.titleSmall?.copyWith(
                 color: scheme.onSurfaceVariant,
@@ -153,7 +215,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       ),
+      ),
     );
+  }
+
+  Future<void> _editTag(TagDef tag) async {
+    await showCreateOrEditTagDialog(
+      context: context,
+      ref: ref,
+      existing: tag,
+    );
+  }
+
+  Future<void> _deleteTag(TagDef tag) async {
+    final ok = await showConfirmSheet(
+      context: context,
+      title: 'Delete “${tag.name}”?',
+      message: 'Removes this tag from Settings and from every document.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    await ref.read(tagsProvider.notifier).delete(tag.id);
   }
 }
 

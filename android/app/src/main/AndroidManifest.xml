@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application
         android:label="ScanMe"
         android:name="${applicationName}"
@@ -15,9 +16,12 @@
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
-            android:windowSoftInputMode="adjustResize">
+            android:windowSoftInputMode="adjustResize"
+            android:resizeableActivity="true">
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -27,6 +31,164 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+        <!-- Open-with tool entries (icons + capability labels). -->
+        <activity-alias
+            android:name=".OpenViewPdf"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="View PDF"
+            android:icon="@drawable/ic_alias_view_pdf"
+            android:roundIcon="@drawable/ic_alias_view_pdf">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenPdfToTxt"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="PDF to .txt"
+            android:icon="@drawable/ic_alias_pdf_to_txt"
+            android:roundIcon="@drawable/ic_alias_pdf_to_txt">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenViewTxt"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="View text"
+            android:icon="@drawable/ic_alias_view_txt"
+            android:roundIcon="@drawable/ic_alias_view_txt">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="text/plain" />
+                <data android:mimeType="text/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenTxtToPdf"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label=".txt to PDF"
+            android:icon="@drawable/ic_alias_txt_to_pdf"
+            android:roundIcon="@drawable/ic_alias_txt_to_pdf">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenViewImage"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="View image"
+            android:icon="@drawable/ic_alias_view_image"
+            android:roundIcon="@drawable/ic_alias_view_image">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenPngToJpg"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="PNG to JPG"
+            android:icon="@drawable/ic_alias_png_to_jpg"
+            android:roundIcon="@drawable/ic_alias_png_to_jpg">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/png" />
+                <data android:mimeType="image/webp" />
+                <data android:mimeType="image/gif" />
+                <data android:mimeType="image/bmp" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenJpgToPng"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="JPG to PNG"
+            android:icon="@drawable/ic_alias_jpg_to_png"
+            android:roundIcon="@drawable/ic_alias_jpg_to_png">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/jpeg" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenViewPptx"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="View slides"
+            android:icon="@drawable/ic_alias_view_pptx"
+            android:roundIcon="@drawable/ic_alias_view_pptx">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+                <data android:mimeType="application/vnd.ms-powerpoint" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenPptxToPdf"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="PPTX to PDF"
+            android:icon="@drawable/ic_alias_pptx_to_pdf"
+            android:roundIcon="@drawable/ic_alias_pptx_to_pdf">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+            </intent-filter>
+        </activity-alias>
+
+        <!-- Play Console: Android 16 ignores portrait lock on large screens.
+             Override ML Kit's PORTRAIT so merged manifest is unrestricted. -->
+        <activity
+            android:name="com.google.mlkit.vision.documentscanner.internal.GmsDocumentScanningDelegateActivity"
+            android:screenOrientation="unspecified"
+            tools:replace="android:screenOrientation" />
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

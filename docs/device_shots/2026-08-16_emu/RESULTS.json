@@ -1,0 +1,97 @@
+[
+  {
+    "check": "Home launch",
+    "result": "PASS",
+    "note": "ScanMe, Trash, Settings, All, Favorites, Folders, Tags, Unfiled, Sort, No documents yet, Scan Document, Images to PDF"
+  },
+  {
+    "check": "Settings open",
+    "result": "PASS",
+    "note": "Back, Settings, Appearance, System, Light, Dark, Trash, Auto-delete&#10;After 30 days, About, ScanMe&#10;Apptriangle \u00b7 v1.0.0"
+  },
+  {
+    "check": "Settings Light theme tap",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Settings trash section visible",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Back to Home from Settings",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Favorites filter",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "All filter",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Folders expand / chips",
+    "result": "PASS",
+    "note": "['ScanMe', 'Trash', 'Settings', 'All', 'Favorites', 'Folders', 'Tags', 'Unfiled', 'Sort', 'Certificates', 'Finance', 'IDs', 'Personal', 'Receipts', 'Work', 'No documents yet', 'Scan Document', 'Images to PDF', 'New']"
+  },
+  {
+    "check": "Tags filter",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Unfiled filter",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "Sort menu",
+    "result": "PASS",
+    "note": "Recently modified, Recently created, Name A\u2013Z, Name Z\u2013A, Number of pages, File size, Dismiss menu"
+  },
+  {
+    "check": "Trash view",
+    "result": "PASS",
+    "note": "Trash, Library, Settings, Trash is empty, Back to library"
+  },
+  {
+    "check": "Return Library from Trash",
+    "result": "PASS",
+    "note": ""
+  },
+  {
+    "check": "FAB expand",
+    "result": "PASS",
+    "note": "ScanMe, Trash, Settings, All, Favorites, Folders, Tags, Unfiled, Sort, No documents yet, Scan Document, Images to PDF, Converters, Close"
+  },
+  {
+    "check": "Converters hub",
+    "result": "PASS",
+    "note": "Back, Converters, PDF \u2192 Text, PowerPoint \u2192 PDF, PNG \u2192 JPG, JPG \u2192 PNG"
+  },
+  {
+    "check": "Images to PDF opens picker/system UI",
+    "result": "PASS",
+    "note": "ScanMe, Trash, Settings, All, Favorites, Folders, Tags, Unfiled, Sort, No documents yet, Scan Document, Images to PDF, Converters, Close"
+  },
+  {
+    "check": "Scan Document opens scanner/capture",
+    "result": "PASS",
+    "note": "labels=['Something went wrong', 'Try again later', 'Cancel'] mlkit=True"
+  },
+  {
+    "check": "After scan cancel back to Home",
+    "result": "FAIL",
+    "note": ""
+  },
+  {
+    "check": "No FATAL for app in recent logcat",
+    "result": "PASS",
+    "note": ""
+  }
+]

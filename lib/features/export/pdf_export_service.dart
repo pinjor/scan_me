@@ -1,4 +1,5 @@
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:pdf/pdf.dart';
@@ -13,15 +14,22 @@ typedef PdfProgress = void Function(int current, int total);
 abstract final class PdfExportService {
   PdfExportService._();
 
-  /// Build PDF from already-compressed JPEG page bytes.
+  /// Build PDF from JPEG page bytes.
+  ///
+  /// Every page gets an Apptriangle logo in the bottom-right corner as a real
+  /// PDF draw (visible in any external PDF viewer), plus pixels may already
+  /// include a baked stamp from [prepareExportJpeg].
   static Future<Uint8List> buildPdfFromJpegs({
     required List<Uint8List> jpegPages,
     PdfPageSizeOption pageSize = PdfPageSizeOption.original,
     PdfOrientationOption orientation = PdfOrientationOption.auto,
     PdfProgress? onProgress,
+    bool drawCornerWatermark = true,
   }) async {
     final doc = pw.Document();
     final total = jpegPages.length;
+    final logo =
+        drawCornerWatermark ? await WatermarkService.pdfLogoImage() : null;
 
     for (var i = 0; i < jpegPages.length; i++) {
       onProgress?.call(i + 1, total);
@@ -40,9 +48,22 @@ abstract final class PdfExportService {
       doc.addPage(
         pw.Page(
           pageFormat: pageFormat,
+          margin: pw.EdgeInsets.zero,
           build: (context) {
-            return pw.Center(
-              child: pw.Image(image, fit: pw.BoxFit.contain),
+            return pw.Stack(
+              children: [
+                pw.Positioned.fill(
+                  child: pw.Center(
+                    child: pw.Image(image, fit: pw.BoxFit.contain),
+                  ),
+                ),
+                if (logo != null)
+                  WatermarkService.pdfCornerMark(
+                    logo: logo,
+                    pageWidth: pageFormat.width,
+                    pageHeight: pageFormat.height,
+                  ),
+              ],
             );
           },
         ),
@@ -67,11 +88,9 @@ abstract final class PdfExportService {
       case PdfPageSizeOption.a4:
         base = PdfPageFormat.a4;
       case PdfPageSizeOption.original:
-        // Match image aspect; long edge ≈ A4 long edge.
         final long = PdfPageFormat.a4.height;
-        final short = long * (imageLandscape
-            ? imageH / imageW
-            : imageW / imageH);
+        final short = long *
+            (imageLandscape ? imageH / imageW : imageW / imageH);
         return imageLandscape
             ? PdfPageFormat(long, short, marginAll: 0)
             : PdfPageFormat(short, long, marginAll: 0);
@@ -104,6 +123,7 @@ Future<Uint8List> prepareExportJpeg({
   required bool alreadyCompressed,
   int maxLongEdge = kExportMaxLongEdge,
   int quality = kExportJpegQuality,
+  bool applyWatermark = true,
 }) async {
   var bytes = await File(imagePath).readAsBytes();
   if (!alreadyCompressed) {
@@ -114,7 +134,6 @@ Future<Uint8List> prepareExportJpeg({
     );
   } else if (maxLongEdge != kExportMaxLongEdge ||
       quality != kExportJpegQuality) {
-    // Re-encode when user picked a different quality preset.
     bytes = await ImageCompressionService.compressJpegBytesAsync(
       bytes,
       maxLongEdge: maxLongEdge,
@@ -123,9 +142,15 @@ Future<Uint8List> prepareExportJpeg({
   }
   final deg = ((rotation % 360) + 360) % 360;
   if (deg != 0) {
-    bytes = await compute(_rotateJpeg, (bytes: bytes, degrees: deg, quality: quality));
+    bytes = await compute(
+      _rotateJpeg,
+      (bytes: bytes, degrees: deg, quality: quality),
+    );
   }
-  return WatermarkService.applyToJpegBytes(bytes);
+  if (applyWatermark) {
+    return WatermarkService.applyToJpegBytes(bytes);
+  }
+  return bytes;
 }
 
 Future<Uint8List> prepareExportImageBytes({
@@ -141,6 +166,7 @@ Future<Uint8List> prepareExportImageBytes({
     alreadyCompressed: alreadyCompressed,
     maxLongEdge: qualityPreset.maxLongEdge,
     quality: qualityPreset.jpegQuality,
+    applyWatermark: true,
   );
   if (format == ImageExportFormat.jpg) return jpeg;
   final decoded = img.decodeImage(jpeg);

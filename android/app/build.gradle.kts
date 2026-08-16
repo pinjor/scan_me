@@ -75,6 +75,11 @@ kotlin {
     }
 }
 
+dependencies {
+    // enableEdgeToEdge() for Android 15 Play guidance (backward compatible).
+    implementation("androidx.activity:activity-ktx:1.9.3")
+}
+
 flutter {
     source = "../.."
 }

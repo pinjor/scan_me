@@ -23,6 +23,11 @@ final foldersProvider =
       (ref) => FoldersController(ref.watch(documentStorageProvider)),
     );
 
+final tagsProvider =
+    StateNotifierProvider<TagsController, AsyncValue<List<TagDef>>>(
+      (ref) => TagsController(ref.watch(documentStorageProvider)),
+    );
+
 final libraryQueryProvider =
     StateNotifierProvider<LibraryQueryController, LibraryQuery>(
       (ref) => LibraryQueryController(),
@@ -132,6 +137,53 @@ class FoldersController extends StateNotifier<AsyncValue<List<DocFolder>>> {
   }
 }
 
+class TagsController extends StateNotifier<AsyncValue<List<TagDef>>> {
+  TagsController(this._storage) : super(const AsyncValue.loading()) {
+    refresh();
+  }
+
+  final DocumentStorageService _storage;
+  bool _migrated = false;
+
+  Future<void> refresh() async {
+    try {
+      if (!_migrated) {
+        await _storage.migrateLegacyTags();
+        _migrated = true;
+      }
+      final list = await _storage.listTags();
+      state = AsyncValue.data(list);
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<TagDef?> create(String name, int color) async {
+    final tag = await _storage.createTag(name, color);
+    await refresh();
+    return tag;
+  }
+
+  Future<void> update(String id, {String? name, int? color}) async {
+    await _storage.updateTag(id, name: name, color: color);
+    await refresh();
+  }
+
+  Future<void> delete(String id) async {
+    await _storage.deleteTag(id);
+    await refresh();
+  }
+
+  TagDef? byId(String id) {
+    final list = state.valueOrNull;
+    if (list == null) return null;
+    for (final t in list) {
+      if (t.id == id) return t;
+    }
+    return null;
+  }
+}
+
 class DocumentsController
     extends StateNotifier<AsyncValue<List<ScannedDocument>>> {
   DocumentsController(this._storage) : super(const AsyncValue.loading()) {
@@ -205,33 +257,42 @@ class DocumentsController
     await refresh();
   }
 
-  Future<void> addTag(String id, String tag) async {
+  Future<void> addTag(String id, String tagId) async {
     final doc = await _storage.loadDocument(id);
     if (doc == null) return;
     final next = [...doc.tags];
-    final t = tag.trim();
-    if (t.isEmpty || next.any((e) => e.toLowerCase() == t.toLowerCase())) {
-      return;
-    }
+    final t = tagId.trim();
+    if (t.isEmpty || next.contains(t)) return;
     next.add(t);
     await setTags(id, next);
   }
 
-  Future<void> removeTag(String id, String tag) async {
+  Future<void> removeTag(String id, String tagId) async {
     final doc = await _storage.loadDocument(id);
     if (doc == null) return;
-    await setTags(
-      id,
-      doc.tags.where((t) => t.toLowerCase() != tag.toLowerCase()).toList(),
-    );
+    await setTags(id, doc.tags.where((t) => t != tagId).toList());
+  }
+
+  Future<void> toggleTag(String id, String tagId) async {
+    final doc = await _storage.loadDocument(id);
+    if (doc == null) return;
+    if (doc.tags.contains(tagId)) {
+      await removeTag(id, tagId);
+    } else {
+      await addTag(id, tagId);
+    }
   }
 }
 
 /// Apply [query] + optional [folders] for display sorting/filtering.
+///
+/// [tagNamesById] maps tag id → display name so search matches names, not
+/// only raw ids stored on documents.
 List<ScannedDocument> filterAndSortDocuments(
   List<ScannedDocument> all,
-  LibraryQuery query,
-) {
+  LibraryQuery query, {
+  Map<String, String>? tagNamesById,
+}) {
   Iterable<ScannedDocument> list = all.where((d) {
     if (query.showTrash) return d.isInTrash;
     return !d.isInTrash;
@@ -246,16 +307,20 @@ List<ScannedDocument> filterAndSortDocuments(
     list = list.where((d) => d.folderId == query.folderId);
   }
   if (query.tag != null && query.tag!.isNotEmpty) {
-    final needle = query.tag!.toLowerCase();
-    list = list.where(
-      (d) => d.tags.any((t) => t.toLowerCase() == needle),
-    );
+    final needle = query.tag!;
+    list = list.where((d) => d.tags.contains(needle));
   }
   final q = query.search.trim().toLowerCase();
   if (q.isNotEmpty) {
     list = list.where((d) {
       if (d.name.toLowerCase().contains(q)) return true;
-      if (d.tags.any((t) => t.toLowerCase().contains(q))) return true;
+      if (d.tags.any((t) {
+            if (t.toLowerCase().contains(q)) return true;
+            final name = tagNamesById?[t];
+            return name != null && name.toLowerCase().contains(q);
+          })) {
+        return true;
+      }
       return false;
     });
   }

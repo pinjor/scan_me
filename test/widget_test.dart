@@ -63,6 +63,9 @@ class _FakeDocumentsController
 
   @override
   Future<void> removeTag(String id, String tag) async {}
+
+  @override
+  Future<void> toggleTag(String id, String tagId) async {}
 }
 
 class _FakeFoldersController

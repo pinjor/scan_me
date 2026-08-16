@@ -140,7 +140,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     ref.read(editorSessionProvider.notifier).rotateSelected(),
                 onRetake: () => _retakePage(context),
                 onDelete: () => _confirmDeletePage(context),
-                onMore: () => _showMore(context),
+                onRetakeAll: () => _retakeAll(context),
               ),
             ],
           ),
@@ -177,69 +177,87 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
         ref.read(editorSessionProvider)?.selectedPage?.displayPath;
     final choice = await showAppBottomSheet<({PageFilter filter, bool all})>(
       context: context,
+      isScrollControlled: true,
       builder: (ctx) {
         final text = Theme.of(ctx).textTheme;
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                child: Text('Enhance', style: text.headlineSmall),
-              ),
-              _EnhanceOptionCard(
-                icon: Icons.image_outlined,
-                title: 'Original',
-                previewPath: previewPath,
-                grayscalePreview: false,
-                onTap: () => Navigator.pop(
-                  ctx,
-                  (filter: PageFilter.original, all: false),
+        final scheme = Theme.of(ctx).colorScheme;
+        const thisPage = [
+          PageFilter.original,
+          PageFilter.blackAndWhite,
+          PageFilter.grayscale,
+          PageFilter.autoEnhance,
+          PageFilter.vivid,
+          PageFilter.lighten,
+        ];
+        const allPages = [
+          PageFilter.blackAndWhite,
+          PageFilter.grayscale,
+          PageFilter.autoEnhance,
+          PageFilter.vivid,
+          PageFilter.lighten,
+          PageFilter.original,
+        ];
+        IconData iconFor(PageFilter f) => switch (f) {
+              PageFilter.original => Icons.crop_original,
+              PageFilter.blackAndWhite => Icons.contrast,
+              PageFilter.grayscale => Icons.filter_b_and_w,
+              PageFilter.autoEnhance => Icons.tonality,
+              PageFilter.vivid => Icons.palette_outlined,
+              PageFilter.lighten => Icons.wb_sunny_outlined,
+            };
+        return ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(ctx).height * 0.85,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                  child: Text('Enhance', style: text.headlineSmall),
                 ),
-              ),
-              const SizedBox(height: 8),
-              _EnhanceOptionCard(
-                icon: Icons.contrast,
-                title: 'Black & White',
-                previewPath: previewPath,
-                grayscalePreview: true,
-                onTap: () => Navigator.pop(
-                  ctx,
-                  (filter: PageFilter.blackAndWhite, all: false),
+                Text(
+                  'This page',
+                  style: text.titleSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'All pages',
-                style: text.titleSmall?.copyWith(
-                  color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                const SizedBox(height: 6),
+                for (final f in thisPage) ...[
+                  _EnhanceOptionCard(
+                    icon: iconFor(f),
+                    title: f.enhanceTitle,
+                    previewPath: previewPath,
+                    grayscalePreview: f.previewAsGrey,
+                    onTap: () => Navigator.pop(ctx, (filter: f, all: false)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 4),
+                Text(
+                  'All pages',
+                  style: text.titleSmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              _EnhanceOptionCard(
-                icon: Icons.done_all,
-                title: 'Black & white',
-                previewPath: previewPath,
-                grayscalePreview: true,
-                onTap: () => Navigator.pop(
-                  ctx,
-                  (filter: PageFilter.blackAndWhite, all: true),
-                ),
-              ),
-              const SizedBox(height: 8),
-              _EnhanceOptionCard(
-                icon: Icons.restart_alt,
-                title: 'Original',
-                previewPath: previewPath,
-                grayscalePreview: false,
-                onTap: () => Navigator.pop(
-                  ctx,
-                  (filter: PageFilter.original, all: true),
-                ),
-              ),
-            ],
+                const SizedBox(height: 6),
+                for (final f in allPages) ...[
+                  _EnhanceOptionCard(
+                    icon: f == PageFilter.original
+                        ? Icons.restart_alt
+                        : Icons.done_all,
+                    title: f.enhanceTitle,
+                    previewPath: previewPath,
+                    grayscalePreview: f.previewAsGrey,
+                    onTap: () => Navigator.pop(ctx, (filter: f, all: true)),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
           ),
         );
       },
@@ -363,26 +381,6 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       await ref.read(editorSessionProvider.notifier).deleteSelectedPage();
     }
   }
-
-  Future<void> _showMore(BuildContext context) async {
-    await showAppBottomSheet<void>(
-      context: context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.refresh),
-            title: const Text('Retake all pages'),
-            subtitle: const Text('Discard current pages and scan again'),
-            onTap: () {
-              Navigator.pop(ctx);
-              _retakeAll(context);
-            },
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _EnhanceOptionCard extends StatelessWidget {
@@ -460,6 +458,15 @@ class _PageFilterBar extends StatelessWidget {
   final bool busy;
   final ValueChanged<PageFilter> onChanged;
 
+  static const _quick = [
+    PageFilter.blackAndWhite,
+    PageFilter.grayscale,
+    PageFilter.autoEnhance,
+    PageFilter.vivid,
+    PageFilter.lighten,
+    PageFilter.original,
+  ];
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -469,37 +476,32 @@ class _PageFilterBar extends StatelessWidget {
         border: Border(top: BorderSide(color: scheme.outlineVariant)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               'This page',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+                    color: scheme.onSurfaceVariant,
+                  ),
             ),
             const SizedBox(height: 8),
-            SegmentedButton<PageFilter>(
-              segments: const [
-                ButtonSegment(
-                  value: PageFilter.blackAndWhite,
-                  label: Text('B&W'),
-                  icon: Icon(Icons.contrast, size: 18),
-                ),
-                ButtonSegment(
-                  value: PageFilter.original,
-                  label: Text('Original'),
-                  icon: Icon(Icons.image_outlined, size: 18),
-                ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                for (final f in _quick)
+                  ChoiceChip(
+                    label: Text(f.label),
+                    selected: filter == f,
+                    onSelected: busy
+                        ? null
+                        : (sel) {
+                            if (sel) onChanged(f);
+                          },
+                  ),
               ],
-              selected: {filter},
-              onSelectionChanged: busy
-                  ? null
-                  : (next) {
-                      if (next.isEmpty) return;
-                      onChanged(next.first);
-                    },
             ),
           ],
         ),
@@ -624,7 +626,7 @@ class _EditToolbar extends StatelessWidget {
     required this.onRotate,
     required this.onRetake,
     required this.onDelete,
-    required this.onMore,
+    required this.onRetakeAll,
   });
 
   final bool busy;
@@ -632,7 +634,7 @@ class _EditToolbar extends StatelessWidget {
   final VoidCallback onRotate;
   final VoidCallback onRetake;
   final VoidCallback onDelete;
-  final VoidCallback onMore;
+  final VoidCallback onRetakeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -675,7 +677,7 @@ class _EditToolbar extends StatelessWidget {
                     onTap: busy ? null : onRotate,
                   ),
                   _Tool(
-                    icon: Icons.camera_alt_outlined,
+                    icon: Icons.document_scanner_outlined,
                     label: 'Retake',
                     onTap: busy ? null : onRetake,
                   ),
@@ -685,9 +687,9 @@ class _EditToolbar extends StatelessWidget {
                     onTap: busy ? null : onDelete,
                   ),
                   _Tool(
-                    icon: Icons.more_horiz,
-                    label: 'More',
-                    onTap: busy ? null : onMore,
+                    icon: Icons.refresh,
+                    label: 'Retake all',
+                    onTap: busy ? null : onRetakeAll,
                   ),
                 ],
               ),

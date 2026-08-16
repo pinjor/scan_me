@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:scanme/features/converters/document_converter_service.dart';
 
 class _FakePathProvider extends PathProviderPlatform {
@@ -63,5 +64,66 @@ void main() {
     final decoded =
         img.decodeImage(await File(result.outputPath).readAsBytes());
     expect(decoded, isNotNull);
+    expect(p.basename(result.outputPath).contains('Closure'), isFalse);
+  });
+
+  test('TXT → PDF converter writes pdf', () async {
+    final src = File(p.join(tmp.path, 'notes.txt'));
+    await src.writeAsString('Hello ScanMe\n\nSecond paragraph.');
+
+    final result = await DocumentConverterService.txtToPdf(src.path);
+    expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+    expect(result.label, 'PDF');
+    final bytes = await File(result.outputPath).readAsBytes();
+    expect(bytes.length, greaterThan(100));
+    expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+    expect(p.basename(result.outputPath).contains('Closure'), isFalse);
+    expect(
+      RegExp(r'^notes_PDF_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$')
+          .hasMatch(p.basename(result.outputPath)),
+      isTrue,
+      reason: 'expected notes_PDF_yyyy-MM-dd_HHmm.pdf',
+    );
+  });
+
+  test('PDF → .txt writes UTF-8 text file', () async {
+    // Minimal PDF with drawable text via package:pdf, then extract.
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        build: (c) => pw.Text('ScanMe PDF to TXT probe'),
+      ),
+    );
+    final pdfFile = File(p.join(tmp.path, 'probe.pdf'));
+    await pdfFile.writeAsBytes(await pdf.save());
+
+    final result = await DocumentConverterService.pdfToTxt(pdfFile.path);
+    expect(result.outputPath.toLowerCase().endsWith('.txt'), isTrue);
+    expect(result.label, '.txt');
+    expect(result.mimeType, 'text/plain');
+    final body = await File(result.outputPath).readAsString();
+    expect(body.toLowerCase().contains('scanme') || body.contains('probe') || body.isNotEmpty, isTrue);
+    expect(
+      RegExp(r'^probe_TXT_\d{4}-\d{2}-\d{2}_\d{4}\.txt$')
+          .hasMatch(p.basename(result.outputPath)),
+      isTrue,
+    );
+  });
+
+  test('cleanBaseName strips open-with / incoming junk', () {
+    expect(
+      DocumentConverterService.cleanBaseName('open_with_Invoice.pdf'),
+      'Invoice',
+    );
+    expect(
+      DocumentConverterService.cleanBaseName('incoming_Contract.pdf'),
+      'Contract',
+    );
+    expect(
+      DocumentConverterService.cleanBaseName(
+        'Contract_TXT_2026-08-16_1445.txt',
+      ),
+      'Contract',
+    );
   });
 }

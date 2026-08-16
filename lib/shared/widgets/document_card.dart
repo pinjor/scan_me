@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../models/library_models.dart';
 import '../models/scanned_document.dart';
+import 'app_transitions.dart';
 import 'app_ui.dart';
 
 class DocumentCard extends StatelessWidget {
@@ -15,6 +17,7 @@ class DocumentCard extends StatelessWidget {
     required this.onMore,
     this.onDelete,
     this.folderName,
+    this.tagDefs = const [],
   });
 
   final ScannedDocument doc;
@@ -22,6 +25,7 @@ class DocumentCard extends StatelessWidget {
   final VoidCallback onMore;
   final VoidCallback? onDelete;
   final String? folderName;
+  final List<TagDef> tagDefs;
 
   @override
   Widget build(BuildContext context) {
@@ -35,13 +39,10 @@ class DocumentCard extends StatelessWidget {
     final meta = [
       '${doc.pageCount} ${doc.pageCount == 1 ? 'page' : 'pages'}',
       type,
-      if (size != null) size,
+      ?size,
       date,
     ].join(' · ');
-    final badges = <String>[
-      if (folderName != null) folderName!,
-      ...doc.tags.take(2),
-    ];
+    final byId = {for (final t in tagDefs) t.id: t};
 
     final card = AppCard(
       onTap: onOpen,
@@ -70,6 +71,8 @@ class DocumentCard extends StatelessWidget {
                         ? Image.file(
                             File(doc.thumbnailPath!),
                             fit: BoxFit.cover,
+                            cacheWidth: 160,
+                            filterQuality: FilterQuality.medium,
                           )
                         : Icon(
                             Icons.description_outlined,
@@ -87,7 +90,7 @@ class DocumentCard extends StatelessWidget {
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.star,
+                            Icons.bookmark,
                             size: 11,
                             color: Colors.amber,
                           ),
@@ -118,13 +121,21 @@ class DocumentCard extends StatelessWidget {
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
-                if (badges.isNotEmpty) ...[
+                if (folderName != null || doc.tags.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 4,
                     runSpacing: 4,
-                    children:
-                        badges.map((c) => MetaChip(label: c)).toList(),
+                    children: [
+                      if (folderName != null) MetaChip(label: folderName!),
+                      for (final id in doc.tags.take(2))
+                        MetaChip(
+                          label: byId[id]?.name ?? id,
+                          color: byId[id] != null
+                              ? Color(byId[id]!.color)
+                              : null,
+                        ),
+                    ],
                   ),
                 ],
               ],
@@ -147,7 +158,7 @@ class DocumentCard extends StatelessWidget {
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async {
         onDelete!();
-        return false; // parent handles delete + list refresh
+        return false;
       },
       background: Container(
         alignment: Alignment.centerRight,
@@ -212,9 +223,13 @@ class _ScanFabMenuState extends State<ScanFabMenu>
     super.initState();
     _ctrl = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: AppMotion.chip,
     );
-    _t = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic);
+    _t = CurvedAnimation(
+      parent: _ctrl,
+      curve: AppMotion.emphasizedDecelerate,
+      reverseCurve: AppMotion.emphasizedAccelerate,
+    );
   }
 
   @override
@@ -266,7 +281,7 @@ class _ScanFabMenuState extends State<ScanFabMenu>
                       if (widget.onConverters != null) ...[
                         _SpeedDialAction(
                           label: 'Converters',
-                          icon: Icons.auto_awesome_outlined,
+                          icon: Icons.swap_horiz,
                           background: scheme.surface,
                           foreground: scheme.primary,
                           onPressed: () => _run(widget.onConverters!),
@@ -275,7 +290,7 @@ class _ScanFabMenuState extends State<ScanFabMenu>
                       ],
                       _SpeedDialAction(
                         label: 'Images to PDF',
-                        icon: Icons.photo_library_outlined,
+                        icon: Icons.collections_outlined,
                         background: scheme.surface,
                         foreground: scheme.primary,
                         onPressed: () => _run(widget.onImagesToPdf),
@@ -300,7 +315,8 @@ class _ScanFabMenuState extends State<ScanFabMenu>
             onPressed: _toggle,
             child: AnimatedRotation(
               turns: _open ? 0.125 : 0,
-              duration: const Duration(milliseconds: 200),
+              duration: AppMotion.chip,
+              curve: AppMotion.softSpring,
               child: Icon(_open ? Icons.close : Icons.add, size: 26),
             ),
           ),

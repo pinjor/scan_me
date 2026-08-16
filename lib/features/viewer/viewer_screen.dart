@@ -10,12 +10,15 @@ import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers.dart';
+import '../../core/services/device_save_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/library_models.dart';
 import '../../shared/models/scanned_document.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/apptriangle_watermark_overlay.dart';
+import '../../shared/widgets/tag_sheets.dart';
+import '../file_viewer/file_viewer_screen.dart';
 
 class ViewerScreen extends ConsumerStatefulWidget {
   const ViewerScreen({super.key, required this.documentId});
@@ -32,7 +35,6 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   bool _loading = true;
   String? _error;
   PageController? _pageController;
-  final _tagCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -43,7 +45,6 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   @override
   void dispose() {
     _pageController?.dispose();
-    _tagCtrl.dispose();
     super.dispose();
   }
 
@@ -96,11 +97,9 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     }
 
     final scheme = Theme.of(context).colorScheme;
-    final folders = ref.watch(foldersProvider).valueOrNull ?? const <DocFolder>[];
-    final folderName = folders
-        .where((f) => f.id == doc.folderId)
-        .map((f) => f.name)
-        .firstOrNull;
+    final tagsCatalog =
+        ref.watch(tagsProvider).valueOrNull ?? const <TagDef>[];
+    final tagById = {for (final t in tagsCatalog) t.id: t};
 
     return Scaffold(
       appBar: AppBar(
@@ -121,7 +120,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                 child: FadeTransition(opacity: anim, child: child),
               ),
               child: Icon(
-                doc.isFavorite ? Icons.star : Icons.star_outline,
+                doc.isFavorite ? Icons.bookmark : Icons.bookmark_border,
                 key: ValueKey(doc.isFavorite),
               ),
             ),
@@ -132,17 +131,29 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
             icon: const Icon(Icons.print_outlined),
           ),
           IconButton(
+            tooltip: 'Save to device',
+            onPressed: () => _saveToDevice(doc),
+            icon: const Icon(Icons.save_alt),
+          ),
+          IconButton(
             tooltip: 'Share',
             onPressed: () => _share(doc),
-            icon: const Icon(Icons.ios_share_outlined),
+            icon: const Icon(Icons.share_outlined),
           ),
           PopupMenuButton<String>(
             onSelected: (v) async {
               switch (v) {
+                case 'pdf':
+                  final pdf = doc.pdfPath;
+                  if (pdf != null && File(pdf).existsSync()) {
+                    await FileViewerScreen.open(
+                      context,
+                      pdf,
+                      title: '${doc.name}.pdf',
+                    );
+                  }
                 case 'rename':
                   await _rename(doc);
-                case 'move':
-                  await _moveFolder(doc, folders);
                 case 'tags':
                   await _editTags(doc);
                 case 'activity':
@@ -152,8 +163,12 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
               }
             },
             itemBuilder: (_) => [
+              if (doc.pdfPath != null && File(doc.pdfPath!).existsSync())
+                const PopupMenuItem(
+                  value: 'pdf',
+                  child: Text('View PDF'),
+                ),
               const PopupMenuItem(value: 'rename', child: Text('Rename')),
-              const PopupMenuItem(value: 'move', child: Text('Move to folder')),
               const PopupMenuItem(value: 'tags', child: Text('Tags')),
               const PopupMenuItem(value: 'activity', child: Text('Activity')),
               const PopupMenuItem(value: 'delete', child: Text('Move to Trash')),
@@ -163,16 +178,20 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       ),
       body: Column(
         children: [
-          if (folderName != null || doc.tags.isNotEmpty)
+          if (doc.tags.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               child: Wrap(
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  if (folderName != null)
-                    MetaChip(label: folderName),
-                  for (final t in doc.tags) MetaChip(label: t),
+                  for (final id in doc.tags)
+                    MetaChip(
+                      label: tagById[id]?.name ?? id,
+                      color: tagById[id] != null
+                          ? Color(tagById[id]!.color)
+                          : null,
+                    ),
                 ],
               ),
             ),
@@ -318,6 +337,59 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     }
   }
 
+  Future<void> _saveToDevice(ScannedDocument doc) async {
+    final paths = <String>[];
+    if (doc.pdfPath != null && File(doc.pdfPath!).existsSync()) {
+      paths.add(doc.pdfPath!);
+    }
+    for (final p in doc.exportImagePaths) {
+      if (File(p).existsSync()) paths.add(p);
+    }
+    if (paths.isEmpty &&
+        doc.pdfPath == null &&
+        doc.pages.isNotEmpty) {
+      // No export yet — still allow saving current page display files.
+      for (final page in doc.pages) {
+        if (File(page.displayPath).existsSync()) {
+          paths.add(page.displayPath);
+        }
+      }
+    }
+    if (paths.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Nothing to save yet. Export a PDF first.')),
+        );
+      }
+      return;
+    }
+    try {
+      final saved = await DeviceSaveService.saveFiles(paths);
+      if (!mounted) return;
+      if (saved.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Save cancelled')),
+        );
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            saved.length == 1
+                ? 'Saved: ${saved.first}'
+                : 'Saved ${saved.length} files',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _share(ScannedDocument doc) async {
     final paths = <String>[];
     if (doc.pdfPath != null && File(doc.pdfPath!).existsSync()) {
@@ -375,109 +447,12 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     }
   }
 
-  Future<void> _moveFolder(
-    ScannedDocument doc,
-    List<DocFolder> folders,
-  ) async {
-    final chosen = await showAppBottomSheet<String?>(
-      context: context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('Unfiled'),
-            onTap: () => Navigator.pop(ctx, ''),
-          ),
-          for (final f in folders)
-            ListTile(
-              title: Text(f.name),
-              trailing: doc.folderId == f.id ? const Icon(Icons.check) : null,
-              onTap: () => Navigator.pop(ctx, f.id),
-            ),
-        ],
-      ),
-    );
-    if (chosen == null) return;
-    await ref.read(documentsProvider.notifier).setFolder(
-          doc.id,
-          chosen.isEmpty ? null : chosen,
-        );
-    await _reloadMeta();
-  }
-
   Future<void> _editTags(ScannedDocument doc) async {
-    _tagCtrl.clear();
-    await showModalBottomSheet<void>(
+    await showDocumentTagsSheet(
       context: context,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            top: 16,
-            bottom: MediaQuery.viewInsetsOf(ctx).bottom + 16,
-          ),
-          child: StatefulBuilder(
-            builder: (ctx, setModal) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text('Tags', style: Theme.of(ctx).textTheme.titleLarge),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final t in doc.tags)
-                        InputChip(
-                          label: Text(t),
-                          onDeleted: () async {
-                            await ref
-                                .read(documentsProvider.notifier)
-                                .removeTag(doc.id, t);
-                            await _reloadMeta();
-                            setModal(() {});
-                          },
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _tagCtrl,
-                    decoration: const InputDecoration(
-                      hintText: 'Add tag (e.g. Education)',
-                      suffixIcon: Icon(Icons.add),
-                    ),
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (v) async {
-                      await ref
-                          .read(documentsProvider.notifier)
-                          .addTag(doc.id, v);
-                      _tagCtrl.clear();
-                      await _reloadMeta();
-                      setModal(() {});
-                    },
-                  ),
-                  const SizedBox(height: 8),
-                  FilledButton(
-                    onPressed: () async {
-                      await ref
-                          .read(documentsProvider.notifier)
-                          .addTag(doc.id, _tagCtrl.text);
-                      _tagCtrl.clear();
-                      await _reloadMeta();
-                      if (ctx.mounted) Navigator.pop(ctx);
-                    },
-                    child: const Text('Done'),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
+      ref: ref,
+      doc: doc,
+      onChanged: _reloadMeta,
     );
     await _reloadMeta();
   }

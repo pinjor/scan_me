@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers.dart';
@@ -12,15 +11,26 @@ import '../../shared/models/scanned_document.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/document_card.dart';
+import '../../shared/widgets/tag_sheets.dart';
 import '../converters/converters_hub_screen.dart';
-import '../document_editor/editor_controller.dart';
-import '../document_editor/review_screen.dart';
-import '../scanner/scan_capture_screen.dart';
 import '../settings/settings_screen.dart';
 import '../viewer/viewer_screen.dart';
+import 'home_flows.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({
+    super.key,
+    this.embedded = false,
+    this.onOpenTools,
+    this.isActive = true,
+  });
+
+  /// Files tab inside [MainShellScreen] — no Settings push, no FAB.
+  final bool embedded;
+  final VoidCallback? onOpenTools;
+
+  /// False when another shell tab is showing (KeepAlive still mounts this).
+  final bool isActive;
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
@@ -30,7 +40,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchCtrl = TextEditingController();
   final _searchFocus = FocusNode();
   var _searchFocused = false;
-  var _showFoldersRow = false;
   var _showTagsRow = false;
 
   @override
@@ -39,6 +48,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _searchFocus.addListener(() {
       setState(() => _searchFocused = _searchFocus.hasFocus);
     });
+  }
+
+  @override
+  void didUpdateWidget(HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive && !widget.isActive) {
+      _searchFocus.unfocus();
+    }
   }
 
   @override
@@ -51,7 +68,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final docsAsync = ref.watch(documentsProvider);
-    final foldersAsync = ref.watch(foldersProvider);
     final query = ref.watch(libraryQueryProvider);
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
@@ -67,7 +83,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      query.showTrash ? 'Trash' : 'ScanMe',
+                      query.showTrash
+                          ? 'Trash'
+                          : (widget.embedded ? 'Files' : 'ScanMe'),
                       style: text.titleLarge,
                     ),
                   ),
@@ -83,14 +101,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           .setShowTrash(!query.showTrash);
                     },
                   ),
-                  AppCircleIconButton(
-                    icon: Icons.settings_outlined,
-                    tooltip: 'Settings',
-                    size: 40,
-                    onPressed: () {
-                      AppPageRoute.push(context, const SettingsScreen());
-                    },
-                  ),
+                  if (!widget.embedded)
+                    AppCircleIconButton(
+                      icon: Icons.settings_outlined,
+                      tooltip: 'Settings',
+                      size: 40,
+                      onPressed: () {
+                        AppPageRoute.push(context, const SettingsScreen());
+                      },
+                    ),
                 ],
               ),
             ),
@@ -99,7 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 padding: const EdgeInsets.fromLTRB(12, 6, 12, 4),
                 child: AnimatedContainer(
                   duration: AppMotion.chip,
-                  curve: Curves.easeOutCubic,
+                  curve: AppMotion.emphasizedDecelerate,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(AppTheme.radiusSm),
                     boxShadow: _searchFocused
@@ -116,8 +135,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     controller: _searchCtrl,
                     focusNode: _searchFocus,
                     style: text.bodyMedium,
+                    textInputAction: TextInputAction.search,
                     onChanged: (v) =>
                         ref.read(libraryQueryProvider.notifier).setSearch(v),
+                    onSubmitted: (_) => _searchFocus.unfocus(),
+                    onTapOutside: (_) => _searchFocus.unfocus(),
                     decoration: InputDecoration(
                       hintText: 'Search…',
                       prefixIcon: const Icon(Icons.search, size: 20),
@@ -132,6 +154,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ref
                                     .read(libraryQueryProvider.notifier)
                                     .setSearch('');
+                                _searchFocus.unfocus();
                               },
                             ),
                     ),
@@ -149,9 +172,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         children: [
                           _FilterChip(
                             label: 'All',
-                            selected: !query.unfiledOnly &&
-                                query.folderId == null &&
-                                !query.favoritesOnly &&
+                            selected: !query.favoritesOnly &&
                                 query.tag == null,
                             onSelected: (_) {
                               final n =
@@ -160,7 +181,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               n.setFolder(null);
                               n.setTag(null);
                               setState(() {
-                                _showFoldersRow = false;
                                 _showTagsRow = false;
                               });
                             },
@@ -170,23 +190,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             label: 'Favorites',
                             selected: query.favoritesOnly,
                             icon: query.favoritesOnly
-                                ? Icons.star
-                                : Icons.star_outline,
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
                             onSelected: (v) => ref
                                 .read(libraryQueryProvider.notifier)
                                 .setFavoritesOnly(v),
-                          ),
-                          const SizedBox(width: 6),
-                          _FilterChip(
-                            label: 'Folders',
-                            selected:
-                                _showFoldersRow || query.folderId != null,
-                            onSelected: (_) {
-                              setState(() {
-                                _showFoldersRow = !_showFoldersRow;
-                                if (_showFoldersRow) _showTagsRow = false;
-                              });
-                            },
                           ),
                           const SizedBox(width: 6),
                           _FilterChip(
@@ -195,17 +203,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             onSelected: (_) {
                               setState(() {
                                 _showTagsRow = !_showTagsRow;
-                                if (_showTagsRow) _showFoldersRow = false;
                               });
                             },
-                          ),
-                          const SizedBox(width: 6),
-                          _FilterChip(
-                            label: 'Unfiled',
-                            selected: query.unfiledOnly,
-                            onSelected: (_) => ref
-                                .read(libraryQueryProvider.notifier)
-                                .setFolder(null, unfiled: true),
                           ),
                         ],
                       ),
@@ -231,71 +230,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               AnimatedSize(
                 duration: AppMotion.chip,
-                curve: Curves.easeOutCubic,
-                alignment: Alignment.topCenter,
-                child: _showFoldersRow
-                    ? Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: SizedBox(
-                          height: 36,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 12),
-                            children: [
-                              ...foldersAsync.maybeWhen(
-                                data: (folders) => [
-                                  for (final f in folders) ...[
-                                    GestureDetector(
-                                      onLongPress: () =>
-                                          _folderActions(context, ref, f),
-                                      child: _FilterChip(
-                                        label: f.name,
-                                        selected: query.folderId == f.id,
-                                        onSelected: (_) => ref
-                                            .read(
-                                                libraryQueryProvider.notifier)
-                                            .setFolder(f.id),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                  ],
-                                  ActionChip(
-                                    visualDensity: VisualDensity.compact,
-                                    avatar: const Icon(
-                                      Icons.create_new_folder_outlined,
-                                      size: 16,
-                                    ),
-                                    label: const Text('New'),
-                                    onPressed: () =>
-                                        _createFolder(context, ref),
-                                  ),
-                                ],
-                                orElse: () => const <Widget>[],
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-              AnimatedSize(
-                duration: AppMotion.chip,
-                curve: Curves.easeOutCubic,
+                curve: AppMotion.emphasizedDecelerate,
                 alignment: Alignment.topCenter,
                 child: _showTagsRow
                     ? docsAsync.maybeWhen(
                         data: (all) {
-                          final tags = collectAllTags(all).toList()
-                            ..sort(
-                              (a, b) =>
-                                  a.toLowerCase().compareTo(b.toLowerCase()),
-                            );
+                          final catalog = ref.watch(tagsProvider).valueOrNull ??
+                              const <TagDef>[];
+                          final usedIds = collectAllTags(all);
+                          final tags = catalog
+                              .where((t) => usedIds.contains(t.id))
+                              .toList();
                           if (tags.isEmpty) {
                             return Padding(
                               padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
                               child: Text(
-                                'No tags yet',
+                                'No tags on documents yet',
                                 style: text.bodySmall?.copyWith(
                                   color: scheme.onSurfaceVariant,
                                 ),
@@ -305,7 +255,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           return Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: SizedBox(
-                              height: 36,
+                              height: 40,
                               child: ListView(
                                 scrollDirection: Axis.horizontal,
                                 padding: const EdgeInsets.symmetric(
@@ -315,26 +265,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   for (final tag in tags) ...[
                                     ChoiceChip(
                                       visualDensity: VisualDensity.compact,
+                                      avatar: CircleAvatar(
+                                        backgroundColor: Color(tag.color),
+                                        radius: 7,
+                                      ),
                                       label: Text(
-                                        tag,
+                                        tag.name,
                                         style: TextStyle(
-                                          color: query.tag == tag
+                                          color: query.tag == tag.id
                                               ? Colors.white
-                                              : null,
+                                              : scheme.onSurface,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
-                                      labelStyle: TextStyle(
-                                        color: query.tag == tag
-                                            ? Colors.white
-                                            : scheme.onSurface,
-                                      ),
-                                      selectedColor: AppTheme.navy,
+                                      selectedColor: Color(tag.color),
                                       checkmarkColor: Colors.white,
-                                      selected: query.tag == tag,
+                                      selected: query.tag == tag.id,
                                       onSelected: (sel) => ref
                                           .read(libraryQueryProvider.notifier)
-                                          .setTag(sel ? tag : null),
+                                          .setTag(sel ? tag.id : null),
                                     ),
                                     const SizedBox(width: 6),
                                   ],
@@ -367,9 +316,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                   data: (all) {
-                    final list = filterAndSortDocuments(all, query);
-                    final folders =
-                        foldersAsync.valueOrNull ?? const <DocFolder>[];
+                    final tagCatalog = ref.watch(tagsProvider).valueOrNull ??
+                        const <TagDef>[];
+                    final tagNamesById = {
+                      for (final t in tagCatalog) t.id: t.name,
+                    };
+                    final list = filterAndSortDocuments(
+                      all,
+                      query,
+                      tagNamesById: tagNamesById,
+                    );
                     if (list.isEmpty) {
                       return KeyedSubtree(
                         key: ValueKey(
@@ -394,7 +350,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           onSecondary: query.showTrash
                               ? null
                               : () => _imagesToPdf(context, ref),
-                          secondaryIcon: Icons.photo_library_outlined,
+                          secondaryIcon: Icons.collections_outlined,
                         ),
                       );
                     }
@@ -406,29 +362,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         color: AppTheme.navy,
                         onRefresh: () async {
                           await ref.read(documentsProvider.notifier).refresh();
-                          await ref.read(foldersProvider.notifier).refresh();
+                          await ref.read(tagsProvider.notifier).refresh();
                         },
                         child: ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(12, 6, 12, 100),
+                          padding: EdgeInsets.fromLTRB(
+                            12,
+                            6,
+                            12,
+                            widget.embedded ? 110 : 100,
+                          ),
                           itemCount: list.length,
                           separatorBuilder: (_, _) =>
                               const SizedBox(height: 6),
                           itemBuilder: (context, index) {
                             final doc = list[index];
-                            final folderName = folders
-                                .where((f) => f.id == doc.folderId)
-                                .map((f) => f.name)
-                                .firstOrNull;
+                            final tagDefs = ref
+                                    .watch(tagsProvider)
+                                    .valueOrNull ??
+                                const <TagDef>[];
                             return StaggeredListItem(
                               index: index,
                               child: DocumentCard(
                                 doc: doc,
-                                folderName: folderName,
+                                tagDefs: tagDefs,
                                 onOpen: () => _open(context, doc),
                                 onMore: () => query.showTrash
                                     ? _showTrashActions(context, ref, doc)
-                                    : _showActions(
-                                        context, ref, doc, folders),
+                                    : _showActions(context, ref, doc),
                                 onDelete: query.showTrash
                                     ? null
                                     : () => _delete(context, ref, doc),
@@ -446,169 +406,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: query.showTrash
+      floatingActionButton: (widget.embedded || query.showTrash)
           ? null
           : ScanFabMenu(
-              onScan: () => _startScan(context, ref),
-              onImagesToPdf: () => _imagesToPdf(context, ref),
+              onScan: () => HomeFlows.startScan(context),
+              onImagesToPdf: () => HomeFlows.imagesToPdf(context, ref),
               onConverters: () {
-                AppPageRoute.push(context, const ConvertersHubScreen());
+                if (widget.onOpenTools != null) {
+                  widget.onOpenTools!();
+                } else {
+                  AppPageRoute.push(context, const ConvertersHubScreen());
+                }
               },
             ),
     );
   }
 
   Future<void> _startScan(BuildContext context, WidgetRef ref) async {
-    await AppPageRoute.push(context, const ScanCaptureScreen());
+    await HomeFlows.startScan(context);
   }
 
   Future<void> _imagesToPdf(BuildContext context, WidgetRef ref) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
-    final picked = await ImagePicker().pickMultiImage(imageQuality: 95);
-    if (picked.isEmpty) return;
-
-    if (!context.mounted) return;
-    showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const PopScope(
-        canPop: false,
-        child: LoadingOverlay(message: 'Preparing images…'),
-      ),
-    );
-
-    try {
-      final paths = picked.map((x) => x.path).toList();
-      await ref.read(editorSessionProvider.notifier).startFromScanPaths(paths);
-      if (context.mounted) navigator.pop();
-      if (!context.mounted) return;
-      await navigator.push(
-        AppPageRoute(
-          builder: (_) => const ReviewScreen(discardOnPop: true),
-        ),
-      );
-    } catch (e) {
-      if (context.mounted) navigator.pop();
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not import images: $e')),
-      );
-    }
+    await HomeFlows.imagesToPdf(context, ref);
   }
 
   void _open(BuildContext context, ScannedDocument doc) {
     AppPageRoute.push(context, ViewerScreen(documentId: doc.id));
   }
 
-  Future<void> _createFolder(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('New folder'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(hintText: 'e.g. Work'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-    if (name != null && name.isNotEmpty) {
-      await ref.read(foldersProvider.notifier).create(name);
-    }
-  }
-
-  Future<void> _folderActions(
-    BuildContext context,
-    WidgetRef ref,
-    DocFolder folder,
-  ) async {
-    await showAppBottomSheet<void>(
-      context: context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.drive_file_rename_outline),
-            title: const Text('Rename folder'),
-            onTap: () async {
-              Navigator.pop(ctx);
-              final controller = TextEditingController(text: folder.name);
-              final name = await showDialog<String>(
-                context: context,
-                builder: (d) => AlertDialog(
-                  title: const Text('Rename folder'),
-                  content: TextField(controller: controller, autofocus: true),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(d),
-                      child: const Text('Cancel'),
-                    ),
-                    FilledButton(
-                      onPressed: () =>
-                          Navigator.pop(d, controller.text.trim()),
-                      child: const Text('Save'),
-                    ),
-                  ],
-                ),
-              );
-              controller.dispose();
-              if (name != null && name.isNotEmpty) {
-                await ref.read(foldersProvider.notifier).rename(folder.id, name);
-              }
-            },
-          ),
-          ListTile(
-            leading: Icon(
-              Icons.delete_outline,
-              color: Theme.of(context).colorScheme.error,
-            ),
-            title: Text(
-              'Delete folder',
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-            onTap: () async {
-              Navigator.pop(ctx);
-              final ok = await showConfirmSheet(
-                context: context,
-                title: 'Delete folder “${folder.name}”?',
-                message:
-                    'Documents in this folder become Unfiled. Files are not deleted.',
-                confirmLabel: 'Delete folder',
-              );
-              if (ok) {
-                await ref.read(foldersProvider.notifier).delete(folder.id);
-                final q = ref.read(libraryQueryProvider);
-                if (q.folderId == folder.id) {
-                  ref.read(libraryQueryProvider.notifier).setFolder(null);
-                }
-                await ref.read(documentsProvider.notifier).refresh();
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   Future<void> _showActions(
     BuildContext context,
     WidgetRef ref,
     ScannedDocument doc,
-    List<DocFolder> folders,
   ) async {
     await showAppBottomSheet<void>(
       context: context,
@@ -636,7 +465,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             ListTile(
               leading: Icon(
-                doc.isFavorite ? Icons.star : Icons.star_outline,
+                doc.isFavorite ? Icons.bookmark : Icons.bookmark_border,
               ),
               title: Text(
                 doc.isFavorite ? 'Remove from favorites' : 'Mark important',
@@ -649,11 +478,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.drive_file_move_outline),
-              title: const Text('Move to folder'),
+              leading: const Icon(Icons.local_offer_outlined),
+              title: const Text('Tags'),
               onTap: () async {
                 Navigator.pop(ctx);
-                await _moveToFolder(context, ref, doc, folders);
+                await showDocumentTagsSheet(
+                  context: context,
+                  ref: ref,
+                  doc: doc,
+                );
               },
             ),
             ListTile(
@@ -665,7 +498,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.ios_share_outlined),
+              leading: const Icon(Icons.share_outlined),
               title: const Text('Share'),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -738,39 +571,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _moveToFolder(
-    BuildContext context,
-    WidgetRef ref,
-    ScannedDocument doc,
-    List<DocFolder> folders,
-  ) async {
-    final chosen = await showAppBottomSheet<String?>(
-      context: context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            title: const Text('Unfiled'),
-            onTap: () => Navigator.pop(ctx, ''),
-          ),
-          for (final f in folders)
-            ListTile(
-              title: Text(f.name),
-              trailing: doc.folderId == f.id
-                  ? const Icon(Icons.check)
-                  : null,
-              onTap: () => Navigator.pop(ctx, f.id),
-            ),
-        ],
-      ),
-    );
-    if (chosen == null) return;
-    await ref.read(documentsProvider.notifier).setFolder(
-          doc.id,
-          chosen.isEmpty ? null : chosen,
-        );
   }
 
   Future<void> _rename(

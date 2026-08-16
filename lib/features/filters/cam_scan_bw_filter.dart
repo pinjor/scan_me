@@ -1,3 +1,4 @@
+
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
@@ -5,11 +6,14 @@ import '../../core/services/scan_compression.dart';
 import '../../shared/models/scanned_document.dart';
 
 /// CamScan B&W — exact SLI proposal-form constants + integer math.
+/// Spec: `docs/PROPOSAL_FORM_BW_CAMSCAN_SPEC.md` (from SLI_APP).
+///
+/// Applied to **every scanned / imported page** by default (editor auto-B&W).
 abstract final class CamScanBwFilter {
   CamScanBwFilter._();
 
-  static const int maxEdge = kExportMaxLongEdge;
-  static const int jpegQuality = kExportJpegQuality;
+  static const int maxEdge = kExportMaxLongEdge; // 1600
+  static const int jpegQuality = kExportJpegQuality; // 82
   static const int adaptiveHalfWindow = 26;
   static const num adaptiveSubtract = 12;
   static const int softBand = 30;
@@ -29,6 +33,7 @@ abstract final class CamScanBwFilter {
   static const int bgNearMeanSlack = 36;
   static const int bgNearMeanLiftPct = 88;
 
+  /// Sync path — used by tests and isolate. Matches SLI `processBlackAndWhiteBytes`.
   static Uint8List processBytes(
     Uint8List bytes, {
     int quality = jpegQuality,
@@ -37,11 +42,13 @@ abstract final class CamScanBwFilter {
     if (decoded == null) {
       throw StateError('Could not decode image bytes');
     }
-    var im = ImageCompressionService.resizeIfLarge(decoded, maxEdge);
+    // Always work in opaque RGB — RGBA/alpha-0 from Flutter codec whites out ink.
+    var im = _asOpaqueRgb(decoded);
+    im = ImageCompressionService.resizeIfLarge(im, maxEdge);
     im = _fadeColorsForFormWatermark(im);
     im = img.grayscale(im);
     im = _backgroundNormalize(im);
-    im = _localContrastBoost(im);
+    im = _localContrastBoost(im); // no-op while localContrastPct == 0
     im = _softAdaptiveThreshold(
       im,
       halfWindow: adaptiveHalfWindow,
@@ -51,12 +58,15 @@ abstract final class CamScanBwFilter {
     return Uint8List.fromList(img.encodeJpg(im, quality: quality));
   }
 
+  /// Async — same math as sync (isolate for large pages). Do **not** pre-decode
+  /// with Flutter `instantiateImageCodec(targetWidth:)` — that upscales and
+  /// fed RGBA into this pipeline, producing full-white pages.
   static Future<Uint8List> processBytesAsync(
     Uint8List bytes, {
     int quality = jpegQuality,
-  }) {
+  }) async {
     if (bytes.length < 250 * 1024) {
-      return Future.value(processBytes(bytes, quality: quality));
+      return processBytes(bytes, quality: quality);
     }
     return compute(_bwIsolate, (bytes: bytes, quality: quality));
   }
@@ -78,8 +88,147 @@ abstract final class DocumentFilterEngine {
         return ImageCompressionService.compressJpegBytesAsync(originalBytes);
       case PageFilter.blackAndWhite:
         return CamScanBwFilter.processBytesAsync(originalBytes);
+      case PageFilter.grayscale:
+      case PageFilter.autoEnhance:
+      case PageFilter.vivid:
+      case PageFilter.lighten:
+        return PageLookFilters.processAsync(originalBytes, filter);
     }
   }
+}
+
+/// Extra enhance looks (greyscale / auto / vivid / lighten).
+abstract final class PageLookFilters {
+  PageLookFilters._();
+
+  static Future<Uint8List> processAsync(
+    Uint8List bytes,
+    PageFilter filter,
+  ) async {
+    if (bytes.length < 250 * 1024) {
+      return processBytes(bytes, filter);
+    }
+    return compute(_lookIsolate, (bytes: bytes, filter: filter.wire));
+  }
+
+  static Uint8List processBytes(Uint8List bytes, PageFilter filter) {
+    final decoded = img.decodeImage(bytes);
+    if (decoded == null) {
+      throw StateError('Could not decode image bytes');
+    }
+    var im = _asOpaqueRgb(decoded);
+    im = ImageCompressionService.resizeIfLarge(im, kExportMaxLongEdge);
+    im = switch (filter) {
+      PageFilter.grayscale => img.grayscale(im),
+      PageFilter.autoEnhance => _autoEnhance(im),
+      PageFilter.vivid => _vivid(im),
+      PageFilter.lighten => _lighten(im),
+      _ => im,
+    };
+    return Uint8List.fromList(
+      img.encodeJpg(im, quality: kExportJpegQuality),
+    );
+  }
+}
+
+Uint8List _lookIsolate(({Uint8List bytes, String filter}) msg) =>
+    PageLookFilters.processBytes(
+      msg.bytes,
+      PageFilterX.fromWire(msg.filter),
+    );
+
+img.Image _autoEnhance(img.Image src) {
+  // Mild contrast + paper lift — keeps color, punches text.
+  final w = src.width;
+  final h = src.height;
+  final out = img.Image(width: w, height: h, numChannels: 3);
+  var sum = 0;
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final p = src.getPixel(x, y);
+      sum += (p.r.round() * 299 + p.g.round() * 587 + p.b.round() * 114) ~/
+          1000;
+    }
+  }
+  final mean = sum ~/ (w * h);
+  final bias = (128 - mean).clamp(-40, 40);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final p = src.getPixel(x, y);
+      var r = p.r.round();
+      var g = p.g.round();
+      var b = p.b.round();
+      r = ((r - 128) * 118 ~/ 100 + 128 + bias).clamp(0, 255);
+      g = ((g - 128) * 118 ~/ 100 + 128 + bias).clamp(0, 255);
+      b = ((b - 128) * 118 ~/ 100 + 128 + bias).clamp(0, 255);
+      out.setPixelRgb(x, y, r, g, b);
+    }
+  }
+  return out;
+}
+
+img.Image _vivid(img.Image src) {
+  final w = src.width;
+  final h = src.height;
+  final out = img.Image(width: w, height: h, numChannels: 3);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final p = src.getPixel(x, y);
+      var r = p.r.round();
+      var g = p.g.round();
+      var b = p.b.round();
+      final y0 = (r * 299 + g * 587 + b * 114) ~/ 1000;
+      // Push away from grey (saturate) then mild contrast.
+      r = (r + (r - y0) * 35 ~/ 100).clamp(0, 255);
+      g = (g + (g - y0) * 35 ~/ 100).clamp(0, 255);
+      b = (b + (b - y0) * 35 ~/ 100).clamp(0, 255);
+      r = ((r - 128) * 112 ~/ 100 + 128).clamp(0, 255);
+      g = ((g - 128) * 112 ~/ 100 + 128).clamp(0, 255);
+      b = ((b - 128) * 112 ~/ 100 + 128).clamp(0, 255);
+      out.setPixelRgb(x, y, r, g, b);
+    }
+  }
+  return out;
+}
+
+img.Image _lighten(img.Image src) {
+  final w = src.width;
+  final h = src.height;
+  final out = img.Image(width: w, height: h, numChannels: 3);
+  for (var y = 0; y < h; y++) {
+    for (var x = 0; x < w; x++) {
+      final p = src.getPixel(x, y);
+      var r = p.r.round();
+      var g = p.g.round();
+      var b = p.b.round();
+      // Lift midtones toward paper white; keep dark ink.
+      final y0 = (r * 299 + g * 587 + b * 114) ~/ 1000;
+      if (y0 > 55) {
+        final t = ((y0 - 55) * 100 ~/ 200).clamp(0, 100);
+        final lift = 55 * t ~/ 100;
+        r = (r + (255 - r) * lift ~/ 100).clamp(0, 255);
+        g = (g + (255 - g) * lift ~/ 100).clamp(0, 255);
+        b = (b + (255 - b) * lift ~/ 100).clamp(0, 255);
+      }
+      out.setPixelRgb(x, y, r, g, b);
+    }
+  }
+  return out;
+}
+
+/// Force opaque 3-channel RGB so getPixel / grayscale match SLI / Kotlin.
+img.Image _asOpaqueRgb(img.Image src) {
+  if (src.numChannels == 3 && src.format == img.Format.uint8) {
+    return src;
+  }
+  final out = img.Image(width: src.width, height: src.height, numChannels: 3);
+  for (var y = 0; y < src.height; y++) {
+    for (var x = 0; x < src.width; x++) {
+      final p = src.getPixel(x, y);
+      out.setPixelRgb(x, y, p.r.round(), p.g.round(), p.b.round());
+    }
+  }
+  return out;
 }
 
 int _chroma(int r, int g, int b) {
@@ -91,7 +240,7 @@ int _chroma(int r, int g, int b) {
 img.Image _fadeColorsForFormWatermark(img.Image src) {
   final w = src.width;
   final h = src.height;
-  final out = img.Image(width: w, height: h, numChannels: src.numChannels);
+  final out = img.Image(width: w, height: h, numChannels: 3);
   final washSpan =
       (CamScanBwFilter.washCeil - CamScanBwFilter.inkFloor).clamp(1, 255);
   final desat = CamScanBwFilter.colorDesatPct;
@@ -163,7 +312,7 @@ img.Image _backgroundNormalize(img.Image src) {
     }
   }
 
-  final out = img.Image(width: w, height: h, numChannels: src.numChannels);
+  final out = img.Image(width: w, height: h, numChannels: 3);
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       final xa = _clampInt(x - half, 0, w - 1);
@@ -212,7 +361,7 @@ img.Image _localContrastBoost(img.Image src) {
     }
   }
 
-  final out = img.Image(width: w, height: h, numChannels: src.numChannels);
+  final out = img.Image(width: w, height: h, numChannels: 3);
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       final xa = _clampInt(x - half, 0, w - 1);
@@ -260,7 +409,7 @@ img.Image _softAdaptiveThreshold(
   final denom = (2 * softBand).clamp(1, 512);
   final clearFloor = CamScanBwFilter.watermarkClearFloor;
   final paperMean = CamScanBwFilter.paperMeanFloor;
-  final out = img.Image(width: w, height: h, numChannels: src.numChannels);
+  final out = img.Image(width: w, height: h, numChannels: 3);
   for (var y = 0; y < h; y++) {
     for (var x = 0; x < w; x++) {
       final xa = _clampInt(x - halfWindow, 0, w - 1);
@@ -270,6 +419,7 @@ img.Image _softAdaptiveThreshold(
       final sum =
           sat[yb + 1][xb + 1] - sat[ya][xb + 1] - sat[yb + 1][xa] + sat[ya][xa];
       final area = (xb - xa + 1) * (yb - ya + 1);
+      // Same as SLI Dart: float local mean (Kotlin uses int mean — within JPEG noise).
       final mean = sum / area;
       final diff = gray[y * w + x] - (mean - subtract);
       final int v0;
