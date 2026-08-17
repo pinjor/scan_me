@@ -32,19 +32,19 @@ class DocumentCard extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
     final type = doc.pdfPath != null ? 'PDF' : 'Images';
-    final size = doc.fileSizeBytes != null
-        ? _formatBytes(doc.fileSizeBytes!)
-        : null;
     final date = _friendlyDate(doc.updatedAt);
+    // Compact meta: pages · type · relative date (size via More / Activity).
     final meta = [
       '${doc.pageCount} ${doc.pageCount == 1 ? 'page' : 'pages'}',
       type,
-      ?size,
       date,
     ].join(' · ');
     final byId = {for (final t in tagDefs) t.id: t};
 
-    final card = AppCard(
+    final card = Semantics(
+      button: true,
+      label: '${doc.name}, $meta',
+      child: AppCard(
       onTap: onOpen,
       elevated: false,
       padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
@@ -57,8 +57,8 @@ class DocumentCard extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Container(
-                width: 52,
-                height: 68,
+                width: 56,
+                height: 72,
                 decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest,
                   border: Border.all(color: scheme.outlineVariant),
@@ -91,8 +91,8 @@ class DocumentCard extends StatelessWidget {
                           ),
                           child: const Icon(
                             Icons.bookmark,
-                            size: 11,
-                            color: Colors.amber,
+                            size: 12,
+                            color: AppTheme.warning,
                           ),
                         ),
                       ),
@@ -108,7 +108,7 @@ class DocumentCard extends StatelessWidget {
               children: [
                 Text(
                   doc.name,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: text.titleMedium,
                 ),
@@ -143,12 +143,13 @@ class DocumentCard extends StatelessWidget {
           ),
           AppCircleIconButton(
             icon: Icons.more_horiz,
-            tooltip: 'Document options',
-            size: 40,
+            tooltip: 'More actions',
+            size: AppTheme.tapMin,
             onPressed: onMore,
           ),
         ],
       ),
+    ),
     );
 
     if (onDelete == null) return card;
@@ -174,24 +175,18 @@ class DocumentCard extends StatelessWidget {
     );
   }
 
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(0)} KB';
-    }
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
-
   String _friendlyDate(DateTime d) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final day = DateTime(d.year, d.month, d.day);
-    if (day == today) return 'Today';
-    if (day == today.subtract(const Duration(days: 1))) return 'Yesterday';
-    if (now.difference(d).inDays < 7) {
-      return DateFormat('EEEE').format(d);
+    if (day == today) return 'Updated today';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Updated yesterday';
     }
-    return DateFormat('MMM d').format(d);
+    if (now.difference(d).inDays < 7) {
+      return 'Updated ${DateFormat('EEEE').format(d)}';
+    }
+    return 'Updated ${DateFormat('MMM d').format(d)}';
   }
 }
 

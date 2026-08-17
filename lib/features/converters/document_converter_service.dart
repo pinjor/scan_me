@@ -11,6 +11,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
 import 'package:xml/xml.dart';
 
+import '../../core/services/image_codec_bridge.dart';
 import '../../core/services/watermark_service.dart';
 
 class ConvertResult {
@@ -48,7 +49,9 @@ abstract final class DocumentConverterService {
     base = base.replaceFirst(RegExp(r'^_?src_\d+_'), '');
     // Prior convert outputs: Contract_TXT_2026-08-16_1445
     base = base.replaceFirst(
-      RegExp(r'_(TXT|PDF|JPG|PNG)_\d{4}-\d{2}-\d{2}_\d{4}$'),
+      RegExp(
+        r'_(TXT|PDF|JPG|PNG|WEBP|GIF|CSV|DOCX|XLSX|CROP|RESIZE|COMPRESS)_\d{4}-\d{2}-\d{2}_\d{4}$',
+      ),
       '',
     );
     // Legacy millis suffix: name_1723800000123
@@ -69,6 +72,13 @@ abstract final class DocumentConverterService {
   }
 
   /// Output format: `Contract_TXT_2026-08-16_1445.txt`
+  static Future<File> createOutputFile({
+    required String sourcePath,
+    required String kind,
+    required String ext,
+  }) =>
+      _outFile(sourcePath: sourcePath, kind: kind, ext: ext);
+
   static Future<File> _outFile({
     required String sourcePath,
     required String kind,
@@ -124,6 +134,43 @@ abstract final class DocumentConverterService {
   /// Uses Syncfusion page-by-page extraction with [layoutText] so line breaks
   /// survive. Image-only / scanned PDFs yield a short notice (no OCR).
   static Future<ConvertResult> pdfToTxt(String pdfPath) async {
+    final text = await _extractPdfPlainText(pdfPath);
+    final out = await _outFile(
+      sourcePath: pdfPath,
+      kind: 'TXT',
+      ext: 'txt',
+    );
+    final txtPath = out.path.toLowerCase().endsWith('.txt')
+        ? out.path
+        : '${out.path}.txt';
+    final txtFile = File(txtPath);
+    await txtFile.writeAsString(text, encoding: utf8, flush: true);
+    return ConvertResult(
+      outputPath: txtFile.path,
+      label: '.txt',
+      mimeType: 'text/plain',
+    );
+  }
+
+  /// PDF → Word (.docx) via text extraction (layout not preserved; no OCR).
+  static Future<ConvertResult> pdfToDocx(String pdfPath) async {
+    final text = await _extractPdfPlainText(pdfPath);
+    final bytes = _buildMinimalDocx(text);
+    final out = await _outFile(
+      sourcePath: pdfPath,
+      kind: 'DOCX',
+      ext: 'docx',
+    );
+    await out.writeAsBytes(bytes, flush: true);
+    return ConvertResult(
+      outputPath: out.path,
+      label: '.docx',
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+  }
+
+  static Future<String> _extractPdfPlainText(String pdfPath) async {
     final bytes = await File(pdfPath).readAsBytes();
     final document = sf.PdfDocument(inputBytes: bytes);
     try {
@@ -158,40 +205,82 @@ abstract final class DocumentConverterService {
       }
 
       if (!anyText) {
-        buffer
-          ..clear()
-          ..writeln(
-            'No extractable text found in this PDF.',
-          )
-          ..writeln(
-            'Scanned or image-only pages need OCR (not available offline here).',
-          );
+        return 'No extractable text found in this PDF.\n'
+            'Scanned or image-only pages need OCR (not available offline here).\n';
       }
-
-      final out = await _outFile(
-        sourcePath: pdfPath,
-        kind: 'TXT',
-        ext: 'txt',
-      );
-      // Force .txt even if base somehow had a weird name.
-      final txtPath = out.path.toLowerCase().endsWith('.txt')
-          ? out.path
-          : '${out.path}.txt';
-      final txtFile = File(txtPath);
-      await txtFile.writeAsString(
-        buffer.toString(),
-        encoding: utf8,
-        flush: true,
-      );
-      return ConvertResult(
-        outputPath: txtFile.path,
-        label: '.txt',
-        mimeType: 'text/plain',
-      );
+      return buffer.toString();
     } finally {
       document.dispose();
     }
   }
+
+  /// Minimal OOXML package — paragraphs from plain text (editable in Word).
+  static Uint8List _buildMinimalDocx(String plainText) {
+    final paragraphs = plainText
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .split('\n');
+
+    final body = StringBuffer();
+    for (final line in paragraphs) {
+      final escaped = _xmlEscape(line);
+      if (line.trim().isEmpty) {
+        body.write('<w:p/>');
+      } else {
+        body.write(
+          '<w:p><w:r><w:t xml:space="preserve">$escaped</w:t></w:r></w:p>',
+        );
+      }
+    }
+
+    const contentTypes = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>''';
+
+    const rels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>''';
+
+    const docRels = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+</Relationships>''';
+
+    final documentXml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    $body
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+    </w:sectPr>
+  </w:body>
+</w:document>''';
+
+    final archive = Archive();
+    void add(String name, String content) {
+      final data = utf8.encode(content);
+      archive.addFile(ArchiveFile(name, data.length, data));
+    }
+
+    add('[Content_Types].xml', contentTypes);
+    add('_rels/.rels', rels);
+    add('word/document.xml', documentXml);
+    add('word/_rels/document.xml.rels', docRels);
+
+    final encoded = ZipEncoder().encode(archive);
+    return Uint8List.fromList(encoded);
+  }
+
+  static String _xmlEscape(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&apos;');
 
   /// Plain text → multi-page A4 PDF (wrapped paragraphs) + Apptriangle mark.
   static Future<ConvertResult> txtToPdf(String txtPath) async {
@@ -420,15 +509,31 @@ abstract final class DocumentConverterService {
     }
   }
 
+  static Future<ConvertResult> imageToPng(String imagePath) async {
+    final decoded = await decodeAnyImage(imagePath);
+    // Stamp via JPEG corner mark, then re-encode PNG.
+    var jpeg = Uint8List.fromList(img.encodeJpg(decoded, quality: 92));
+    jpeg = await WatermarkService.applyToJpegBytes(jpeg);
+    final stamped = img.decodeImage(jpeg) ?? decoded;
+    final encoded = Uint8List.fromList(img.encodePng(stamped));
+    final out = await _outFile(
+      sourcePath: imagePath,
+      kind: 'PNG',
+      ext: 'png',
+    );
+    await out.writeAsBytes(encoded, flush: true);
+    return ConvertResult(
+      outputPath: out.path,
+      label: 'PNG',
+      mimeType: 'image/png',
+    );
+  }
+
   static Future<ConvertResult> imageToJpeg(
     String imagePath, {
     int quality = 90,
   }) async {
-    final raw = await File(imagePath).readAsBytes();
-    final decoded = img.decodeImage(raw);
-    if (decoded == null) {
-      throw StateError('Could not decode image.');
-    }
+    final decoded = await decodeAnyImage(imagePath);
     final flat = img.Image(
       width: decoded.width,
       height: decoded.height,
@@ -451,27 +556,251 @@ abstract final class DocumentConverterService {
     );
   }
 
-  static Future<ConvertResult> imageToPng(String imagePath) async {
+  /// Decode JPG/PNG/WebP/GIF via `image`, HEIC via native bridge.
+  static Future<img.Image> decodeAnyImage(String imagePath) async {
     final raw = await File(imagePath).readAsBytes();
     final decoded = img.decodeImage(raw);
-    if (decoded == null) {
-      throw StateError('Could not decode image.');
+    if (decoded != null) return decoded;
+
+    final ext = p.extension(imagePath).toLowerCase();
+    if (ext == '.heic' || ext == '.heif') {
+      final jpeg = await ImageCodecBridge.heicToJpeg(imagePath);
+      if (jpeg != null) {
+        final fromHeic = img.decodeImage(jpeg);
+        if (fromHeic != null) return fromHeic;
+      }
     }
-    // Stamp via JPEG corner mark, then re-encode PNG.
-    var jpeg = Uint8List.fromList(img.encodeJpg(decoded, quality: 92));
-    jpeg = await WatermarkService.applyToJpegBytes(jpeg);
-    final stamped = img.decodeImage(jpeg) ?? decoded;
-    final encoded = Uint8List.fromList(img.encodePng(stamped));
+    throw StateError('Could not decode image.');
+  }
+
+  static Future<ConvertResult> imageToWebp(String imagePath) async {
+    final decoded = await decodeAnyImage(imagePath);
+    final encoded = Uint8List.fromList(img.encodeWebP(decoded));
     final out = await _outFile(
       sourcePath: imagePath,
-      kind: 'PNG',
-      ext: 'png',
+      kind: 'WEBP',
+      ext: 'webp',
     );
     await out.writeAsBytes(encoded, flush: true);
     return ConvertResult(
       outputPath: out.path,
-      label: 'PNG',
-      mimeType: 'image/png',
+      label: 'WebP',
+      mimeType: 'image/webp',
     );
+  }
+
+  static Future<ConvertResult> imageToGif(String imagePath) async {
+    final decoded = await decodeAnyImage(imagePath);
+    final encoded = Uint8List.fromList(img.encodeGif(decoded));
+    final out = await _outFile(
+      sourcePath: imagePath,
+      kind: 'GIF',
+      ext: 'gif',
+    );
+    await out.writeAsBytes(encoded, flush: true);
+    return ConvertResult(
+      outputPath: out.path,
+      label: 'GIF',
+      mimeType: 'image/gif',
+    );
+  }
+
+  static Future<ConvertResult> heicToJpeg(String imagePath) async {
+    return imageToJpeg(imagePath, quality: 92);
+  }
+
+  /// Word (.docx) → PDF (text extraction; no full layout fidelity).
+  static Future<ConvertResult> docxToPdf(String docxPath) async {
+    final bytes = await File(docxPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final docFile = archive.findFile('word/document.xml');
+    if (docFile == null) {
+      throw StateError('Not a valid .docx file.');
+    }
+    final xml = XmlDocument.parse(utf8.decode(docFile.content as List<int>));
+    final paragraphs = <String>[];
+    for (final pNode in xml.findAllElements('p', namespace: '*')) {
+      final parts = pNode
+          .findAllElements('t', namespace: '*')
+          .map((t) => t.innerText)
+          .join();
+      final line = parts.trim();
+      if (line.isNotEmpty) paragraphs.add(line);
+    }
+    if (paragraphs.isEmpty) {
+      throw StateError('No readable text in this Word file.');
+    }
+
+    final logo = await WatermarkService.pdfLogoImage();
+    final format = PdfPageFormat.a4;
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.fromLTRB(48, 48, 48, 56),
+        build: (context) => [
+          for (final block in paragraphs)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: pw.Text(
+                block,
+                style: const pw.TextStyle(fontSize: 12, lineSpacing: 2),
+              ),
+            ),
+        ],
+        footer: (context) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Opacity(
+            opacity: WatermarkService.pdfOpacity,
+            child: pw.Image(logo, width: format.width * 0.12),
+          ),
+        ),
+      ),
+    );
+
+    final out = await _outFile(
+      sourcePath: docxPath,
+      kind: 'PDF',
+      ext: 'pdf',
+    );
+    await out.writeAsBytes(await pdf.save(), flush: true);
+    return ConvertResult(
+      outputPath: out.path,
+      label: 'PDF',
+      mimeType: 'application/pdf',
+    );
+  }
+
+  /// Excel (.xlsx) → CSV (first sheet) + optional PDF table.
+  static Future<ConvertResult> xlsxToCsv(String xlsxPath) async {
+    final table = await _xlsxFirstSheet(xlsxPath);
+    final buffer = StringBuffer();
+    for (final row in table) {
+      buffer.writeln(
+        row.map(_csvEscape).join(','),
+      );
+    }
+    final out = await _outFile(
+      sourcePath: xlsxPath,
+      kind: 'CSV',
+      ext: 'csv',
+    );
+    await out.writeAsString(buffer.toString(), encoding: utf8, flush: true);
+    return ConvertResult(
+      outputPath: out.path,
+      label: 'CSV',
+      mimeType: 'text/csv',
+    );
+  }
+
+  static Future<ConvertResult> xlsxToPdf(String xlsxPath) async {
+    final table = await _xlsxFirstSheet(xlsxPath);
+    if (table.isEmpty) {
+      throw StateError('Spreadsheet is empty.');
+    }
+    final logo = await WatermarkService.pdfLogoImage();
+    final format = PdfPageFormat.a4.landscape;
+    final pdf = pw.Document();
+    final colCount = table.map((r) => r.length).fold<int>(0, (a, b) => a > b ? a : b);
+    pdf.addPage(
+      pw.MultiPage(
+        pageFormat: format,
+        margin: const pw.EdgeInsets.all(28),
+        build: (context) => [
+          pw.TableHelper.fromTextArray(
+            headers: table.first,
+            data: table.length > 1 ? table.sublist(1) : const <List<String>>[],
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 9,
+            ),
+            cellStyle: const pw.TextStyle(fontSize: 8),
+            headerDecoration: const pw.BoxDecoration(color: PdfColors.grey300),
+            cellAlignment: pw.Alignment.centerLeft,
+            columnWidths: {
+              for (var i = 0; i < colCount; i++)
+                i: const pw.FlexColumnWidth(1),
+            },
+          ),
+        ],
+        footer: (context) => pw.Align(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Opacity(
+            opacity: WatermarkService.pdfOpacity,
+            child: pw.Image(logo, width: format.width * 0.1),
+          ),
+        ),
+      ),
+    );
+    final out = await _outFile(
+      sourcePath: xlsxPath,
+      kind: 'PDF',
+      ext: 'pdf',
+    );
+    await out.writeAsBytes(await pdf.save(), flush: true);
+    return ConvertResult(
+      outputPath: out.path,
+      label: 'PDF',
+      mimeType: 'application/pdf',
+    );
+  }
+
+  static String _csvEscape(String cell) {
+    if (cell.contains(',') || cell.contains('"') || cell.contains('\n')) {
+      return '"${cell.replaceAll('"', '""')}"';
+    }
+    return cell;
+  }
+
+  static Future<List<List<String>>> _xlsxFirstSheet(String xlsxPath) async {
+    final bytes = await File(xlsxPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final shared = <String>[];
+    final ss = archive.findFile('xl/sharedStrings.xml');
+    if (ss != null) {
+      final xml = XmlDocument.parse(utf8.decode(ss.content as List<int>));
+      for (final si in xml.findAllElements('si', namespace: '*')) {
+        final text = si
+            .findAllElements('t', namespace: '*')
+            .map((t) => t.innerText)
+            .join();
+        shared.add(text);
+      }
+    }
+
+    ArchiveFile? sheetFile = archive.findFile('xl/worksheets/sheet1.xml');
+    sheetFile ??= archive.files.cast<ArchiveFile?>().firstWhere(
+          (f) =>
+              f != null &&
+              f.isFile &&
+              RegExp(r'xl/worksheets/sheet\d+\.xml$', caseSensitive: false)
+                  .hasMatch(f.name.replaceAll('\\', '/')),
+          orElse: () => null,
+        );
+    if (sheetFile == null) {
+      throw StateError('No worksheet found in this Excel file.');
+    }
+
+    final sheetXml =
+        XmlDocument.parse(utf8.decode(sheetFile.content as List<int>));
+    final rows = <List<String>>[];
+    for (final row in sheetXml.findAllElements('row', namespace: '*')) {
+      final cells = <String>[];
+      for (final c in row.findAllElements('c', namespace: '*')) {
+        final type = c.getAttribute('t');
+        final v = c.getElement('v', namespace: '*')?.innerText ?? '';
+        if (type == 's') {
+          final idx = int.tryParse(v) ?? -1;
+          cells.add(idx >= 0 && idx < shared.length ? shared[idx] : v);
+        } else {
+          cells.add(v);
+        }
+      }
+      if (cells.any((e) => e.trim().isNotEmpty)) rows.add(cells);
+    }
+    if (rows.isEmpty) {
+      throw StateError('Spreadsheet is empty.');
+    }
+    return rows;
   }
 }

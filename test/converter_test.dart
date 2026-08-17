@@ -110,6 +110,35 @@ void main() {
     );
   });
 
+  test('PDF → DOCX writes Word package', () async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        build: (c) => pw.Text('ScanMe PDF to DOCX probe'),
+      ),
+    );
+    final named = File(p.join(tmp.path, 'letter.pdf'));
+    await named.writeAsBytes(await pdf.save());
+
+    final result = await DocumentConverterService.pdfToDocx(named.path);
+    expect(result.outputPath.toLowerCase().endsWith('.docx'), isTrue);
+    expect(result.label, '.docx');
+    expect(
+      result.mimeType,
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    );
+    final bytes = await File(result.outputPath).readAsBytes();
+    expect(bytes.length, greaterThan(100));
+    // ZIP local file header
+    expect(bytes[0], 0x50);
+    expect(bytes[1], 0x4b);
+    expect(
+      RegExp(r'^letter_DOCX_\d{4}-\d{2}-\d{2}_\d{4}\.docx$')
+          .hasMatch(p.basename(result.outputPath)),
+      isTrue,
+    );
+  });
+
   test('cleanBaseName strips open-with / incoming junk', () {
     expect(
       DocumentConverterService.cleanBaseName('open_with_Invoice.pdf'),

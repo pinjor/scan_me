@@ -64,7 +64,6 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
               isActive: _index == 0,
               onOpenFiles: () => _go(1),
               onOpenTools: () => _go(2),
-              onOpenSettings: () => _go(3),
             ),
           ),
           _KeepAlivePage(
@@ -82,13 +81,19 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
       floatingActionButton: FadeRiseIn(
         offset: 8,
         scaleFrom: 0.9,
-        child: FloatingActionButton(
-          onPressed: () => HomeFlows.startScan(context),
-          backgroundColor: fabColor,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          shape: const CircleBorder(),
-          child: const Icon(Icons.document_scanner, size: 28),
+        child: Semantics(
+          button: true,
+          label: 'Scan Document',
+          child: FloatingActionButton(
+            onPressed: () => HomeFlows.startScan(context),
+            tooltip: 'Scan Document',
+            backgroundColor: fabColor,
+            foregroundColor: scheme.onPrimary,
+            elevation: 6,
+            highlightElevation: 10,
+            shape: const CircleBorder(),
+            child: const Icon(Icons.document_scanner, size: 30),
+          ),
         ),
       ),
       bottomNavigationBar: BottomAppBar(
@@ -183,45 +188,53 @@ class _NavItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final color = selected ? scheme.primary : scheme.onSurfaceVariant;
-    return PressableScale(
-      onTap: onTap,
-      scale: 0.92,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          AnimatedScale(
-            scale: selected ? 1.08 : 1,
-            duration: AppMotion.tab,
-            curve: AppMotion.softSpring,
-            child: AnimatedSwitcher(
-              duration: AppMotion.quick,
-              switchInCurve: AppMotion.emphasizedDecelerate,
-              switchOutCurve: AppMotion.emphasizedAccelerate,
-              transitionBuilder: (child, anim) => FadeTransition(
-                opacity: anim,
-                child: ScaleTransition(scale: anim, child: child),
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: PressableScale(
+        onTap: onTap,
+        scale: 0.92,
+        child: SizedBox(
+          height: 56,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              AnimatedScale(
+                scale: selected ? 1.08 : 1,
+                duration: AppMotion.tab,
+                curve: AppMotion.softSpring,
+                child: AnimatedSwitcher(
+                  duration: AppMotion.quick,
+                  switchInCurve: AppMotion.emphasizedDecelerate,
+                  switchOutCurve: AppMotion.emphasizedAccelerate,
+                  transitionBuilder: (child, anim) => FadeTransition(
+                    opacity: anim,
+                    child: ScaleTransition(scale: anim, child: child),
+                  ),
+                  child: Icon(
+                    selected ? selectedIcon : icon,
+                    key: ValueKey(selected),
+                    color: color,
+                    size: 24,
+                  ),
+                ),
               ),
-              child: Icon(
-                selected ? selectedIcon : icon,
-                key: ValueKey(selected),
-                color: color,
-                size: 24,
+              const SizedBox(height: 2),
+              AnimatedDefaultTextStyle(
+                duration: AppMotion.tab,
+                curve: AppMotion.emphasized,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: color,
+                  fontFamily: 'PlusJakartaSans',
+                ),
+                child: Text(label),
               ),
-            ),
+            ],
           ),
-          const SizedBox(height: 2),
-          AnimatedDefaultTextStyle(
-            duration: AppMotion.tab,
-            curve: AppMotion.emphasized,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: color,
-              fontFamily: 'PlusJakartaSans',
-            ),
-            child: Text(label),
-          ),
-        ],
+        ),
       ),
     );
   }

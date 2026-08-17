@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import '../../features/converters/convert_catalog.dart';
+import '../../features/converters/image_compress_tool_screen.dart';
+import '../../features/converters/image_crop_tool_screen.dart';
+import '../../features/converters/image_resize_tool_screen.dart';
 import '../../features/converters/intent_convert_screen.dart';
 import '../../features/file_viewer/file_viewer_screen.dart';
 import '../../shared/widgets/app_transitions.dart';
@@ -84,12 +88,39 @@ abstract final class OpenFileIntentBridge {
 
     final kind = switch (action) {
       'pdfToTxt' => IntentConvertKind.pdfToTxt,
+      'pdfToDocx' => IntentConvertKind.pdfToDocx,
       'txtToPdf' => IntentConvertKind.txtToPdf,
       'pptxToPdf' => IntentConvertKind.pptxToPdf,
-      'pngToJpg' => IntentConvertKind.pngToJpg,
-      'jpgToPng' => IntentConvertKind.jpgToPng,
+      'docxToPdf' => IntentConvertKind.docxToPdf,
+      'xlsxToCsv' => IntentConvertKind.xlsxToCsv,
+      'xlsxToPdf' => IntentConvertKind.xlsxToPdf,
+      'pngToJpg' || 'toJpg' => IntentConvertKind.toJpg,
+      'jpgToPng' || 'toPng' => IntentConvertKind.toPng,
+      'toWebp' => IntentConvertKind.toWebp,
+      'toGif' => IntentConvertKind.toGif,
+      'heicToJpg' => IntentConvertKind.heicToJpg,
+      'crop' || 'resize' || 'compress' => null, // handled below
       _ => null,
     };
+
+    if (action == 'crop' || action == 'resize' || action == 'compress') {
+      final toolId = switch (action) {
+        'crop' => ConvertToolId.crop,
+        'resize' => ConvertToolId.resize,
+        _ => ConvertToolId.compress,
+      };
+      await nav.push(
+        AppPageRoute<void>(
+          builder: (_) => switch (toolId) {
+            ConvertToolId.crop => ImageCropToolScreen(initialPath: path),
+            ConvertToolId.resize => ImageResizeToolScreen(initialPath: path),
+            _ => ImageCompressToolScreen(initialPath: path),
+          },
+        ),
+      );
+      return;
+    }
+
     if (kind == null) {
       await openPath(path, action: 'view');
       return;

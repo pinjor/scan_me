@@ -30,8 +30,19 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final session = ref.watch(editorSessionProvider);
     if (session == null || session.pages.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Review')),
-        body: const Center(child: Text('No pages to review.')),
+        appBar: AppBar(
+          leading: scanMeAppBarLeading(context),
+          title: const Text('Review'),
+        ),
+        body: AppEmptyState(
+          title: 'No pages to review',
+          subtitle: 'Go back and capture or import at least one page.',
+          primaryLabel: Navigator.of(context).canPop() ? 'Go back' : null,
+          primaryIcon: Icons.arrow_back,
+          onPrimary: Navigator.of(context).canPop()
+              ? () => Navigator.of(context).maybePop()
+              : null,
+        ),
       );
     }
 
@@ -47,6 +58,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       },
       child: Scaffold(
       appBar: AppBar(
+        leading: scanMeAppBarLeading(context),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -93,7 +105,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                             quarterTurns: (page.rotation ~/ 90) % 4,
                             child: PhotoView(
                               key: ValueKey(
-                                '${page.id}_${page.displayPath}_${page.rotation}',
+                                '${page.id}_${page.selectedFilter.wire}_'
+                                '${page.displayPath}_${page.rotation}',
                               ),
                               imageProvider:
                                   FileImage(File(page.displayPath)),
@@ -135,6 +148,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               ),
               _EditToolbar(
                 busy: session.isProcessing,
+                canDelete: session.pages.length > 1,
                 onFilter: () => _showFilterSheet(context),
                 onRotate: () =>
                     ref.read(editorSessionProvider.notifier).rotateSelected(),
@@ -164,7 +178,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           );
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Filter failed: $e')));
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Could not apply that look. Try again.'),
+        ),
+      );
     }
   }
 
@@ -230,6 +248,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                   _EnhanceOptionCard(
                     icon: iconFor(f),
                     title: f.enhanceTitle,
+                    subtitle: f.description,
                     previewPath: previewPath,
                     grayscalePreview: f.previewAsGrey,
                     onTap: () => Navigator.pop(ctx, (filter: f, all: false)),
@@ -250,6 +269,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                         ? Icons.restart_alt
                         : Icons.done_all,
                     title: f.enhanceTitle,
+                    subtitle: f.description,
                     previewPath: previewPath,
                     grayscalePreview: f.previewAsGrey,
                     onTap: () => Navigator.pop(ctx, (filter: f, all: true)),
@@ -270,7 +290,11 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
           );
     } catch (e) {
       if (!mounted) return;
-      messenger.showSnackBar(SnackBar(content: Text('Filter failed: $e')));
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Could not apply that look. Try again.'),
+        ),
+      );
     }
   }
 
@@ -388,12 +412,14 @@ class _EnhanceOptionCard extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.onTap,
+    this.subtitle,
     this.previewPath,
     this.grayscalePreview = false,
   });
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final VoidCallback onTap;
   final String? previewPath;
   final bool grayscalePreview;
@@ -439,7 +465,23 @@ class _EnhanceOptionCard extends StatelessWidget {
           else
             Icon(icon, color: scheme.primary),
           const SizedBox(width: 12),
-          Expanded(child: Text(title, style: text.titleMedium)),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: text.titleMedium),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle!,
+                    style: text.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
           Icon(Icons.chevron_right, color: scheme.onSurfaceVariant, size: 20),
         ],
       ),
@@ -497,8 +539,9 @@ class _PageFilterBar extends StatelessWidget {
                     selected: filter == f,
                     onSelected: busy
                         ? null
-                        : (sel) {
-                            if (sel) onChanged(f);
+                        : (_) {
+                            // Always apply — even re-tap selected filter.
+                            onChanged(f);
                           },
                   ),
               ],
@@ -574,6 +617,10 @@ class _ThumbnailStrip extends StatelessWidget {
                             quarterTurns: (page.rotation ~/ 90) % 4,
                             child: Image.file(
                               File(page.displayPath),
+                              key: ValueKey(
+                                '${page.id}_${page.selectedFilter.wire}_'
+                                '${page.displayPath}',
+                              ),
                               fit: BoxFit.cover,
                               cacheWidth: 120,
                             ),
@@ -622,6 +669,7 @@ class _ThumbnailStrip extends StatelessWidget {
 class _EditToolbar extends StatelessWidget {
   const _EditToolbar({
     required this.busy,
+    required this.canDelete,
     required this.onFilter,
     required this.onRotate,
     required this.onRetake,
@@ -630,6 +678,7 @@ class _EditToolbar extends StatelessWidget {
   });
 
   final bool busy;
+  final bool canDelete;
   final VoidCallback onFilter;
   final VoidCallback onRotate;
   final VoidCallback onRetake;
@@ -684,18 +733,40 @@ class _EditToolbar extends StatelessWidget {
                   _Tool(
                     icon: Icons.delete_outline,
                     label: 'Delete',
-                    onTap: busy ? null : onDelete,
+                    onTap: busy || !canDelete ? null : onDelete,
                   ),
                   _Tool(
-                    icon: Icons.refresh,
-                    label: 'Retake all',
-                    onTap: busy ? null : onRetakeAll,
+                    icon: Icons.more_horiz,
+                    label: 'More',
+                    onTap: busy
+                        ? null
+                        : () => _showMore(context),
                   ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Future<void> _showMore(BuildContext context) async {
+    await showAppBottomSheet<void>(
+      context: context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.refresh),
+            title: const Text('Retake all pages'),
+            subtitle: const Text('Scan every page again'),
+            onTap: () {
+              Navigator.pop(ctx);
+              onRetakeAll();
+            },
+          ),
+        ],
       ),
     );
   }

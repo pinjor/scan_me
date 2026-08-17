@@ -6,7 +6,7 @@
 **Last updated:** 2026-08-16
 
 > **Agent rule:** After every user task, update this file (Current status · Task log · relevant sections).  
-> Deep UI screen detail still lives in [`UI_PAGES.md`](UI_PAGES.md) (linked, not duplicated line-by-line).
+> Deep UI screen detail: [`UI_PAGES.md`](UI_PAGES.md) (single file — all screens).  
 > CamScan B&W spec: [`PROPOSAL_FORM_BW_CAMSCAN_SPEC.md`](PROPOSAL_FORM_BW_CAMSCAN_SPEC.md) — **every page**.
 
 ---
@@ -26,13 +26,16 @@
 | Area | State |
 |------|--------|
 | Core flows | Scan → Review → Export → Library → Viewer (architecturally complete) |
-| Home UI | Shell + customizable tools; **no Folders/Unfiled/Settings** on dashboard |
+| Home UI | Compact: search · Shortcuts tiles · Continue · Scan via FAB |
 | Motion | Modern M3-style shared `AppMotion` (routes, lists, press, sheets, nav) |
 | CamScan B&W | **Fixed 2026-08-16** — async path no longer full-white; SLI spec on every page |
 | Document tags | Colored `TagDef` catalog; Settings CRUD; assign Home ⋯ / Viewer; filter chips |
-| Tools / converters | Hub titled **Convert** (PDF / text / slides / images) |
+| Tools / converters | Hub: Documents (incl. **PDF→DOCX**) · **Image formats** (stack) · **Edit images** (stack) |
+| QR reader | Camera + photo · URL → Open link primary · Copy / Share · Quick tools default |
+| UX redesign | Complete transformation pass 2026-08-16 — shared kit + screen polish; prior phases 1–8 retained |
+| UI docs | Single [`UI_PAGES.md`](UI_PAGES.md) |
 | File viewers | Convert · View PDF · **Open with** tool aliases from file manager |
-| Open with OS | Android **activity-aliases** with tool icons/labels (View PDF, PDF to .txt, …); iOS document types |
+| Open with OS | Android aliases for all convert/edit tools (+ icons); iOS PDF/TXT/image/PPTX/DOCX/XLSX/HEIC/WebP/GIF |
 | Folders | Data model kept; **UI paused** (no chips / move / Unfiled) |
 | PDF watermark | Apptriangle corner on **every PDF page** (PDF draw + image bake on exports) |
 | Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
@@ -52,6 +55,9 @@ flutter build appbundle --release
 
 ### Open / watch
 
+- [ ] Device: back on pushed stacks (Scan · Review · Export · Viewer · Convert · QR · Settings)
+- [ ] Device: UI transform — light/dark · large text · Home search · Export progress · QR Open link
+- [ ] Device: QR reader — camera permission · torch · copy/share · open URL · scan from photo
 - [ ] Device: Open with shows **tool aliases** (icons + labels) after reinstall
 - [ ] User confirm B&W ink survives on device (hot restart / reinstall)
 - [ ] Re-check Play Console after AAB+2 (edge-to-edge, orientation, R8 %, bitmap)
@@ -64,6 +70,138 @@ flutter build appbundle --release
 ---
 
 ## Task log
+
+### 2026-08-16 — Back buttons on pushed pages
+- **Request:** Add back buttons everywhere needed.
+- **Done:** `AppPageRoute` → `MaterialPageRoute` + transitions; `scanMeAppBarLeading` / `AppBarBackButton` on Scan, QR, Review, Export, Viewer, File viewer, Convert/image tools+hubs, Settings (non-embedded), Files header when pushed. Tab roots omit leading. Review empty → “Go back” CTA.
+- **Files:** `app_transitions.dart`, `app_ui.dart`, scan/review/export/viewer/file_viewer/qr/converters/settings/`home_screen.dart`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** Device smoke — push each stack, confirm back visible + pops.
+
+### 2026-08-16 — Home theme toggle
+- **Request:** Replace settings button with dark/light mode toggle.
+- **Done:** Home header `AppCircleIconButton` toggles light↔dark via `themeModeProvider`. Settings remains on Me tab.
+- **Files:** `home_dashboard_screen.dart`, `main_shell_screen.dart`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** None.
+
+### 2026-08-16 — Compact Home (drop Start card)
+- **Request:** Remove Scan Document big card + children; make dashboard more compact.
+- **Done:** Removed Start card. Tighter header/search/spacing. Import moved to shortcut defaults. Prefs `v5`. Scan = FAB · Convert = tab.
+- **Files:** `home_dashboard_screen.dart`, `dashboard_tools.dart`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** None.
+
+### 2026-08-16 — Shortcuts as tiles
+- **Request:** Shortcuts should be tiles, not scrollable bar.
+- **Done:** Replaced horizontal chip strip with non-scrollable 4-col tile grid (circle icon + label · Add dashed).
+- **Files:** `home_dashboard_screen.dart`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** None.
+
+### 2026-08-16 — Home dashboard redesign
+- **Request:** Rethink / redesign dashboard (plan).
+- **Done:** Single **Start** card (Scan primary · Import/Convert secondary). **Shortcuts** horizontal strip (defaults QR · Favorites · Edit images). **Continue** replaces Recents. Prefs `dashboard_tool_ids_v4`; migrate drops Files once. Customize copy updated.
+- **Files:** `home_dashboard_screen.dart`, `dashboard_tools.dart`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** Device smoke light/dark + shortcut customize.
+
+### 2026-08-16 — Align PDF→DOCX UI
+- **Request:** Align the UI as well (for PDF to DOCX).
+- **Done:** File viewer DOCX text preview (same chrome as TXT/PPTX) · result label `.docx` · distinct hub/dashboard colors/icons vs DOCX→PDF · docs.
+- **Files:** `file_viewer_screen.dart`, `document_converter_service.dart`, `convert_catalog.dart`, `dashboard_tools.dart`, `converter_test.dart`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** None.
+
+### 2026-08-16 — Add PDF to DOCX
+- **Request:** Also add PDF to DOCX.
+- **Done:** Offline `pdfToDocx` (Syncfusion text extract → minimal OOXML). Convert hub + dashboard shortcut + Android Open-with alias. No OCR / layout fidelity (same limits as PDF→txt).
+- **Files:** `document_converter_service.dart`, `convert_catalog.dart`, `dashboard_tools.dart`, `home_dashboard_screen.dart`, `intent_convert_screen.dart`, `open_file_intent_bridge.dart`, AndroidManifest + `ic_alias_pdf_to_docx.xml`, `MainActivity.kt`, `converter_test.dart`, docs
+- **Left:** Device smoke Open-with + open result in Word.
+
+### 2026-08-16 — Remove dashboard Scan CTA redundancy
+- **Request:** Still redundancy about scan on dashboard.
+- **Done:** Empty Recents no longer repeats **Scan Document** / **Import Images** CTAs (hero + secondary row already cover those). Empty copy only points to recents area.
+- **Files:** `home_dashboard_screen.dart`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** None.
+
+### 2026-08-16 — Complete UI/UX transformation pass
+- **Request:** Full ScanMe UI/UX transformation (design system · progressive disclosure · a11y · consistency).
+- **Done:** Closed audit gaps — `AppSearchBar` / `AppErrorState` / `AppLoadingState` / `AppProgressCard` / `AppButton.secondary` / icon Semantics; Home+Files search unified; QR Open-link primary for URLs; image export Small/Balanced/High + hints; convert benefit blurbs; Settings `SectionHeader`; Recents/Quick tools headers; FAB `onPrimary`; Favorite label; trash copy; spacing tokens; `UI_PAGES` synced. Business logic / scanners / storage untouched.
+- **Files:** `app_ui.dart`, `app_theme.dart`, `home_*`, `main_shell`, `export_screen`, `qr_reader`, `settings`, `document_card`, `library_models`, `convert_catalog`, `UI_PAGES.md`, `PROJECT_LOG.md`
+- **Left:** Device smoke light/dark + large text.
+
+### 2026-08-16 — UX checklist audit (gaps only)
+- **Request:** Audit Flutter UX checklist; gaps with file:line; prioritize P0–P2; max 40.
+- **Done:** Gaps-only report (then implemented in transformation pass above).
+- **Files:** audit only + this log
+- **Left:** None.
+
+### 2026-08-16 — UI docs: one file
+- **Request:** Don’t use separate md in `ui/` — put UI in one md.
+- **Done:** Merged all `docs/ui/*.md` into [`UI_PAGES.md`](UI_PAGES.md); deleted `docs/ui/`. PROJECT_LOG links point only to `UI_PAGES.md`.
+- **Files:** `docs/UI_PAGES.md`, `docs/PROJECT_LOG.md` (removed `docs/ui/`)
+- **Left:** None.
+
+### 2026-08-16 — Add QR reader
+- **Request:** Also add a QR reader.
+- **Done:** `QrReaderScreen` via `mobile_scanner` + gallery analyze. Result sheet Copy / Open link / Share. Dashboard tool `qrReader` in defaults (Files · Favorites · QR). Android CAMERA + http(s) queries; iOS camera/photo strings + `LSApplicationQueriesSchemes`.
+- **Files:** `qr_reader_screen.dart`, `dashboard_tools.dart`, `home_dashboard_screen.dart`, `pubspec.yaml`, AndroidManifest, Info.plist, `docs/ui/qr-reader.md`, PROJECT_LOG / UI_PAGES / README
+- **Left:** Device smoke (permission · torch · URL open · photo scan).
+
+### 2026-08-16 — Fix dashboard tool redundancy
+- **Request:** Dashboard showed same actions multiple times.
+- **Done:** Scan / Import / Convert stay only in hero + secondary row. Quick tools defaults = Files · Favorites · Tags. Pinned ids stripped from grid + customize catalog. Prefs `v3` + sanitize migration.
+- **Files:** `dashboard_tools.dart`, `home_dashboard_screen.dart`, docs
+- **Left:** None.
+
+### 2026-08-16 — Stack image format converters
+- **Request:** Image type conversions also stacked into one.
+- **Done:** One Convert hub + dashboard tile **Image formats** → `ImageFormatsHubScreen` lists JPG/PNG/WebP/GIF/HEIC. Legacy dashboard format tiles migrate. Open-with still deep-links each convert.
+- **Files:** `image_formats_hub_screen.dart`, `convert_catalog.dart`, `converters_hub_screen.dart`, `dashboard_tools.dart`, `home_dashboard_screen.dart`, docs
+- **Left:** None.
+
+### 2026-08-16 — Stack Edit images tools
+- **Request:** Edit images tools stacked into one.
+- **Done:** One Convert hub + dashboard tile **Edit images** → `ImageEditHubScreen` lists Crop / Resize / Compress. Legacy dashboard Crop/Resize/Compress prefs migrate to Edit images. Open-with still deep-links each tool.
+- **Files:** `image_edit_hub_screen.dart`, `convert_catalog.dart`, `converters_hub_screen.dart`, `dashboard_tools.dart`, `home_dashboard_screen.dart`, docs
+- **Left:** None.
+
+### 2026-08-16 — Refresh all UI page docs
+- **Request:** Update every page doc accordingly (post UX upgrade).
+- **Done:** Rewrote all `docs/ui/*.md` + `UI_PAGES.md` index to match current Home hero, Export disclosure, Viewer calm chrome, Review More, Trash copy, convert sections, brand tokens, skeletons, sheets rules.
+- **Files:** `docs/ui/*`, `docs/UI_PAGES.md`, `docs/PROJECT_LOG.md`
+- **Left:** None (docs).
+
+### 2026-08-16 — UI/UX upgrade remaining (phases 6–8)
+- **Request:** Do all remaining UX upgrade work.
+- **Done:** Viewer: Favorite+Share primary, Print/Save in More, page prev/next, skeleton load. Review: More menu for Retake all; Delete disabled on 1 page. Scan: page # on thumbs, friendlier busy/errors. Document cards: compact meta, 48px More. `AppListSkeleton`. File viewer empty/error states. Nav semantics + 56h. Trash permanent copy “cannot be undone.” Docs updated.
+- **Files:** `viewer_screen.dart`, `review_screen.dart`, `scan_capture_screen.dart`, `document_card.dart`, `app_ui.dart`, `file_viewer_screen.dart`, `main_shell_screen.dart`, `home_*.dart`, `docs/ui/*`, PROJECT_LOG
+- **Left:** Device smoke full journeys A–E.
+
+### 2026-08-16 — Complete UI/UX upgrade (phase 1–5 core)
+- **Request:** Run ScanMe Complete UI-UX Upgrade Prompt (preserve features; redesign UX).
+- **Done:** Brand tokens navy `#1B3A4B` + accent `#2F6F7E`, radii 12–24, readable type. Home: brand header, Scan Document hero, Import/Convert secondary, Quick tools. FAB semantic label. Export: simple Save as + More options + quality hints. Convert: compact hero, friendlier catalog, result panel success. Settings Storage + privacy badge. Files Trash “Recently deleted”. Enhance filter descriptions. Friendly errors.
+- **Files:** `app_theme.dart`, `home_dashboard_screen.dart`, `main_shell_screen.dart`, `export_screen.dart`, convert chrome/catalog/result, `settings_screen.dart`, `home_screen.dart`, `page_filter.dart`, `review_screen.dart`, docs
+- **Left:** Phase 6–8 polish (viewer chrome, skeleton loaders, a11y audit, full consistency pass); device smoke.
+
+### 2026-08-16 — Per-page UI docs
+- **Request:** Every page UI details in separate md files.
+- **Done:** Split into `docs/ui/` — one md per screen + sheets + brand/motion; `UI_PAGES.md` now index; PROJECT_LOG link updated.
+- **Files:** `docs/ui/*.md`, `docs/UI_PAGES.md`, `docs/PROJECT_LOG.md`
+- **Left:** None.
+
+### 2026-08-16 — New converter UI/icon parity
+- **Request:** New converters match old ones — UI, icons, open-with, dashboard treatment.
+- **Done:** Shared `ConvertToolHero` + CTA styles on convert / intent / crop / resize / compress. Catalog steps + progress labels. Dashboard + hub deep links. Android open-with aliases + drawables for DOCX/XLSX/WebP/GIF/HEIC/crop/resize/compress. iOS Info.plist Word/Excel/HEIC/WebP/GIF types. Intent bridge routes edit tools with `initialPath`.
+- **Files:** `convert_tool_chrome.dart`, tool screens, `convert_catalog.dart`, `open_file_intent_bridge.dart`, `AndroidManifest.xml`, `ic_alias_*.xml`, `MainActivity.kt`, `Info.plist`, `dashboard_tools.dart`, docs
+- **Left:** Device reinstall to refresh Open-with list; smoke HEIC/DOCX/crop.
+
+### 2026-08-16 — Filter tap shows old look
+- **Request:** Filters don’t change after tap; stay on previous filter.
+- **Done:** Processed JPEGs now written per-filter (`pageId_filter.jpg`); evict `FileImage` cache; Review PhotoView/thumb keys include filter wire. Choice chips always fire apply.
+- **Files:** `document_storage_service.dart`, `editor_controller.dart`, `review_screen.dart`, docs
+- **Left:** None.
+
+### 2026-08-16 — More converters + image tools
+- **Request:** Add JPG/PNG/WebP/HEIC/GIF, DOCX, XLSX, crop, pixel resize, size reducer; good UI; research offline options.
+- **Done:** Sectioned Convert hub (Documents · Image formats · Resize & edit). New tools: Any→JPG/PNG/WebP/GIF, HEIC→JPG (native), DOCX→PDF, XLSX→CSV/PDF, Crop (`crop_your_image`), Resize, Compress. Dedicated tool screens + result panel. HEIC via `app.atl.scanme/image_codec`.
+- **Files:** `convert_catalog.dart`, `converters_hub_screen.dart`, tool screens, `document_converter_service.dart`, `image_tools_service.dart`, Android/iOS codec, `dashboard_tools.dart`, docs
+- **Left:** Device smoke HEIC / DOCX / crop; DOCX/XLSX are text/table fidelity (not full layout).
 
 ### 2026-08-16 — Filter loading copy
 - **Request:** Filter loading text bad (“filtering page 2 of 1”).
@@ -397,7 +535,7 @@ Medium/Low (export re-encode, rename vs filenames, Google Fonts network, GMS che
 |------|------|
 | **`PROJECT_LOG.md`** | **Canonical living log** (this file) |
 | [`PROPOSAL_FORM_BW_CAMSCAN_SPEC.md`](PROPOSAL_FORM_BW_CAMSCAN_SPEC.md) | CamScan B&W constants/pipeline (every page) |
-| [`UI_PAGES.md`](UI_PAGES.md) | Deep UI page reference |
+| [`UI_PAGES.md`](UI_PAGES.md) | All screens UI detail (single file) |
 | [`PLAY_STORE.md`](PLAY_STORE.md) | Stub → Play section above |
 | [`PLAY_CONSOLE_FIXES.md`](PLAY_CONSOLE_FIXES.md) | Stub → Play Console section above |
 | [`TEST_REPORT.md`](TEST_REPORT.md) | Stub → Test section above |

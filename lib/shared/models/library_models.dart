@@ -160,9 +160,15 @@ enum ImageExportQuality { low, medium, high }
 
 extension ImageExportQualityX on ImageExportQuality {
   String get label => switch (this) {
-        ImageExportQuality.low => 'Low',
-        ImageExportQuality.medium => 'Medium',
-        ImageExportQuality.high => 'High',
+        ImageExportQuality.low => 'Small size',
+        ImageExportQuality.medium => 'Balanced',
+        ImageExportQuality.high => 'High quality',
+      };
+
+  String get hint => switch (this) {
+        ImageExportQuality.low => 'Best for sharing',
+        ImageExportQuality.medium => 'Recommended',
+        ImageExportQuality.high => 'Best for printing',
       };
 
   int get jpegQuality => switch (this) {

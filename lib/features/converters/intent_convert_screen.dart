@@ -1,46 +1,63 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
-import '../../core/services/device_save_service.dart';
-import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../file_viewer/file_viewer_screen.dart';
+import 'convert_catalog.dart';
+import 'convert_result_panel.dart';
+import 'convert_tool_chrome.dart';
 import 'document_converter_service.dart';
 
 enum IntentConvertKind {
   pdfToTxt,
+  pdfToDocx,
   txtToPdf,
   pptxToPdf,
+  docxToPdf,
+  xlsxToCsv,
+  xlsxToPdf,
   pngToJpg,
   jpgToPng,
+  toJpg,
+  toPng,
+  toWebp,
+  toGif,
+  heicToJpg,
 }
 
 extension IntentConvertKindX on IntentConvertKind {
-  Future<ConvertResult> run(String path) => switch (this) {
-        IntentConvertKind.pdfToTxt => DocumentConverterService.pdfToTxt(path),
-        IntentConvertKind.txtToPdf => DocumentConverterService.txtToPdf(path),
-        IntentConvertKind.pptxToPdf => DocumentConverterService.pptxToPdf(path),
-        IntentConvertKind.pngToJpg => DocumentConverterService.imageToJpeg(path),
-        IntentConvertKind.jpgToPng => DocumentConverterService.imageToPng(path),
+  ConvertToolId get toolId => switch (this) {
+        IntentConvertKind.pdfToTxt => ConvertToolId.pdfToTxt,
+        IntentConvertKind.pdfToDocx => ConvertToolId.pdfToDocx,
+        IntentConvertKind.txtToPdf => ConvertToolId.txtToPdf,
+        IntentConvertKind.pptxToPdf => ConvertToolId.pptxToPdf,
+        IntentConvertKind.docxToPdf => ConvertToolId.docxToPdf,
+        IntentConvertKind.xlsxToCsv => ConvertToolId.xlsxToCsv,
+        IntentConvertKind.xlsxToPdf => ConvertToolId.xlsxToPdf,
+        IntentConvertKind.pngToJpg || IntentConvertKind.toJpg =>
+          ConvertToolId.toJpg,
+        IntentConvertKind.jpgToPng || IntentConvertKind.toPng =>
+          ConvertToolId.toPng,
+        IntentConvertKind.toWebp => ConvertToolId.toWebp,
+        IntentConvertKind.toGif => ConvertToolId.toGif,
+        IntentConvertKind.heicToJpg => ConvertToolId.heicToJpg,
       };
 
-  String get progressLabel => switch (this) {
-        IntentConvertKind.pdfToTxt => 'Extracting text to .txt…',
-        IntentConvertKind.txtToPdf => 'Building PDF…',
-        IntentConvertKind.pptxToPdf => 'Converting slides…',
-        IntentConvertKind.pngToJpg => 'Writing JPG…',
-        IntentConvertKind.jpgToPng => 'Writing PNG…',
-      };
+  ConvertToolMeta get meta =>
+      convertToolMeta(toolId) ??
+      const ConvertToolMeta(
+        id: ConvertToolId.toJpg,
+        section: ConvertSectionId.images,
+        title: 'Convert',
+        subtitle: '',
+        icon: Icons.swap_horiz,
+        color: Color(0xFF455A64),
+      );
 
-  String get title => switch (this) {
-        IntentConvertKind.pdfToTxt => 'PDF to .txt',
-        IntentConvertKind.txtToPdf => '.txt to PDF',
-        IntentConvertKind.pptxToPdf => 'PPTX to PDF',
-        IntentConvertKind.pngToJpg => 'PNG to JPG',
-        IntentConvertKind.jpgToPng => 'JPG to PNG',
-      };
+  Future<ConvertResult> run(String path) => runSimpleConvert(toolId, path);
+
+  String get progressLabel => meta.progressLabel;
+
+  String get title => meta.title;
 }
 
 /// Runs a convert started from Android “Open with” tool alias.
@@ -96,137 +113,50 @@ class _IntentConvertScreenState extends State<IntentConvertScreen> {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
-    final scheme = Theme.of(context).colorScheme;
+    final meta = widget.kind.meta;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.kind.title)),
-      body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        child: _busy
-            ? AppCard(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: CircularProgressIndicator(strokeWidth: 3),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(_progress, style: text.titleMedium),
-                  ],
-                ),
-              )
-            : _error != null
-                ? AppEmptyState(
-                    title: 'Convert failed',
-                    subtitle: _error!,
-                    primaryLabel: 'Retry',
-                    onPrimary: _run,
-                    secondaryLabel: 'View original',
-                    onSecondary: () => FileViewerScreen.open(
-                      context,
-                      widget.path,
-                    ),
-                  )
-                : AppCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Ready', style: text.titleMedium),
-                        const SizedBox(height: 6),
-                        Text(
-                          _result!.outputPath
-                              .split(Platform.pathSeparator)
-                              .last,
-                          style: text.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        FilledButton.icon(
-                          onPressed: () => FileViewerScreen.open(
-                            context,
-                            _result!.outputPath,
-                          ),
-                          icon: const Icon(Icons.open_in_new),
-                          label: const Text('Open in ScanMe'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusSm),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        FilledButton.tonalIcon(
-                          onPressed: () => _save(_result!),
-                          icon: const Icon(Icons.save_alt),
-                          label: const Text('Save to device'),
-                          style: FilledButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusSm),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: () => _share(_result!),
-                          icon: const Icon(Icons.share_outlined),
-                          label: Text('Share ${_result!.label}'),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(48, 48),
-                            shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusSm),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+      appBar: AppBar(
+        leading: scanMeAppBarLeading(context),
+        title: Text(meta.title),
       ),
-    );
-  }
-
-  Future<void> _save(ConvertResult result) async {
-    try {
-      final where = await DeviceSaveService.saveFile(
-        sourcePath: result.outputPath,
-        displayName: result.outputPath.split(Platform.pathSeparator).last,
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(where == null ? 'Save cancelled' : 'Saved: $where'),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save: $e')),
-      );
-    }
-  }
-
-  Future<void> _share(ConvertResult result) async {
-    final name = result.outputPath.split(Platform.pathSeparator).last;
-    await SharePlus.instance.share(
-      ShareParams(
-        files: [
-          XFile(
-            result.outputPath,
-            mimeType: result.mimeType,
-            name: name,
-          ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+        children: [
+          ConvertToolHero(tool: meta),
+          if (_busy) ...[
+            const SizedBox(height: 24),
+            AppCard(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  const SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: CircularProgressIndicator(strokeWidth: 3),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(_progress, style: text.titleMedium),
+                ],
+              ),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 20),
+            AppEmptyState(
+              title: 'Convert failed',
+              subtitle: _error!,
+              primaryLabel: 'Retry',
+              onPrimary: _run,
+              secondaryLabel: 'View original',
+              onSecondary: () => FileViewerScreen.open(context, widget.path),
+            ),
+          ],
+          if (_result != null && !_busy) ...[
+            const SizedBox(height: 20),
+            ConvertResultPanel(result: _result!),
+          ],
         ],
-        subject: name,
       ),
     );
   }

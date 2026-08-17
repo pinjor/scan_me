@@ -78,14 +78,18 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        appBar: AppBar(
+          leading: scanMeAppBarLeading(context),
+          title: const Text('Document'),
+        ),
+        body: const AppListSkeleton(),
       );
     }
     final doc = _doc;
     if (doc == null || _error != null || _pageController == null) {
       return Scaffold(
-        appBar: AppBar(),
+        appBar: AppBar(leading: scanMeAppBarLeading(context)),
         body: AppEmptyState(
           title: 'Document unavailable',
           subtitle: _error ?? "We couldn't open this file.",
@@ -103,10 +107,11 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: scanMeAppBarLeading(context),
         title: Text(doc.name),
         actions: [
           IconButton(
-            tooltip: doc.isFavorite ? 'Unfavorite' : 'Mark important',
+            tooltip: doc.isFavorite ? 'Unfavorite' : 'Favorite',
             onPressed: () async {
               await ref
                   .read(documentsProvider.notifier)
@@ -126,23 +131,18 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
             ),
           ),
           IconButton(
-            tooltip: 'Print',
-            onPressed: () => _print(doc),
-            icon: const Icon(Icons.print_outlined),
-          ),
-          IconButton(
-            tooltip: 'Save to device',
-            onPressed: () => _saveToDevice(doc),
-            icon: const Icon(Icons.save_alt),
-          ),
-          IconButton(
             tooltip: 'Share',
             onPressed: () => _share(doc),
             icon: const Icon(Icons.share_outlined),
           ),
           PopupMenuButton<String>(
+            tooltip: 'More',
             onSelected: (v) async {
               switch (v) {
+                case 'print':
+                  await _print(doc);
+                case 'save':
+                  await _saveToDevice(doc);
                 case 'pdf':
                   final pdf = doc.pdfPath;
                   if (pdf != null && File(pdf).existsSync()) {
@@ -163,6 +163,8 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
               }
             },
             itemBuilder: (_) => [
+              const PopupMenuItem(value: 'print', child: Text('Print')),
+              const PopupMenuItem(value: 'save', child: Text('Save to device')),
               if (doc.pdfPath != null && File(doc.pdfPath!).existsSync())
                 const PopupMenuItem(
                   value: 'pdf',
@@ -248,32 +250,48 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
               child: AppCard(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                child: AnimatedSwitcher(
-                  duration: AppMotion.quick,
-                  transitionBuilder: (child, anim) => FadeTransition(
-                    opacity: anim,
-                    child: child,
-                  ),
-                  child: Row(
-                    key: ValueKey(_index),
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.description_outlined,
-                        size: 18,
-                        color: scheme.onSurfaceVariant,
+                elevated: false,
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  children: [
+                    IconButton(
+                      tooltip: 'Previous page',
+                      onPressed: _index <= 0
+                          ? null
+                          : () {
+                              _pageController!.previousPage(
+                                duration: AppMotion.quick,
+                                curve: AppMotion.emphasizedDecelerate,
+                              );
+                            },
+                      icon: const Icon(Icons.chevron_left),
+                    ),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: AppMotion.quick,
+                        child: Text(
+                          'Page ${_index + 1} of ${doc.pages.length}',
+                          key: ValueKey(_index),
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Page ${_index + 1} of ${doc.pages.length}',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      tooltip: 'Next page',
+                      onPressed: _index >= doc.pages.length - 1
+                          ? null
+                          : () {
+                              _pageController!.nextPage(
+                                duration: AppMotion.quick,
+                                curve: AppMotion.emphasizedDecelerate,
+                              );
+                            },
+                      icon: const Icon(Icons.chevron_right),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -331,7 +349,9 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Print failed: $e')),
+          const SnackBar(
+            content: Text('Something went wrong while printing. Try again.'),
+          ),
         );
       }
     }
@@ -384,7 +404,9 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e')),
+          const SnackBar(
+            content: Text('Something went wrong while saving. Try again.'),
+          ),
         );
       }
     }
@@ -492,7 +514,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       context: context,
       title: 'Move to Trash?',
       message:
-          '“${doc.name}” moves to Trash. You can restore it later from the home Trash view.',
+          '“${doc.name}” moves to Trash. You can restore it later.',
       confirmLabel: 'Move to Trash',
     );
     if (ok && mounted) {

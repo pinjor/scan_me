@@ -11,24 +11,28 @@ import 'package:share_plus/share_plus.dart';
 import 'package:xml/xml.dart';
 
 import '../../core/services/device_save_service.dart';
-import '../../core/theme/app_theme.dart';
+import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
+import '../../core/theme/app_theme.dart';
 
-enum FileViewerKind { txt, pdf, image, pptx, unknown }
+enum FileViewerKind { txt, pdf, image, pptx, docx, unknown }
 
 FileViewerKind fileViewerKindForPath(String path) {
   final ext = p.extension(path).toLowerCase();
   return switch (ext) {
-    '.txt' || '.text' || '.md' || '.log' => FileViewerKind.txt,
+    '.txt' || '.text' || '.md' || '.log' || '.csv' => FileViewerKind.txt,
     '.pdf' => FileViewerKind.pdf,
-    '.png' || '.jpg' || '.jpeg' || '.jpe' || '.webp' || '.gif' || '.bmp' =>
+    '.png' || '.jpg' || '.jpeg' || '.jpe' || '.webp' || '.gif' || '.bmp' ||
+    '.heic' || '.heif' =>
       FileViewerKind.image,
     '.pptx' => FileViewerKind.pptx,
+    '.docx' => FileViewerKind.docx,
     _ => FileViewerKind.unknown,
   };
 }
 
-/// In-app viewer for convert outputs and picked files (.txt / PDF / image / PPTX).
+/// In-app viewer for convert outputs and picked files
+/// (.txt / PDF / image / PPTX / DOCX).
 class FileViewerScreen extends StatefulWidget {
   const FileViewerScreen({
     super.key,
@@ -60,19 +64,15 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
     try {
       final where = await DeviceSaveService.saveFile(sourcePath: widget.path);
       if (!mounted) return;
-      if (where == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Save cancelled')),
-        );
-        return;
-      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Saved: $where')),
+        SnackBar(content: Text(where == null ? 'Save cancelled' : 'Saved to device')),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not save: $e')),
+        const SnackBar(
+          content: Text('Something went wrong while saving. Try again.'),
+        ),
       );
     }
   }
@@ -80,18 +80,18 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
   Future<void> _share() async {
     final mime = switch (_kind) {
       FileViewerKind.txt => 'text/plain',
-      FileViewerKind.pdf || FileViewerKind.pptx => 'application/pdf',
+      FileViewerKind.pdf => 'application/pdf',
+      FileViewerKind.pptx =>
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      FileViewerKind.docx =>
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       FileViewerKind.image => null,
       FileViewerKind.unknown => null,
     };
-    // PPTX shares original; if we only show slides preview still share source.
-    final shareMime = _kind == FileViewerKind.pptx
-        ? 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        : mime;
     await SharePlus.instance.share(
       ShareParams(
         files: [
-          XFile(widget.path, mimeType: shareMime, name: _name),
+          XFile(widget.path, mimeType: mime, name: _name),
         ],
         subject: _name,
       ),
@@ -100,10 +100,9 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       appBar: AppBar(
+        leading: scanMeAppBarLeading(context),
         title: Text(_name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           IconButton(
@@ -124,15 +123,10 @@ class _FileViewerScreenState extends State<FileViewerScreen> {
           FileViewerKind.pdf => _PdfBody(path: widget.path),
           FileViewerKind.image => _ImageBody(path: widget.path),
           FileViewerKind.pptx => _PptxBody(path: widget.path),
-          FileViewerKind.unknown => Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Cannot preview this file type.\n$_name',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-              ),
+          FileViewerKind.docx => _DocxBody(path: widget.path),
+          FileViewerKind.unknown => AppEmptyState(
+              title: 'Cannot preview this file',
+              subtitle: _name,
             ),
         },
       ),
@@ -169,7 +163,10 @@ class _TxtBodyState extends State<_TxtBody> {
       future: _future,
       builder: (context, snap) {
         if (snap.hasError) {
-          return Center(child: Text('Could not read file: ${snap.error}'));
+          return const AppEmptyState(
+            title: 'Could not read file',
+            subtitle: 'Try opening it again, or save a new copy.',
+          );
         }
         if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -221,7 +218,10 @@ class _ImageBody extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final file = File(path);
     if (!file.existsSync()) {
-      return const Center(child: Text('Image file missing.'));
+      return const AppEmptyState(
+        title: 'Image missing',
+        subtitle: 'This file could not be found on the device.',
+      );
     }
     return ColoredBox(
       color: scheme.surfaceContainerLowest,
@@ -347,14 +347,9 @@ class _PptxBodyState extends State<_PptxBody> {
       future: _future,
       builder: (context, snap) {
         if (snap.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'Could not open PowerPoint:\n${snap.error}',
-                textAlign: TextAlign.center,
-              ),
-            ),
+          return const AppEmptyState(
+            title: 'Could not open PowerPoint',
+            subtitle: 'The file may be damaged or unsupported.',
           );
         }
         if (!snap.hasData) {
@@ -382,7 +377,7 @@ class _PptxBodyState extends State<_PptxBody> {
                       Text(
                         'Slide ${i + 1}',
                         style: text.titleMedium?.copyWith(
-                          color: AppTheme.navy,
+                          color: scheme.primary,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -417,9 +412,104 @@ class _PptxBodyState extends State<_PptxBody> {
               top: false,
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-                child: Text(
-                  'Slide ${_page + 1} of ${slides.length}',
-                  style: text.labelLarge,
+                child: AppCard(
+                  elevated: false,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'Slide ${_page + 1} of ${slides.length}',
+                    textAlign: TextAlign.center,
+                    style: text.labelLarge,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Text preview of Word (.docx) — same chrome as txt / PPTX preview.
+class _DocxBody extends StatefulWidget {
+  const _DocxBody({required this.path});
+  final String path;
+
+  @override
+  State<_DocxBody> createState() => _DocxBodyState();
+}
+
+class _DocxBodyState extends State<_DocxBody> {
+  late final Future<List<String>> _future = _parse();
+
+  Future<List<String>> _parse() async {
+    final bytes = await File(widget.path).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final docFile = archive.findFile('word/document.xml');
+    if (docFile == null) {
+      throw StateError('Not a valid Word file.');
+    }
+    final xml = XmlDocument.parse(utf8.decode(docFile.content as List<int>));
+    final paragraphs = <String>[];
+    for (final pNode in xml.findAllElements('p', namespaceUri: '*')) {
+      final parts = pNode
+          .findAllElements('t', namespaceUri: '*')
+          .map((t) => t.innerText)
+          .join();
+      paragraphs.add(parts);
+    }
+    if (paragraphs.every((p) => p.trim().isEmpty)) {
+      throw StateError('No readable text in this Word file.');
+    }
+    return paragraphs;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return FutureBuilder<List<String>>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.hasError) {
+          return const AppEmptyState(
+            title: 'Could not open Word file',
+            subtitle: 'The file may be damaged or unsupported.',
+          );
+        }
+        if (!snap.hasData) {
+          return const AppLoadingState(message: 'Opening document…');
+        }
+        final paragraphs = snap.data!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Text(
+                'Text preview. Open in Word for full editing.',
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              ),
+            ),
+            Expanded(
+              child: SelectionArea(
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                  itemCount: paragraphs.length,
+                  itemBuilder: (context, i) {
+                    final line = paragraphs[i];
+                    if (line.trim().isEmpty) {
+                      return const SizedBox(height: 12);
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        line,
+                        style: text.bodyLarge?.copyWith(height: 1.45),
+                      ),
+                    );
+                  },
                 ),
               ),
             ),

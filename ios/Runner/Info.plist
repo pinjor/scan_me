@@ -9,9 +9,9 @@
 	<key>CFBundleDisplayName</key>
 	<string>ScanMe</string>
 	<key>NSCameraUsageDescription</key>
-	<string>ScanMe needs camera access to scan documents.</string>
+	<string>ScanMe needs camera access to scan documents and QR codes.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>ScanMe needs photo library access to convert images into a PDF.</string>
+	<string>ScanMe needs photo library access to import images and scan QR codes from photos.</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -73,6 +73,9 @@
 				<string>public.image</string>
 				<string>public.jpeg</string>
 				<string>public.png</string>
+				<string>public.heic</string>
+				<string>org.webmproject.webp</string>
+				<string>com.compuserve.gif</string>
 			</array>
 		</dict>
 		<dict>
@@ -86,6 +89,32 @@
 			<array>
 				<string>org.openxmlformats.presentationml.presentation</string>
 				<string>com.microsoft.powerpoint.ppt</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Word</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.openxmlformats.wordprocessingml.document</string>
+				<string>com.microsoft.word.doc</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Excel</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Alternate</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>org.openxmlformats.spreadsheetml.sheet</string>
+				<string>com.microsoft.excel.xls</string>
 			</array>
 		</dict>
 	</array>
@@ -110,6 +139,11 @@
 			</array>
 		</dict>
 	</dict>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

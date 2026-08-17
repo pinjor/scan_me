@@ -1,5 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="http" />
+        </intent>
+    </queries>
     <application
         android:label="ScanMe"
         android:name="${applicationName}"
@@ -56,6 +70,22 @@
             android:label="PDF to .txt"
             android:icon="@drawable/ic_alias_pdf_to_txt"
             android:roundIcon="@drawable/ic_alias_pdf_to_txt">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenPdfToDocx"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="PDF to DOCX"
+            android:icon="@drawable/ic_alias_pdf_to_docx"
+            android:roundIcon="@drawable/ic_alias_pdf_to_docx">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -180,6 +210,183 @@
                 <data android:scheme="content" />
                 <data android:scheme="file" />
                 <data android:mimeType="application/vnd.openxmlformats-officedocument.presentationml.presentation" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenDocxToPdf"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="DOCX to PDF"
+            android:icon="@drawable/ic_alias_docx_to_pdf"
+            android:roundIcon="@drawable/ic_alias_docx_to_pdf">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenXlsxToCsv"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="XLSX to CSV"
+            android:icon="@drawable/ic_alias_xlsx_to_csv"
+            android:roundIcon="@drawable/ic_alias_xlsx_to_csv">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenXlsxToPdf"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="XLSX to PDF"
+            android:icon="@drawable/ic_alias_xlsx_to_pdf"
+            android:roundIcon="@drawable/ic_alias_xlsx_to_pdf">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenToJpg"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="Image to JPG"
+            android:icon="@drawable/ic_alias_to_jpg"
+            android:roundIcon="@drawable/ic_alias_to_jpg">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenToPng"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="Image to PNG"
+            android:icon="@drawable/ic_alias_to_png"
+            android:roundIcon="@drawable/ic_alias_to_png">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenToWebp"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="Image to WebP"
+            android:icon="@drawable/ic_alias_to_webp"
+            android:roundIcon="@drawable/ic_alias_to_webp">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenToGif"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="Image to GIF"
+            android:icon="@drawable/ic_alias_to_gif"
+            android:roundIcon="@drawable/ic_alias_to_gif">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenHeicToJpg"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="HEIC to JPG"
+            android:icon="@drawable/ic_alias_heic_to_jpg"
+            android:roundIcon="@drawable/ic_alias_heic_to_jpg">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/heic" />
+                <data android:mimeType="image/heif" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenCropImage"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="Crop in ScanMe"
+            android:icon="@drawable/ic_alias_crop"
+            android:roundIcon="@drawable/ic_alias_crop">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenResizeImage"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="Resize in ScanMe"
+            android:icon="@drawable/ic_alias_resize"
+            android:roundIcon="@drawable/ic_alias_resize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".OpenCompressImage"
+            android:targetActivity=".MainActivity"
+            android:exported="true"
+            android:label="Compress in ScanMe"
+            android:icon="@drawable/ic_alias_compress"
+            android:roundIcon="@drawable/ic_alias_compress">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="image/*" />
             </intent-filter>
         </activity-alias>
 

@@ -35,6 +35,15 @@ extension PageFilterX on PageFilter {
         PageFilter.lighten => 'Lighten',
       };
 
+  String get description => switch (this) {
+        PageFilter.original => 'Keep original colors',
+        PageFilter.blackAndWhite => 'Best for documents',
+        PageFilter.grayscale => 'Soft grey tones',
+        PageFilter.autoEnhance => 'Balanced everyday scan',
+        PageFilter.vivid => 'Richer colors',
+        PageFilter.lighten => 'Brighten dark pages',
+      };
+
   /// Preview hint in enhance sheet (not exact pipeline).
   bool get previewAsGrey =>
       this == PageFilter.blackAndWhite || this == PageFilter.grayscale;

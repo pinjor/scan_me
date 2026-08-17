@@ -41,7 +41,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return Scaffold(
       appBar: widget.embedded
           ? null
-          : AppBar(title: const Text('Settings')),
+          : AppBar(
+              leading: scanMeAppBarLeading(context),
+              title: const Text('Settings'),
+            ),
       body: SafeArea(
         child: ListView(
         padding: EdgeInsets.fromLTRB(12, 4, 12, widget.embedded ? 100 : 24),
@@ -52,14 +55,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               child: Text('Me', style: text.titleLarge),
             ),
           ],
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 8),
-            child: Text(
-              'Appearance',
-              style: text.titleSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
+          const SectionHeader(
+            title: 'Appearance',
+            padding: EdgeInsets.fromLTRB(4, 4, 4, 8),
           ),
           AppCard(
             elevated: false,
@@ -96,24 +94,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-            child: Text(
-              'Trash',
-              style: text.titleSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
+          const SectionHeader(
+            title: 'Storage',
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
           ),
           AppCard(
             elevated: false,
             padding: EdgeInsets.zero,
             child: ListTile(
-              dense: true,
               leading:
                   Icon(Icons.auto_delete_outlined, color: scheme.primary),
-              title: const Text('Auto-delete'),
-              subtitle: Text('After $_trashDays days'),
+              title: const Text('Trash retention'),
+              subtitle: Text(
+                'Recently deleted documents are kept for $_trashDays days, then removed automatically.',
+              ),
+              isThreeLine: true,
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
                 final picked = await showDialog<int>(
@@ -139,14 +134,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-            child: Text(
-              'Tags',
-              style: text.titleSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
+          const SectionHeader(
+            title: 'Tags',
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
           ),
           AppCard(
             elevated: false,
@@ -158,7 +148,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   (tag) => Column(
                     children: [
                       ListTile(
-                        dense: true,
                         leading: CircleAvatar(
                           backgroundColor: Color(tag.color),
                           radius: 12,
@@ -173,7 +162,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   ),
                 ),
                 ListTile(
-                  dense: true,
                   leading: Icon(Icons.add, color: scheme.primary),
                   title: const Text('Add tag'),
                   onTap: () async {
@@ -187,14 +175,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
-            child: Text(
-              'About',
-              style: text.titleSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
-            ),
+          const SectionHeader(
+            title: 'About',
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
           ),
           AppCard(
             elevated: false,
@@ -209,6 +192,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   style: text.bodySmall?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),
+                ),
+                const SizedBox(height: 12),
+                const PrivacyBadge(
+                  label: 'Stored privately on this device · No account required',
+                  compact: true,
                 ),
               ],
             ),

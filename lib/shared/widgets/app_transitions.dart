@@ -34,61 +34,65 @@ abstract final class AppMotion {
       reduce(context) ? Duration.zero : d;
 }
 
-/// Shared route: clear horizontal slide + fade (readable on device).
-class AppPageRoute<T> extends PageRouteBuilder<T> {
+/// Shared route: Material page (so AppBar back works) + slide/fade.
+class AppPageRoute<T> extends MaterialPageRoute<T> {
   AppPageRoute({
-    required WidgetBuilder builder,
+    required super.builder,
     super.settings,
     super.fullscreenDialog,
-  }) : super(
-          opaque: true,
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              builder(context),
-          transitionDuration: AppMotion.pageForward,
-          reverseTransitionDuration: AppMotion.pageBack,
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            if (AppMotion.reduce(context)) return child;
+  });
 
-            final incoming = CurvedAnimation(
-              parent: animation,
-              curve: AppMotion.emphasizedDecelerate,
-              reverseCurve: AppMotion.emphasizedAccelerate,
-            );
-            final outgoing = CurvedAnimation(
-              parent: secondaryAnimation,
-              curve: AppMotion.emphasized,
-            );
+  @override
+  Duration get transitionDuration => AppMotion.pageForward;
 
-            // Incoming page: from right + fade in.
-            final slideIn = Tween<Offset>(
-              begin: const Offset(0.22, 0),
-              end: Offset.zero,
-            ).animate(incoming);
-            final fadeIn = Tween<double>(begin: 0, end: 1).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
-              ),
-            );
+  @override
+  Duration get reverseTransitionDuration => AppMotion.pageBack;
 
-            // Underlying page: eases slightly left (shared axis).
-            final slideOut = Tween<Offset>(
-              begin: Offset.zero,
-              end: const Offset(-0.12, 0),
-            ).animate(outgoing);
+  @override
+  Widget buildTransitions(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    if (AppMotion.reduce(context)) return child;
 
-            return SlideTransition(
-              position: slideOut,
-              child: SlideTransition(
-                position: slideIn,
-                child: FadeTransition(
-                  opacity: fadeIn,
-                  child: child,
-                ),
-              ),
-            );
-          },
-        );
+    final incoming = CurvedAnimation(
+      parent: animation,
+      curve: AppMotion.emphasizedDecelerate,
+      reverseCurve: AppMotion.emphasizedAccelerate,
+    );
+    final outgoing = CurvedAnimation(
+      parent: secondaryAnimation,
+      curve: AppMotion.emphasized,
+    );
+
+    final slideIn = Tween<Offset>(
+      begin: const Offset(0.22, 0),
+      end: Offset.zero,
+    ).animate(incoming);
+    final fadeIn = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: animation,
+        curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+      ),
+    );
+    final slideOut = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(-0.12, 0),
+    ).animate(outgoing);
+
+    return SlideTransition(
+      position: slideOut,
+      child: SlideTransition(
+        position: slideIn,
+        child: FadeTransition(
+          opacity: fadeIn,
+          child: child,
+        ),
+      ),
+    );
+  }
 
   static Future<T?> push<T extends Object?>(
     BuildContext context,

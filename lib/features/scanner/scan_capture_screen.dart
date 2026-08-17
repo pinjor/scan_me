@@ -79,7 +79,9 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
     } catch (e) {
       if (mounted) {
         messenger.showSnackBar(
-          SnackBar(content: Text('Could not import page: $e')),
+          const SnackBar(
+            content: Text('Could not add that page. Try again.'),
+          ),
         );
       }
       if (isFirst && mounted) Navigator.of(context).maybePop();
@@ -118,6 +120,7 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
         appBar: AppBar(
           backgroundColor: AppTheme.scannerBg,
           foregroundColor: Colors.white,
+          leading: scanMeAppBarLeading(context, color: Colors.white),
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -144,7 +147,7 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
                   child: selected == null
                       ? Center(
                           child: Text(
-                            _busy ? 'Opening camera…' : 'No pages yet',
+                            _busy ? 'Opening scanner…' : 'No pages yet',
                             style: text.bodyLarge?.copyWith(
                               color: Colors.white70,
                             ),
@@ -203,7 +206,11 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
                       itemBuilder: (context, index) {
                         final page = pages[index];
                         final isSelected = index == session!.selectedIndex;
-                        return GestureDetector(
+                        return Semantics(
+                          button: true,
+                          selected: isSelected,
+                          label: 'Page ${index + 1}',
+                          child: GestureDetector(
                           onTap: () => ref
                               .read(editorSessionProvider.notifier)
                               .selectPage(index),
@@ -233,14 +240,37 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
                               ),
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(8),
-                                child: Image.file(
-                                  File(page.displayPath),
-                                  fit: BoxFit.cover,
-                                  cacheWidth: 120,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    Image.file(
+                                      File(page.displayPath),
+                                      fit: BoxFit.cover,
+                                      cacheWidth: 120,
+                                    ),
+                                    Positioned(
+                                      left: 0,
+                                      right: 0,
+                                      bottom: 0,
+                                      child: ColoredBox(
+                                        color: Colors.black54,
+                                        child: Text(
+                                          '${index + 1}',
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
                           ),
+                        ),
                         );
                       },
                     ),
@@ -278,12 +308,12 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
                               ),
                             ),
                             icon: const Icon(Icons.add),
-                            label: const Text('Add Page'),
+                            label: const Text('Add page'),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: FilledButton(
+                          child: FilledButton.icon(
                             onPressed:
                                 blockUi || pages.isEmpty ? null : _goNext,
                             style: FilledButton.styleFrom(
@@ -293,7 +323,8 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
                                     BorderRadius.circular(AppTheme.radiusSm),
                               ),
                             ),
-                            child: const Text('Continue'),
+                            icon: const Icon(Icons.arrow_forward),
+                            label: const Text('Continue'),
                           ),
                         ),
                       ],
@@ -306,7 +337,7 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
               LoadingOverlay(
                 message: filtering
                     ? (session?.processingLabel ?? 'Enhancing document…')
-                    : 'Opening camera…',
+                    : 'Opening scanner…',
               ),
           ],
         ),

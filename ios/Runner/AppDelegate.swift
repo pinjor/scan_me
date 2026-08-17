@@ -22,6 +22,7 @@ import VisionKit
     let messenger = engineBridge.applicationRegistrar.messenger()
     registerDocumentScannerChannel(messenger: messenger)
     OpenFileIntentHandler.shared.register(messenger: messenger)
+    ImageCodecHandler.register(messenger: messenger)
   }
 
   override func application(

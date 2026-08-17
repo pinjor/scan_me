@@ -40,27 +40,38 @@ class ThemeModeController extends StateNotifier<ThemeMode> {
   }
 }
 
-/// Offline scanner — Plus Jakarta Sans. Palette: black, white, navy blue.
+/// Offline scanner — Plus Jakarta Sans. Brand: navy + teal accent + paper.
 abstract final class AppTheme {
-  /// True navy blue (not teal / slate).
-  static const Color navy = Color(0xFF0A2F5C);
+  /// Primary navy (brand).
+  static const Color navy = Color(0xFF1B3A4B);
   static const Color ink = Color(0xFF0D1B2A);
-  static const Color accent = Color(0xFF0A2F5C);
-  /// Lighter navy for dark-mode buttons / FAB (still blue, not cyan).
-  static const Color navyOnDark = Color(0xFF3D6BA8);
+  /// Secondary accent.
+  static const Color accent = Color(0xFF2F6F7E);
+  /// Lighter navy for dark-mode buttons / FAB.
+  static const Color navyOnDark = Color(0xFF4A7A92);
   static const Color paper = Color(0xFFF0F2F5);
   /// Pitch charcoal black — dark mode scaffold.
   static const Color paperDark = Color(0xFF0A0A0A);
   /// Slightly lifted charcoal for cards / inputs on dark.
   static const Color surfaceDark = Color(0xFF141414);
-  static const Color success = Color(0xFF3D8B6E);
+  static const Color success = Color(0xFF2E7D4F);
   static const Color warning = Color(0xFFC48A2A);
+  static const Color info = Color(0xFF1565C0);
   static const Color scannerBg = Color(0xFF0A0A0A);
 
-  static const double radiusSm = 14;
+  static const double radiusSm = 12;
   static const double radiusMd = 16;
   static const double radiusLg = 20;
-  static const double radiusXl = 28;
+  static const double radiusXl = 24;
+
+  /// Spacing scale (logical px).
+  static const double spaceXs = 4;
+  static const double spaceSm = 8;
+  static const double spaceMd = 12;
+  static const double spaceLg = 16;
+  static const double spaceXl = 20;
+  static const double space2xl = 24;
+  static const double space3xl = 32;
 
   /// Comfortable tap height (≥48 a11y); denser than prior redesign.
   static const double tapMin = 48;
@@ -72,13 +83,12 @@ abstract final class AppTheme {
     final scheme = ColorScheme.light(
       primary: navy,
       onPrimary: Colors.white,
-      primaryContainer: const Color(0xFFD6E4F5),
+      primaryContainer: const Color(0xFFD5E3EA),
       onPrimaryContainer: navy,
-      secondary: navy,
+      secondary: accent,
       onSecondary: Colors.white,
-      // Selected chips / accents: navy fill → white label (contrast).
-      secondaryContainer: navy,
-      onSecondaryContainer: Colors.white,
+      secondaryContainer: const Color(0xFFD4E8EC),
+      onSecondaryContainer: navy,
       surface: Colors.white,
       onSurface: ink,
       onSurfaceVariant: const Color(0xFF4A5560),
@@ -99,11 +109,11 @@ abstract final class AppTheme {
       primary: navyOnDark,
       onPrimary: Colors.white,
       primaryContainer: navy,
-      onPrimaryContainer: const Color(0xFFD6E4F5),
-      secondary: navyOnDark,
+      onPrimaryContainer: const Color(0xFFD5E3EA),
+      secondary: const Color(0xFF5A9AAB),
       onSecondary: Colors.white,
-      secondaryContainer: navyOnDark,
-      onSecondaryContainer: Colors.white,
+      secondaryContainer: const Color(0xFF1E3F48),
+      onSecondaryContainer: const Color(0xFFD4E8EC),
       surface: surfaceDark,
       onSurface: Colors.white,
       onSurfaceVariant: const Color(0xFFB0B0B0),
@@ -184,23 +194,24 @@ abstract final class AppTheme {
           ),
           bodySmall: base.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w500,
-            height: 1.35,
-            fontSize: 12,
+            height: 1.4,
+            fontSize: 13,
           ),
           labelLarge: base.textTheme.labelLarge?.copyWith(
             fontWeight: FontWeight.w600,
             letterSpacing: 0.05,
-            fontSize: 14,
+            fontSize: 15,
             height: 1.2,
           ),
           labelMedium: base.textTheme.labelMedium?.copyWith(
             fontWeight: FontWeight.w600,
-            fontSize: 12,
+            fontSize: 13,
           ),
           labelSmall: base.textTheme.labelSmall?.copyWith(
             fontWeight: FontWeight.w600,
-            fontSize: 11,
+            fontSize: 12,
           ),
+          // Caption-scale for meta (maps to bodySmall size with quieter weight).
         )
         .apply(
           bodyColor: scheme.onSurface,
@@ -288,13 +299,13 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: scheme.surfaceContainerHighest.withValues(alpha: 0.65),
-        selectedColor: scheme.secondaryContainer,
+        selectedColor: scheme.primary,
         disabledColor: scheme.surfaceContainerHighest,
         labelStyle: textTheme.labelMedium!.copyWith(
           color: scheme.onSurface,
         ),
         secondaryLabelStyle: textTheme.labelMedium!.copyWith(
-          color: scheme.onSecondaryContainer,
+          color: scheme.onPrimary,
           fontWeight: FontWeight.w600,
         ),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
@@ -305,7 +316,7 @@ abstract final class AppTheme {
         ),
         side: BorderSide(color: scheme.outlineVariant),
         selectedShadowColor: Colors.transparent,
-        checkmarkColor: scheme.onSecondaryContainer,
+        checkmarkColor: scheme.onPrimary,
         showCheckmark: false,
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(

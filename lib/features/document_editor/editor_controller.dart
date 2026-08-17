@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -299,10 +300,14 @@ class EditorController extends StateNotifier<EditorSession?> {
       for (final i in indices) {
         final page = pages[i];
         if (filter == PageFilter.original) {
+          final oldPath = page.processedImagePath;
           pages[i] = page.copyWith(
             selectedFilter: PageFilter.original,
             clearProcessed: true,
           );
+          if (oldPath != null) {
+            await FileImage(File(oldPath)).evict();
+          }
           continue;
         }
         if (page.selectedFilter == filter &&
@@ -330,11 +335,18 @@ class EditorController extends StateNotifier<EditorSession?> {
           originalBytes: originalBytes,
           filter: filter,
         );
+        final oldPath = page.processedImagePath;
         final path = await _storage.writeProcessed(
           documentId: s.documentId,
           pageId: page.id,
           bytes: out,
+          variant: filter.wire,
         );
+        // Same-path overwrites used to leave Flutter FileImage cache stale.
+        if (oldPath != null && oldPath != path) {
+          await FileImage(File(oldPath)).evict();
+        }
+        await FileImage(File(path)).evict();
         pages[i] = page.copyWith(
           selectedFilter: filter,
           processedImagePath: path,

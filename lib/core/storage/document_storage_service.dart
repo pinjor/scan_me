@@ -461,9 +461,14 @@ class DocumentStorageService {
     required String documentId,
     required String pageId,
     required List<int> bytes,
+    String? variant,
   }) async {
     final dir = await subdir(documentId, 'processed');
-    final dest = p.join(dir.path, '$pageId.jpg');
+    final safeVariant = (variant ?? '')
+        .replaceAll(RegExp(r'[^\w\-]+'), '_')
+        .trim();
+    final name = safeVariant.isEmpty ? '$pageId.jpg' : '${pageId}_$safeVariant.jpg';
+    final dest = p.join(dir.path, name);
     await File(dest).writeAsBytes(bytes, flush: true);
     return dest;
   }

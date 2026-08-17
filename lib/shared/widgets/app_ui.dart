@@ -21,6 +21,15 @@ class AppButton extends StatelessWidget {
     this.expand = false,
   }) : _variant = _Variant.outlined;
 
+  /// Secondary action (outlined) — preferred name for hierarchy.
+  const AppButton.secondary({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.icon,
+    this.expand = false,
+  }) : _variant = _Variant.outlined;
+
   const AppButton.text({
     super.key,
     required this.label,
@@ -480,6 +489,237 @@ class _ScanFramePainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
+/// Shared search field — Home + Files.
+class AppSearchBar extends StatelessWidget {
+  const AppSearchBar({
+    super.key,
+    required this.controller,
+    this.focusNode,
+    this.hintText = 'Search documents and tags',
+    this.onChanged,
+    this.onSubmitted,
+    this.onClear,
+    this.dense = false,
+  });
+
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final String hintText;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final VoidCallback? onClear;
+  final bool dense;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final hasText = controller.text.trim().isNotEmpty;
+        return TextField(
+          controller: controller,
+          focusNode: focusNode,
+          style: dense ? text.bodyMedium : text.bodyLarge,
+          textInputAction: TextInputAction.search,
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          onTapOutside: (_) => focusNode?.unfocus(),
+          decoration: InputDecoration(
+            hintText: hintText,
+            prefixIcon: Icon(Icons.search, size: dense ? 20 : 22),
+            isDense: dense,
+            filled: true,
+            fillColor: scheme.surfaceContainerHighest,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+              borderSide: BorderSide(color: scheme.primary, width: 1.5),
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: dense ? 10 : 14,
+            ),
+            suffixIcon: hasText
+                ? IconButton(
+                    tooltip: 'Clear search',
+                    icon: Icon(Icons.close, size: dense ? 18 : 20),
+                    onPressed: () {
+                      controller.clear();
+                      onClear?.call();
+                      onChanged?.call('');
+                      focusNode?.unfocus();
+                    },
+                  )
+                : null,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Error placeholder — same CTA pattern as empty, clearer semantics.
+class AppErrorState extends StatelessWidget {
+  const AppErrorState({
+    super.key,
+    this.title = 'Something went wrong',
+    this.subtitle = 'Please try again.',
+    this.retryLabel = 'Try again',
+    this.onRetry,
+    this.padding = const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+  });
+
+  final String title;
+  final String subtitle;
+  final String retryLabel;
+  final VoidCallback? onRetry;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppEmptyState(
+      title: title,
+      subtitle: subtitle,
+      primaryLabel: onRetry == null ? null : retryLabel,
+      primaryIcon: Icons.refresh,
+      onPrimary: onRetry,
+      padding: padding,
+      illustration: Icon(
+        Icons.error_outline,
+        size: 56,
+        color: Theme.of(context).colorScheme.error,
+      ),
+    );
+  }
+}
+
+/// Inline / full-screen short loading with contextual message.
+class AppLoadingState extends StatelessWidget {
+  const AppLoadingState({
+    super.key,
+    required this.message,
+    this.subtitle,
+  });
+
+  final String message;
+  final String? subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+            const SizedBox(height: 18),
+            Text(message, style: text.titleMedium, textAlign: TextAlign.center),
+            if (subtitle != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                subtitle!,
+                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Progress card for long saves / exports (title + detail + bar).
+class AppProgressCard extends StatelessWidget {
+  const AppProgressCard({
+    super.key,
+    required this.title,
+    required this.detail,
+    this.progress,
+  });
+
+  final String title;
+  final String detail;
+  final double? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              value: progress,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(title, textAlign: TextAlign.center, style: text.titleMedium),
+          const SizedBox(height: 6),
+          Text(
+            detail,
+            textAlign: TextAlign.center,
+            style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 12),
+          LinearProgressIndicator(minHeight: 3, value: progress),
+        ],
+      ),
+    );
+  }
+}
+
+/// Skeleton placeholders for document lists (known structure).
+class AppListSkeleton extends StatelessWidget {
+  const AppListSkeleton({
+    super.key,
+    this.itemCount = 6,
+    this.padding = const EdgeInsets.fromLTRB(16, 8, 16, 24),
+  });
+
+  final int itemCount;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return ListView.separated(
+      padding: padding,
+      itemCount: itemCount,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (_, _) => Container(
+        height: 88,
+        decoration: BoxDecoration(
+          color: scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        ),
+      ),
+    );
+  }
+}
+
 /// Dimmed overlay with spinner + friendly label.
 class LoadingOverlay extends StatelessWidget {
   const LoadingOverlay({
@@ -549,7 +789,32 @@ class LoadingOverlay extends StatelessWidget {
   }
 }
 
+/// Explicit AppBar back when [Navigator.canPop].
+///
+/// Prefer [scanMeAppBarLeading] so the AppBar omits leading on root routes
+/// (avoids an empty 56px slot).
+class AppBarBackButton extends StatelessWidget {
+  const AppBarBackButton({super.key, this.color});
+
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return BackButton(
+      color: color,
+      onPressed: () => Navigator.of(context).maybePop(),
+    );
+  }
+}
+
+/// Null when this route cannot pop — use as `AppBar(leading: …)`.
+Widget? scanMeAppBarLeading(BuildContext context, {Color? color}) {
+  if (!Navigator.of(context).canPop()) return null;
+  return AppBarBackButton(color: color);
+}
+
 /// Circular icon button on a soft surface (settings, overflow, etc.).
+/// Prefer [tooltip] for a11y — falls back to generic “Button”.
 class AppCircleIconButton extends StatelessWidget {
   const AppCircleIconButton({
     super.key,
@@ -567,24 +832,28 @@ class AppCircleIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final btn = Material(
-      color: scheme.surface,
-      shape: CircleBorder(
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.8)),
-      ),
-      elevation: 0,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onPressed,
-        child: SizedBox(
-          width: size,
-          height: size,
-          child: Icon(icon, size: 24, color: scheme.onSurface),
+    final label = tooltip ?? 'Button';
+    final btn = Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: scheme.surface,
+        shape: CircleBorder(
+          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.8)),
+        ),
+        elevation: 0,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: Icon(icon, size: 24, color: scheme.onSurface),
+          ),
         ),
       ),
     );
-    if (tooltip == null) return btn;
-    return Tooltip(message: tooltip!, child: btn);
+    return Tooltip(message: label, child: btn);
   }
 }
 
@@ -625,6 +894,12 @@ class SectionHeader extends StatelessWidget {
     );
   }
 }
+
+/// Alias — design-system name for [AppCircleIconButton].
+typedef AppIconButton = AppCircleIconButton;
+
+/// Alias — design-system name for [SectionHeader].
+typedef AppSectionHeader = SectionHeader;
 
 /// Privacy / offline trust chip — “stays on this device”.
 class PrivacyBadge extends StatelessWidget {

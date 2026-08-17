@@ -19,12 +19,13 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   late ExportSettings _settings;
   bool _busy = false;
   String? _progress;
+  bool _moreOptions = false;
 
   @override
   void initState() {
     super.initState();
     final session = ref.read(editorSessionProvider);
-    final name = session?.name ?? 'Scan';
+    final name = session?.name ?? 'Scanned document';
     _nameController = TextEditingController(text: name);
     _settings = ExportSettings(
       currentPageIndex: session?.selectedIndex ?? 0,
@@ -44,10 +45,14 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   Widget build(BuildContext context) {
     final session = ref.watch(editorSessionProvider);
     final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     final pageCount = session?.pages.length ?? 0;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Save document')),
+      appBar: AppBar(
+        leading: scanMeAppBarLeading(context),
+        title: const Text('Save document'),
+      ),
       body: session == null
           ? const AppEmptyState(
               title: 'Nothing to save',
@@ -59,7 +64,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                     children: [
-                      Text('Name', style: text.titleSmall),
+                      Text('Document name', style: text.titleSmall),
                       const SizedBox(height: 6),
                       AppCard(
                         elevated: false,
@@ -85,9 +90,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                               .setName(v),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       Text(
-                        'Format · $pageCount '
+                        'Save as · $pageCount '
                         '${pageCount == 1 ? 'page' : 'pages'}',
                         style: text.titleSmall,
                       ),
@@ -95,148 +100,182 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                       _FormatTile(
                         icon: Icons.picture_as_pdf_outlined,
                         title: 'PDF',
+                        subtitle: 'Best for sharing and printing',
                         value: _settings.createPdf,
                         enabled: !_busy,
                         onChanged: (v) =>
                             setState(() => _settings.createPdf = v),
                       ),
-                      if (_settings.createPdf) ...[
-                        const SizedBox(height: 12),
-                        _sectionLabel(context, 'PDF quality'),
-                        _chipRow<PdfQualityPreset>(
-                          values: PdfQualityPreset.values,
-                          labelOf: (v) => v.label,
-                          selected: _settings.pdfQuality,
-                          onSelect: (v) =>
-                              setState(() => _settings.pdfQuality = v),
-                        ),
-                        const SizedBox(height: 12),
-                        _sectionLabel(context, 'Page size'),
-                        _chipRow<PdfPageSizeOption>(
-                          values: PdfPageSizeOption.values,
-                          labelOf: (v) => v.label,
-                          selected: _settings.pdfPageSize,
-                          onSelect: (v) =>
-                              setState(() => _settings.pdfPageSize = v),
-                        ),
-                        const SizedBox(height: 12),
-                        _sectionLabel(context, 'Orientation'),
-                        _chipRow<PdfOrientationOption>(
-                          values: PdfOrientationOption.values,
-                          labelOf: (v) => v.label,
-                          selected: _settings.pdfOrientation,
-                          onSelect: (v) =>
-                              setState(() => _settings.pdfOrientation = v),
-                        ),
-                      ],
                       const SizedBox(height: 10),
                       _FormatTile(
                         icon: Icons.photo_library_outlined,
                         title: 'Images',
+                        subtitle: 'JPG or PNG files for each page',
                         value: _settings.saveImages,
                         enabled: !_busy,
                         onChanged: (v) =>
                             setState(() => _settings.saveImages = v),
                       ),
-                      if (_settings.saveImages) ...[
-                        const SizedBox(height: 12),
-                        _sectionLabel(context, 'Image format'),
-                        _chipRow<ImageExportFormat>(
-                          values: ImageExportFormat.values,
-                          labelOf: (v) =>
-                              v == ImageExportFormat.jpg ? 'JPG' : 'PNG',
-                          selected: _settings.imageFormat,
-                          onSelect: (v) =>
-                              setState(() => _settings.imageFormat = v),
-                        ),
-                        const SizedBox(height: 12),
-                        _sectionLabel(context, 'Image quality'),
-                        _chipRow<ImageExportQuality>(
-                          values: ImageExportQuality.values,
-                          labelOf: (v) => v.label,
-                          selected: _settings.imageQuality,
-                          onSelect: (v) =>
-                              setState(() => _settings.imageQuality = v),
-                        ),
-                        const SizedBox(height: 12),
-                        _sectionLabel(context, 'Export pages'),
-                        _chipRow<ImageExportScope>(
-                          values: ImageExportScope.values,
-                          labelOf: (v) => v.label,
-                          selected: _settings.imageScope,
-                          onSelect: (v) =>
-                              setState(() => _settings.imageScope = v),
-                        ),
-                        if (_settings.imageScope ==
-                            ImageExportScope.selectedPages) ...[
-                          const SizedBox(height: 10),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              for (var i = 0; i < pageCount; i++)
-                                FilterChip(
-                                  label: Text('Page ${i + 1}'),
-                                  selected: _settings.selectedPageIndexes
-                                      .contains(i),
-                                  onSelected: _busy
-                                      ? null
-                                      : (sel) {
-                                          setState(() {
-                                            final next = {
-                                              ..._settings.selectedPageIndexes,
-                                            };
-                                            if (sel) {
-                                              next.add(i);
-                                            } else {
-                                              next.remove(i);
-                                            }
-                                            _settings.selectedPageIndexes =
-                                                next;
-                                          });
-                                        },
-                                ),
-                            ],
-                          ),
-                        ],
-                      ],
                       const SizedBox(height: 10),
                       _FormatTile(
                         icon: Icons.folder_outlined,
                         title: 'Also save to device',
-                        subtitle:
-                            'Opens your file manager so you choose folder & name',
+                        subtitle: 'Choose folder and name in your file manager',
                         value: _settings.alsoSaveToDevice,
                         enabled: !_busy,
                         onChanged: (v) =>
                             setState(() => _settings.alsoSaveToDevice = v),
                       ),
+                      const SizedBox(height: 12),
+                      AppCard(
+                        elevated: false,
+                        onTap: _busy
+                            ? null
+                            : () => setState(() => _moreOptions = !_moreOptions),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.tune,
+                              color: scheme.primary,
+                              size: 22,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'More options',
+                                style: text.titleMedium,
+                              ),
+                            ),
+                            Icon(
+                              _moreOptions
+                                  ? Icons.expand_less
+                                  : Icons.expand_more,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_moreOptions) ...[
+                        const SizedBox(height: 16),
+                        if (_settings.createPdf) ...[
+                          _sectionLabel(context, 'PDF quality'),
+                          _chipRowWithHint<PdfQualityPreset>(
+                            values: PdfQualityPreset.values,
+                            labelOf: (v) => v.label,
+                            hintOf: (v) => switch (v) {
+                              PdfQualityPreset.small => 'Best for sharing',
+                              PdfQualityPreset.balanced => 'Recommended',
+                              PdfQualityPreset.high => 'Best for printing',
+                            },
+                            selected: _settings.pdfQuality,
+                            onSelect: (v) =>
+                                setState(() => _settings.pdfQuality = v),
+                          ),
+                          const SizedBox(height: 12),
+                          _sectionLabel(context, 'Page size'),
+                          _chipRow<PdfPageSizeOption>(
+                            values: PdfPageSizeOption.values,
+                            labelOf: (v) => v.label,
+                            selected: _settings.pdfPageSize,
+                            onSelect: (v) =>
+                                setState(() => _settings.pdfPageSize = v),
+                          ),
+                          const SizedBox(height: 12),
+                          _sectionLabel(context, 'Orientation'),
+                          _chipRow<PdfOrientationOption>(
+                            values: PdfOrientationOption.values,
+                            labelOf: (v) => v.label,
+                            selected: _settings.pdfOrientation,
+                            onSelect: (v) =>
+                                setState(() => _settings.pdfOrientation = v),
+                          ),
+                        ],
+                        if (_settings.saveImages) ...[
+                          if (_settings.createPdf) const SizedBox(height: 16),
+                          _sectionLabel(context, 'Image format'),
+                          _chipRow<ImageExportFormat>(
+                            values: ImageExportFormat.values,
+                            labelOf: (v) =>
+                                v == ImageExportFormat.jpg ? 'JPG' : 'PNG',
+                            selected: _settings.imageFormat,
+                            onSelect: (v) =>
+                                setState(() => _settings.imageFormat = v),
+                          ),
+                          const SizedBox(height: 12),
+                          _sectionLabel(context, 'Image quality'),
+                          _chipRowWithHint<ImageExportQuality>(
+                            values: ImageExportQuality.values,
+                            labelOf: (v) => v.label,
+                            hintOf: (v) => v.hint,
+                            selected: _settings.imageQuality,
+                            onSelect: (v) =>
+                                setState(() => _settings.imageQuality = v),
+                          ),
+                          const SizedBox(height: 12),
+                          _sectionLabel(context, 'Which pages'),
+                          _chipRow<ImageExportScope>(
+                            values: ImageExportScope.values,
+                            labelOf: (v) => v.label,
+                            selected: _settings.imageScope,
+                            onSelect: (v) =>
+                                setState(() => _settings.imageScope = v),
+                          ),
+                          if (_settings.imageScope ==
+                              ImageExportScope.selectedPages) ...[
+                            const SizedBox(height: 10),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                for (var i = 0; i < pageCount; i++)
+                                  FilterChip(
+                                    label: Text('Page ${i + 1}'),
+                                    selected: _settings.selectedPageIndexes
+                                        .contains(i),
+                                    onSelected: _busy
+                                        ? null
+                                        : (sel) {
+                                            setState(() {
+                                              final next = {
+                                                ..._settings.selectedPageIndexes,
+                                              };
+                                              if (sel) {
+                                                next.add(i);
+                                              } else {
+                                                next.remove(i);
+                                              }
+                                              _settings.selectedPageIndexes =
+                                                  next;
+                                            });
+                                          },
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ],
+                        if (!_settings.createPdf && !_settings.saveImages)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              'Turn on PDF or Images above to see more options.',
+                              style: text.bodyMedium?.copyWith(
+                                color: scheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                      ],
                       if (_progress != null) ...[
                         const SizedBox(height: 28),
                         AnimatedSwitcher(
                           duration: AppMotion.medium,
-                          child: AppCard(
+                          child: AppProgressCard(
                             key: ValueKey(_progress),
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              children: [
-                                const SizedBox(
-                                  width: 40,
-                                  height: 40,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 3,
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  _progress!,
-                                  textAlign: TextAlign.center,
-                                  style: text.titleMedium,
-                                ),
-                                const SizedBox(height: 12),
-                                const LinearProgressIndicator(minHeight: 3),
-                              ],
-                            ),
+                            title: 'Saving document',
+                            detail: _progress!,
                           ),
                         ),
                       ],
@@ -249,11 +288,12 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     child: SizedBox(
                       width: double.infinity,
-                      child: FilledButton(
+                      child: FilledButton.icon(
                         onPressed: _busy ||
                                 (!_settings.createPdf && !_settings.saveImages)
                             ? null
                             : _export,
+                        icon: Icon(_busy ? Icons.hourglass_top : Icons.save_alt),
                         style: FilledButton.styleFrom(
                           minimumSize: const Size(48, 56),
                           shape: RoundedRectangleBorder(
@@ -261,9 +301,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                                 BorderRadius.circular(AppTheme.radiusSm),
                           ),
                         ),
-                        child: Text(
-                          _busy ? 'Saving…' : 'Save',
-                        ),
+                        label: Text(_busy ? 'Saving…' : 'Save'),
                       ),
                     ),
                   ),
@@ -309,6 +347,33 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     );
   }
 
+  Widget _chipRowWithHint<T>({
+    required List<T> values,
+    required String Function(T) labelOf,
+    required String Function(T) hintOf,
+    required T selected,
+    required ValueChanged<T> onSelect,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _chipRow(
+          values: values,
+          labelOf: labelOf,
+          selected: selected,
+          onSelect: onSelect,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          hintOf(selected),
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _export() async {
     setState(() {
       _busy = true;
@@ -325,12 +390,15 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
             },
           );
       if (!mounted) return;
+      final parts = <String>[
+        if (_settings.createPdf) 'PDF',
+        if (_settings.saveImages) 'Images',
+      ];
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _settings.alsoSaveToDevice
-                ? 'Saved to library — pick a folder in the file manager for device copy'
-                : 'Saved to library',
+            'Document saved · ${parts.join(' · ')}'
+            '${_settings.alsoSaveToDevice ? ' · pick a folder for device copy' : ''}',
           ),
         ),
       );
@@ -343,7 +411,11 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
           _progress = null;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not save: $e')),
+          const SnackBar(
+            content: Text(
+              'Something went wrong while saving this document. Try again.',
+            ),
+          ),
         );
       }
     }

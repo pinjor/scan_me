@@ -1,6 +1,8 @@
 package app.atl.scanme
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
@@ -9,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 
@@ -18,6 +21,7 @@ import java.io.FileOutputStream
  */
 class MainActivity : FlutterFragmentActivity() {
     private val openChannelName = "app.atl.scanme/open_file"
+    private val codecChannelName = "app.atl.scanme/image_codec"
     private var openChannel: MethodChannel? = null
     private var pendingOpen: Map<String, String>? = null
 
@@ -43,7 +47,46 @@ class MainActivity : FlutterFragmentActivity() {
                 }
             }
         }
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            codecChannelName,
+        ).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "heicToJpeg" -> {
+                    val path = call.argument<String>("path")
+                    if (path.isNullOrBlank()) {
+                        result.error("bad_args", "path required", null)
+                        return@setMethodCallHandler
+                    }
+                    try {
+                        val jpeg = heicFileToJpeg(path)
+                        if (jpeg == null) {
+                            result.error("decode", "Could not decode HEIC", null)
+                        } else {
+                            result.success(jpeg)
+                        }
+                    } catch (e: Exception) {
+                        result.error("decode", e.message, null)
+                    }
+                }
+                else -> result.notImplemented()
+            }
+        }
         handleViewIntent(intent)
+    }
+
+    private fun heicFileToJpeg(path: String): ByteArray? {
+        val opts = BitmapFactory.Options().apply {
+            inPreferredConfig = Bitmap.Config.ARGB_8888
+        }
+        val bitmap = BitmapFactory.decodeFile(path, opts) ?: return null
+        return try {
+            val out = ByteArrayOutputStream()
+            if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)) null
+            else out.toByteArray()
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -71,10 +114,20 @@ class MainActivity : FlutterFragmentActivity() {
         val cls = intent.component?.className ?: return "view"
         return when {
             cls.endsWith(".OpenPdfToTxt") -> "pdfToTxt"
+            cls.endsWith(".OpenPdfToDocx") -> "pdfToDocx"
             cls.endsWith(".OpenTxtToPdf") -> "txtToPdf"
             cls.endsWith(".OpenPptxToPdf") -> "pptxToPdf"
-            cls.endsWith(".OpenPngToJpg") -> "pngToJpg"
-            cls.endsWith(".OpenJpgToPng") -> "jpgToPng"
+            cls.endsWith(".OpenDocxToPdf") -> "docxToPdf"
+            cls.endsWith(".OpenXlsxToCsv") -> "xlsxToCsv"
+            cls.endsWith(".OpenXlsxToPdf") -> "xlsxToPdf"
+            cls.endsWith(".OpenPngToJpg") || cls.endsWith(".OpenToJpg") -> "toJpg"
+            cls.endsWith(".OpenJpgToPng") || cls.endsWith(".OpenToPng") -> "toPng"
+            cls.endsWith(".OpenToWebp") -> "toWebp"
+            cls.endsWith(".OpenToGif") -> "toGif"
+            cls.endsWith(".OpenHeicToJpg") -> "heicToJpg"
+            cls.endsWith(".OpenCropImage") -> "crop"
+            cls.endsWith(".OpenResizeImage") -> "resize"
+            cls.endsWith(".OpenCompressImage") -> "compress"
             else -> "view"
         }
     }

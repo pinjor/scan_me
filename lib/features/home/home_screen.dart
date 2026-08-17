@@ -78,13 +78,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 4, 0),
+              padding: const EdgeInsets.fromLTRB(8, 8, 4, 0),
               child: Row(
                 children: [
+                  if (!widget.embedded && Navigator.of(context).canPop()) ...[
+                    const AppBarBackButton(),
+                    const SizedBox(width: 4),
+                  ],
                   Expanded(
                     child: Text(
                       query.showTrash
-                          ? 'Trash'
+                          ? 'Recently deleted'
                           : (widget.embedded ? 'Files' : 'ScanMe'),
                       style: text.titleLarge,
                     ),
@@ -94,7 +98,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ? Icons.folder_outlined
                         : Icons.delete_outline,
                     tooltip: query.showTrash ? 'Library' : 'Trash',
-                    size: 40,
+                    size: 48,
                     onPressed: () {
                       ref
                           .read(libraryQueryProvider.notifier)
@@ -105,12 +109,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     AppCircleIconButton(
                       icon: Icons.settings_outlined,
                       tooltip: 'Settings',
-                      size: 40,
+                      size: 48,
                       onPressed: () {
                         AppPageRoute.push(context, const SettingsScreen());
                       },
                     ),
                 ],
+              ),
+            ),
+            if (query.showTrash)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                child: Text(
+                'Documents stay here until they\'re automatically removed.',
+                style: text.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
               ),
             ),
             if (!query.showTrash) ...[
@@ -131,33 +145,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ]
                         : null,
                   ),
-                  child: TextField(
+                  child: AppSearchBar(
                     controller: _searchCtrl,
                     focusNode: _searchFocus,
-                    style: text.bodyMedium,
-                    textInputAction: TextInputAction.search,
+                    dense: true,
                     onChanged: (v) =>
                         ref.read(libraryQueryProvider.notifier).setSearch(v),
                     onSubmitted: (_) => _searchFocus.unfocus(),
-                    onTapOutside: (_) => _searchFocus.unfocus(),
-                    decoration: InputDecoration(
-                      hintText: 'Search…',
-                      prefixIcon: const Icon(Icons.search, size: 20),
-                      isDense: true,
-                      suffixIcon: query.search.isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'Clear search',
-                              icon: const Icon(Icons.clear, size: 18),
-                              onPressed: () {
-                                _searchCtrl.clear();
-                                ref
-                                    .read(libraryQueryProvider.notifier)
-                                    .setSearch('');
-                                _searchFocus.unfocus();
-                              },
-                            ),
-                    ),
+                    onClear: () {
+                      ref.read(libraryQueryProvider.notifier).setSearch('');
+                      _searchFocus.unfocus();
+                    },
                   ),
                 ),
               ),
@@ -306,12 +304,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   error: (_, _) => KeyedSubtree(
                     key: const ValueKey('home-error'),
-                    child: AppEmptyState(
+                    child: AppErrorState(
                       title: "Couldn't load documents",
-                      subtitle: 'Pull to try again.',
-                      primaryLabel: 'Try again',
-                      primaryIcon: Icons.refresh,
-                      onPrimary: () =>
+                      subtitle: 'Check storage and try again.',
+                      onRetry: () =>
                           ref.read(documentsProvider.notifier).refresh(),
                     ),
                   ),
@@ -334,9 +330,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: AppEmptyState(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 100),
                           title: query.showTrash
-                              ? 'Trash is empty'
+                              ? 'Nothing in Trash'
                               : 'No documents yet',
-                          subtitle: '',
+                          subtitle: query.showTrash
+                              ? 'Deleted documents appear here. You can restore them anytime before they are removed automatically.'
+                              : 'Scan your first document or import images to create a PDF.',
                           primaryLabel: query.showTrash
                               ? 'Back to library'
                               : 'Scan Document',
@@ -346,7 +344,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   .setShowTrash(false)
                               : () => _startScan(context, ref),
                           secondaryLabel:
-                              query.showTrash ? null : 'Images to PDF',
+                              query.showTrash ? null : 'Import Images',
                           onSecondary: query.showTrash
                               ? null
                               : () => _imagesToPdf(context, ref),
@@ -359,7 +357,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         'home-list-${query.showTrash}-${list.length}',
                       ),
                       child: RefreshIndicator(
-                        color: AppTheme.navy,
+                        color: scheme.primary,
                         onRefresh: () async {
                           await ref.read(documentsProvider.notifier).refresh();
                           await ref.read(tagsProvider.notifier).refresh();
@@ -468,7 +466,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 doc.isFavorite ? Icons.bookmark : Icons.bookmark_border,
               ),
               title: Text(
-                doc.isFavorite ? 'Remove from favorites' : 'Mark important',
+                doc.isFavorite ? 'Remove from favorites' : 'Favorite',
               ),
               onTap: () async {
                 Navigator.pop(ctx);
@@ -558,8 +556,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 context: context,
                 title: 'Delete permanently?',
                 message:
-                    '“${doc.name}” will be removed from this phone forever.',
-                confirmLabel: 'Delete forever',
+                    '“${doc.name}” will be removed forever. This cannot be undone.',
+                confirmLabel: 'Delete permanently',
               );
               if (ok) {
                 await ref
@@ -715,18 +713,6 @@ class _HomeSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: 5,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (_, _) => Container(
-        height: 88,
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-        ),
-      ),
-    );
+    return const AppListSkeleton();
   }
 }
