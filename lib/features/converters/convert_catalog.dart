@@ -11,21 +11,21 @@ enum ConvertToolId {
   docxToPdf,
   xlsxToCsv,
   xlsxToPdf,
-  /// Hub tile that opens JPG / PNG / WebP / GIF / HEIC stacked.
+  /// Hub tile — combined convert / crop / resize / compress ([ImageFormatsHubScreen]).
   imageFormats,
   toJpg,
   toPng,
   toWebp,
   toGif,
   heicToJpg,
-  /// Hub tile that opens Crop / Resize / Compress stacked.
+  /// Legacy alias of [imageFormats].
   editImages,
   crop,
   resize,
   compress,
 }
 
-enum ConvertSectionId { documents, images, edit }
+enum ConvertSectionId { documents, images }
 
 class ConvertToolMeta {
   const ConvertToolMeta({
@@ -69,13 +69,8 @@ const kConvertSections = <ConvertSectionMeta>[
   ),
   ConvertSectionMeta(
     id: ConvertSectionId.images,
-    title: 'Images',
-    blurb: 'Switch photo formats for sharing or editing',
-  ),
-  ConvertSectionMeta(
-    id: ConvertSectionId.edit,
-    title: 'Edit images',
-    blurb: 'Crop, resize, or make files smaller for sharing',
+    title: 'Photo',
+    blurb: 'Convert, crop, resize, or compress — one place',
   ),
 ];
 
@@ -181,34 +176,20 @@ const kConvertTools = <ConvertToolMeta>[
   ConvertToolMeta(
     id: ConvertToolId.imageFormats,
     section: ConvertSectionId.images,
-    title: 'Image formats',
-    subtitle: 'JPG, PNG, WebP, GIF, HEIC',
-    icon: Icons.image_outlined,
+    title: 'Edit photo',
+    subtitle: 'Convert format · crop · resize · compress',
+    icon: Icons.photo_outlined,
     color: Color(0xFFEF6C00),
-    progressLabel: 'Converting…',
+    progressLabel: 'Working…',
     steps: [
-      'Pick a format',
       'Choose a photo',
-      'Save or share',
-    ],
-  ),
-  ConvertToolMeta(
-    id: ConvertToolId.editImages,
-    section: ConvertSectionId.edit,
-    title: 'Edit images',
-    subtitle: 'Crop, resize, or reduce file size',
-    icon: Icons.photo_filter,
-    color: Color(0xFF455A64),
-    progressLabel: 'Editing…',
-    steps: [
-      'Pick a tool',
-      'Choose a photo',
+      'Pick what to do',
       'Save or share',
     ],
   ),
 ];
 
-/// JPG / PNG / WebP / GIF / HEIC — stacked in [ImageFormatsHubScreen].
+/// Legacy per-format metas (Open-with labels / IntentConvertKind).
 const kImageFormatTools = <ConvertToolMeta>[
   ConvertToolMeta(
     id: ConvertToolId.toJpg,
@@ -282,11 +263,11 @@ const kImageFormatTools = <ConvertToolMeta>[
   ),
 ];
 
-/// Crop / Resize / Compress — stacked in [ImageEditHubScreen].
+/// Crop / Resize / Compress — opened from combined Images screen.
 const kEditImageTools = <ConvertToolMeta>[
   ConvertToolMeta(
     id: ConvertToolId.crop,
-    section: ConvertSectionId.edit,
+    section: ConvertSectionId.images,
     title: 'Crop image',
     subtitle: 'Trim edges for a cleaner crop',
     icon: Icons.crop,
@@ -300,7 +281,7 @@ const kEditImageTools = <ConvertToolMeta>[
   ),
   ConvertToolMeta(
     id: ConvertToolId.resize,
-    section: ConvertSectionId.edit,
+    section: ConvertSectionId.images,
     title: 'Resize pixels',
     subtitle: 'Shrink or enlarge without cropping',
     icon: Icons.photo_size_select_large,
@@ -314,7 +295,7 @@ const kEditImageTools = <ConvertToolMeta>[
   ),
   ConvertToolMeta(
     id: ConvertToolId.compress,
-    section: ConvertSectionId.edit,
+    section: ConvertSectionId.images,
     title: 'Reduce file size',
     subtitle: 'Make an image smaller for sharing',
     icon: Icons.compress,
@@ -329,14 +310,16 @@ const kEditImageTools = <ConvertToolMeta>[
 ];
 
 ConvertToolMeta? convertToolMeta(ConvertToolId id) {
+  final resolved =
+      id == ConvertToolId.editImages ? ConvertToolId.imageFormats : id;
   for (final m in kConvertTools) {
-    if (m.id == id) return m;
+    if (m.id == resolved) return m;
   }
   for (final m in kImageFormatTools) {
-    if (m.id == id) return m;
+    if (m.id == resolved) return m;
   }
   for (final m in kEditImageTools) {
-    if (m.id == id) return m;
+    if (m.id == resolved) return m;
   }
   return null;
 }

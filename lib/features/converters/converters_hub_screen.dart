@@ -4,7 +4,6 @@ import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/app_ui.dart';
 import 'convert_catalog.dart';
 import 'convert_tool_screen.dart';
-import 'image_edit_hub_screen.dart';
 import 'image_formats_hub_screen.dart';
 
 /// Convert hub: documents · image formats (stacked) · edit images (stacked).
@@ -19,8 +18,8 @@ class ConvertersHubScreen extends StatelessWidget {
 
   void _open(BuildContext context, ConvertToolMeta tool) {
     final page = switch (tool.id) {
-      ConvertToolId.imageFormats => const ImageFormatsHubScreen(),
-      ConvertToolId.editImages => const ImageEditHubScreen(),
+      ConvertToolId.imageFormats || ConvertToolId.editImages =>
+        const ImageFormatsHubScreen(),
       _ => ConvertToolScreen(tool: tool),
     };
     AppPageRoute.push(context, page);

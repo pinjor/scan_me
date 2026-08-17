@@ -5,10 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
-import '../../features/converters/convert_catalog.dart';
-import '../../features/converters/image_compress_tool_screen.dart';
-import '../../features/converters/image_crop_tool_screen.dart';
-import '../../features/converters/image_resize_tool_screen.dart';
+import '../../features/converters/image_formats_hub_screen.dart';
 import '../../features/converters/intent_convert_screen.dart';
 import '../../features/file_viewer/file_viewer_screen.dart';
 import '../../shared/widgets/app_transitions.dart';
@@ -94,28 +91,46 @@ abstract final class OpenFileIntentBridge {
       'docxToPdf' => IntentConvertKind.docxToPdf,
       'xlsxToCsv' => IntentConvertKind.xlsxToCsv,
       'xlsxToPdf' => IntentConvertKind.xlsxToPdf,
-      'pngToJpg' || 'toJpg' => IntentConvertKind.toJpg,
-      'jpgToPng' || 'toPng' => IntentConvertKind.toPng,
-      'toWebp' => IntentConvertKind.toWebp,
-      'toGif' => IntentConvertKind.toGif,
-      'heicToJpg' => IntentConvertKind.heicToJpg,
       'crop' || 'resize' || 'compress' => null, // handled below
+      'pngToJpg' ||
+      'toJpg' ||
+      'jpgToPng' ||
+      'toPng' ||
+      'toWebp' ||
+      'toGif' ||
+      'heicToJpg' =>
+        null, // image format → unified dropdown screen
       _ => null,
     };
 
-    if (action == 'crop' || action == 'resize' || action == 'compress') {
-      final toolId = switch (action) {
-        'crop' => ConvertToolId.crop,
-        'resize' => ConvertToolId.resize,
-        _ => ConvertToolId.compress,
-      };
+    final imageFormat = switch (action) {
+      'pngToJpg' || 'toJpg' || 'heicToJpg' => 'jpg',
+      'jpgToPng' || 'toPng' => 'png',
+      'toWebp' => 'webp',
+      'toGif' => 'gif',
+      _ => null,
+    };
+
+    if (imageFormat != null) {
       await nav.push(
         AppPageRoute<void>(
-          builder: (_) => switch (toolId) {
-            ConvertToolId.crop => ImageCropToolScreen(initialPath: path),
-            ConvertToolId.resize => ImageResizeToolScreen(initialPath: path),
-            _ => ImageCompressToolScreen(initialPath: path),
-          },
+          builder: (_) => ImageFormatsHubScreen(
+            initialPath: path,
+            initialFormat: imageFormat,
+            initialAction: 'convert',
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (action == 'crop' || action == 'resize' || action == 'compress') {
+      await nav.push(
+        AppPageRoute<void>(
+          builder: (_) => ImageFormatsHubScreen(
+            initialPath: path,
+            initialAction: action,
+          ),
         ),
       );
       return;
@@ -132,7 +147,6 @@ abstract final class OpenFileIntentBridge {
       ),
     );
   }
-
   static void _flushWhenReady() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final path = _pendingPath;

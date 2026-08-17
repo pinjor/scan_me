@@ -11,7 +11,6 @@ import '../../shared/widgets/document_card.dart';
 import '../../shared/widgets/tag_sheets.dart';
 import '../converters/convert_catalog.dart';
 import '../converters/convert_tool_screen.dart';
-import '../converters/image_edit_hub_screen.dart';
 import '../converters/image_formats_hub_screen.dart';
 import '../qr/qr_reader_screen.dart';
 import '../viewer/viewer_screen.dart';
@@ -77,7 +76,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       case DashboardToolId.xlsxToPdf:
       case DashboardToolId.imageFormats:
       case DashboardToolId.editImages:
-        _openConvertTool(id);
+        _openConvertTool(DashboardToolId.imageFormats);
       case DashboardToolId.importImages:
         HomeFlows.imagesToPdf(context, ref);
       case DashboardToolId.files:
@@ -107,8 +106,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       return;
     }
     final page = switch (toolId) {
-      ConvertToolId.imageFormats => const ImageFormatsHubScreen(),
-      ConvertToolId.editImages => const ImageEditHubScreen(),
+      ConvertToolId.imageFormats || ConvertToolId.editImages =>
+        const ImageFormatsHubScreen(),
       _ => ConvertToolScreen(tool: convertToolMeta(toolId)!),
     };
     AppPageRoute.push(context, page);

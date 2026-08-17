@@ -42,17 +42,19 @@ abstract final class DeviceSaveService {
     final extensions = ext.isEmpty ? null : <String>[ext];
 
     try {
+      // file_picker ≥12 returns Uri? (was String?).
       final result = await FilePicker.saveFile(
         dialogTitle: dialogTitle ?? 'Save to your phone',
         fileName: safe,
         bytes: bytes,
+        mimeType: mimeFor(safe),
         type: extensions == null ? FileType.any : FileType.custom,
         allowedExtensions: extensions,
       );
-      if (result == null || result.isEmpty) {
+      if (result == null) {
         return null; // user cancelled
       }
-      return result;
+      return result.scheme == 'file' ? result.toFilePath() : result.toString();
     } catch (e, st) {
       if (kDebugMode) {
         debugPrint('DeviceSaveService.saveFile failed: $e\n$st');

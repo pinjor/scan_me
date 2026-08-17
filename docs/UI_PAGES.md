@@ -1,6 +1,7 @@
 # ScanMe — UI pages reference
 
 > Living status / task log: [`PROJECT_LOG.md`](PROJECT_LOG.md)  
+> Capability list (what app does): [`FEATURES.md`](FEATURES.md)  
 > **Single file** for every in-app page’s UI detail (no per-screen splits).  
 > Last aligned: **2026-08-16** Home dashboard redesign (Start · Shortcuts · Continue).
 
@@ -13,11 +14,11 @@ MainShell (bottom nav)
 ├── Home — brand · search · Shortcuts tiles · Continue
 ├── Files — library / Recently deleted · search · filters · sort
 ├── Camera FAB — Scan capture → Review → Save document
-├── Convert — Documents · Images · Edit images (stacked) → tools
+├── Convert — Documents · Photo → Edit photo
 └── Me — Appearance · Storage · Tags · About
 
 Open-with (OS) → Intent convert | Crop / Resize / Compress | File viewer
-Home Shortcuts → Import · QR · Favorites · Edit images
+Home Shortcuts → Import · QR · Favorites · Edit photo
 ```
 
 ## Contents
@@ -34,15 +35,14 @@ Home Shortcuts → Import · QR · Favorites · Edit images
 10. [Convert hub](#convert-hub)
 11. [Convert tool](#convert-tool)
 12. [Intent convert (Open with)](#intent-convert-open-with)
-13. [Image formats (stacked)](#image-formats-stacked)
-14. [Edit images (stacked)](#edit-images-stacked)
-15. [Crop image](#crop-image)
-16. [Resize pixels](#resize-pixels)
-17. [Reduce file size](#reduce-file-size)
-18. [File viewer](#file-viewer)
-19. [QR reader](#qr-reader)
-20. [Sheets, dialogs, overlays](#sheets-dialogs-overlays)
-21. [Global brand, motion, data model](#global-brand-motion-data-model)
+13. [Edit photo (convert · crop · resize · compress)](#edit-photo-convert--crop--resize--compress)
+14. [Crop image](#crop-image)
+15. [Resize pixels](#resize-pixels)
+16. [Reduce file size](#reduce-file-size)
+17. [File viewer](#file-viewer)
+18. [QR reader](#qr-reader)
+19. [Sheets, dialogs, overlays](#sheets-dialogs-overlays)
+20. [Global brand, motion, data model](#global-brand-motion-data-model)
 
 ## System UIs (not Flutter screens)
 
@@ -72,8 +72,7 @@ Home Shortcuts → Import · QR · Favorites · Edit images
 | Convert tool | `lib/features/converters/convert_tool_screen.dart` |
 | Intent convert | `lib/features/converters/intent_convert_screen.dart` |
 | Crop / Resize / Compress | `lib/features/converters/image_*_tool_screen.dart` |
-| Edit images hub | `lib/features/converters/image_edit_hub_screen.dart` |
-| Image formats hub | `lib/features/converters/image_formats_hub_screen.dart` |
+| Images tool | `lib/features/converters/image_formats_hub_screen.dart` | → **Edit photo** |
 | File viewer | `lib/features/file_viewer/file_viewer_screen.dart` |
 | QR reader | `lib/features/qr/qr_reader_screen.dart` |
 | Shared UI | `lib/shared/widgets/app_ui.dart`, `document_card.dart`, `app_transitions.dart` |
@@ -131,7 +130,7 @@ Compact home: find docs fast · shortcuts · continue where you left off. Scan =
 
 1. **Header** — **ScanMe** · tagline · **light/dark toggle** (Me tab still has full Appearance)
 2. **Search** — dense · submit → Files with query
-3. **Shortcuts** — non-scrollable **4-col tile grid**. Defaults: Import · QR · Favorites · Edit images · Add. Scan / Convert not listed (FAB + Convert tab). Long-press removes.
+3. **Shortcuts** — non-scrollable **4-col tile grid**. Defaults: Import · QR · Favorites · Edit photo · Add. Scan / Convert not listed (FAB + Convert tab). Long-press removes.
 4. **Continue** — “View all” → Files · up to 8 `DocumentCard`s
 
 Prefs key `dashboard_tool_ids_v5`.
@@ -152,7 +151,7 @@ Prefs key `dashboard_tool_ids_v5`.
 
 ### Persistence
 
-Shortcut ids: `dashboard_tool_ids_v5`. Defaults: Import · QR reader · Favorites · Edit images. Migrate from older keys adds Import if missing.
+Shortcut ids: `dashboard_tool_ids_v6`. Defaults: Import · QR reader · Favorites · Edit photo. Migrate merges Edit images → Edit photo.
 
 ---
 
@@ -441,23 +440,14 @@ Intuitive groups — not a wall of technical tools.
 | Section | Blurb | Tiles |
 |---------|-------|--------|
 | Documents | Turn PDFs, Word, Excel, and slides into the format you need | PDF→txt · **PDF→DOCX** · TXT/PPTX/DOCX/XLSX tools |
-| Images | Convert image formats | **One tile → stacked hub** |
-| Edit images | Crop, resize, or reduce file size | **One tile → stacked hub** |
-
-### Stacked hubs
-
-| Tile | Opens |
-|------|--------|
-| Image formats | [image-formats-hub.md](image-formats-hub.md) |
-| Edit images | [image-edit-hub.md](image-edit-hub.md) |
+| Edit photo | Convert, crop, resize, or compress — one place | **Edit photo** (one screen) |
 
 ### Opens
 
 | Tool | Screen |
 |------|--------|
-| Format / office (Documents) | [convert-tool.md](convert-tool.md) |
-| Image formats | [image-formats-hub.md](image-formats-hub.md) |
-| Edit images | [image-edit-hub.md](image-edit-hub.md) |
+| Format / office (Documents) | [Convert tool](#convert-tool) |
+| Edit photo | [Edit photo](#edit-photo-convert--crop--resize--compress) |
 
 ---
 
@@ -520,57 +510,42 @@ Activity-aliases + per-tool icons (incl. **PDF to DOCX**). Reinstall to refresh 
 
 ---
 
-## Image formats (stacked)
+## Edit photo (convert · crop · resize · compress)
 
 **Class:** `ImageFormatsHubScreen`  
 **File:** `lib/features/converters/image_formats_hub_screen.dart`  
-**Entry:** Convert hub **Image formats** · Dashboard **Image formats**
+**Entry:** Convert hub **Edit photo** · Dashboard **Edit photo**
 
 ### Purpose
 
-One place for format conversions — JPG, PNG, WebP, GIF, HEIC stacked (not five hub tiles).
+One photo tool — convert + edit in the same screen (no separate Edit hub).
 
 ### Layout
 
-1. AppBar **Image formats**
-2. Compact hero
-3. **Choose a format**
-4. Stacked cards → each opens [convert-tool.md](convert-tool.md):
-   - Image to JPG
-   - Image to PNG
-   - Image to WebP
-   - Image to GIF
-   - HEIC to JPG
+**Empty (no photo):** same shell — hero · rail · blurb on top · **No photo yet** fills Expanded image area · **Choose image** CTA bottom
+
+**With photo — same shell for every tool:**
+1. AppBar **Edit photo** · **Change**
+2. Top: meta (format · WxH · size) · icon tool rail · blurb · tool options
+3. **Expanded image area** (bottom of chrome, fills remaining height):
+   - Convert / Resize / Compress → large contained preview
+   - Crop → interactive crop viewport (pinch / pan / ratios)
+4. Bottom SafeArea: staged edit chips (× to drop) · **one Apply** · or result / Edit again / Choose image
+
+**Tool options (settings only — no per-tool buttons or Include switches):**
+- Changing settings auto-stages that edit
+- **Convert** — format + quality
+- **Crop** — aspect chips · Free · Exact px
+- **Resize** — long edge / exact px
+- **Compress** — target KB (final step → JPEG)
+
+**One bottom CTA:** **Apply** runs staged edits: crop → resize → convert → compress.
+
+HEIC/HEIF allowed as input.
 
 ### Open-with
 
-Android aliases still open the matching convert screen directly with path.
-
----
-
-## Edit images (stacked)
-
-**Class:** `ImageEditHubScreen`  
-**File:** `lib/features/converters/image_edit_hub_screen.dart`  
-**Entry:** Convert hub **Edit images** · Dashboard **Edit images**
-
-### Purpose
-
-One place for all image edits — Crop, Resize, and Reduce file size stacked as a clear list (not three separate hub tiles).
-
-### Layout
-
-1. AppBar **Edit images**
-2. Compact hero — “Crop, resize, or reduce file size”
-3. **Choose what to do**
-4. Stacked cards (full width):
-   - **Crop image** → [crop.md](crop.md)
-   - **Resize pixels** → [resize.md](resize.md)
-   - **Reduce file size** → [compress.md](compress.md)
-
-### Open-with
-
-Android aliases still open Crop / Resize / Compress screens directly with `initialPath` (skip this hub).
+Format + crop / resize / compress aliases open this screen with path + tab (and format when converting).
 
 ---
 
@@ -578,7 +553,7 @@ Android aliases still open Crop / Resize / Compress screens directly with `initi
 
 **Class:** `ImageCropToolScreen`  
 **File:** `lib/features/converters/image_crop_tool_screen.dart`  
-**Entry:** Edit images hub · Open-with crop alias (`initialPath`)
+**Entry:** Standalone / legacy · Open-with now prefers Images tab
 
 ### Layout
 
@@ -595,7 +570,7 @@ Same design language as Resize / Compress.
 
 **Class:** `ImageResizeToolScreen`  
 **File:** `lib/features/converters/image_resize_tool_screen.dart`  
-**Entry:** Edit images hub · Open-with resize (`initialPath`)
+**Entry:** Standalone / legacy · Open-with prefers Images **Resize** tab
 
 ### Layout
 
@@ -614,7 +589,7 @@ Friendly values; sensible defaults from source image.
 
 **Class:** `ImageCompressToolScreen`  
 **File:** `lib/features/converters/image_compress_tool_screen.dart`  
-**Entry:** Edit images hub · Open-with compress (`initialPath`)
+**Entry:** Standalone / legacy · Open-with prefers Images **Compress** tab
 
 ### Layout
 

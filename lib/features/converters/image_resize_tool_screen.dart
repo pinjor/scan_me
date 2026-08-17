@@ -27,7 +27,6 @@ class _ImageResizeToolScreenState extends State<ImageResizeToolScreen> {
   final _heightCtrl = TextEditingController();
   double _longEdge = 1600;
   var _mode = _ResizeMode.longEdge;
-  var _format = 'jpg';
   bool _busy = false;
   ConvertResult? _result;
   String? _error;
@@ -93,6 +92,18 @@ class _ImageResizeToolScreenState extends State<ImageResizeToolScreen> {
     await _loadPath(path);
   }
 
+  String get _preserveFormat {
+    final path = _path;
+    if (path == null) return 'jpg';
+    final ext = path.split('.').last.toLowerCase();
+    return switch (ext) {
+      'png' => 'png',
+      'webp' => 'webp',
+      'gif' => 'gif',
+      _ => 'jpg',
+    };
+  }
+
   Future<void> _run() async {
     if (_path == null) return;
     setState(() {
@@ -105,13 +116,13 @@ class _ImageResizeToolScreenState extends State<ImageResizeToolScreen> {
         _ResizeMode.longEdge => await ImageToolsService.resizePixels(
             imagePath: _path!,
             maxLongEdge: _longEdge.round(),
-            format: _format,
+            format: _preserveFormat,
           ),
         _ResizeMode.exact => await ImageToolsService.resizePixels(
             imagePath: _path!,
             width: int.tryParse(_widthCtrl.text.trim()) ?? _w,
             height: int.tryParse(_heightCtrl.text.trim()) ?? _h,
-            format: _format,
+            format: _preserveFormat,
           ),
       };
       if (!mounted) return;
@@ -226,20 +237,6 @@ class _ImageResizeToolScreenState extends State<ImageResizeToolScreen> {
                 ],
               ),
             ],
-            const SizedBox(height: 12),
-            Text('Output format', style: text.titleSmall),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: [
-                for (final f in ['jpg', 'png', 'webp'])
-                  ChoiceChip(
-                    label: Text(f.toUpperCase()),
-                    selected: _format == f,
-                    onSelected: (_) => setState(() => _format = f),
-                  ),
-              ],
-            ),
             const SizedBox(height: 20),
             FilledButton.icon(
               onPressed: _busy ? null : _run,

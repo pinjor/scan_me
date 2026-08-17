@@ -4,6 +4,7 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
+import '../../core/services/watermark_service.dart';
 import 'document_converter_service.dart';
 
 /// Offline image edit: resize (pixels), compress (file size), save crop bytes.
@@ -124,6 +125,29 @@ abstract final class ImageToolsService {
     );
   }
 
+  /// One-shot convert: optional long-edge resize + format + JPEG quality.
+  static Future<ConvertResult> convertImage({
+    required String imagePath,
+    required String format,
+    int? maxLongEdge,
+    int quality = 90,
+  }) async {
+    final result = await resizePixels(
+      imagePath: imagePath,
+      maxLongEdge: maxLongEdge,
+      format: format,
+      quality: quality,
+    );
+    final fmt = format.toLowerCase();
+    if (fmt == 'jpg' || fmt == 'jpeg') {
+      final file = File(result.outputPath);
+      var bytes = await file.readAsBytes();
+      bytes = await WatermarkService.applyToJpegBytes(bytes);
+      await file.writeAsBytes(bytes, flush: true);
+    }
+    return result;
+  }
+
   static Future<ConvertResult> _encode({
     required String sourcePath,
     required img.Image image,
@@ -148,6 +172,11 @@ abstract final class ImageToolsService {
         ext = 'webp';
         label = 'WebP';
         mime = 'image/webp';
+      case 'gif':
+        bytes = Uint8List.fromList(img.encodeGif(image));
+        ext = 'gif';
+        label = 'GIF';
+        mime = 'image/gif';
       default:
         final flat = img.Image(
           width: image.width,

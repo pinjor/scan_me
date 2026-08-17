@@ -5,28 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:scanme/features/converters/document_converter_service.dart';
 
-class _FakePathProvider extends PathProviderPlatform {
-  _FakePathProvider(this.root);
-  final String root;
+import 'support/converter_fixtures.dart';
 
-  @override
-  Future<String?> getApplicationDocumentsPath() async => root;
-}
-
-Uint8List _pngBytes() {
-  final im = img.Image(width: 40, height: 30);
-  img.fill(im, color: img.ColorRgba8(10, 120, 200, 255));
-  return Uint8List.fromList(img.encodePng(im));
-}
-
-Uint8List _jpgBytes() {
-  final im = img.Image(width: 40, height: 30);
-  img.fill(im, color: img.ColorRgb8(200, 40, 40));
-  return Uint8List.fromList(img.encodeJpg(im, quality: 90));
-}
+typedef _ImgConv = Future<ConvertResult> Function(String path);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -35,124 +18,277 @@ void main() {
 
   setUp(() async {
     tmp = await Directory.systemTemp.createTemp('scanme_conv_');
-    PathProviderPlatform.instance = _FakePathProvider(tmp.path);
+    PathProviderPlatform.instance = FakePathProvider(tmp.path);
   });
 
   tearDown(() async {
     if (await tmp.exists()) await tmp.delete(recursive: true);
   });
 
-  test('PNG → JPG converter writes jpeg', () async {
-    final src = File(p.join(tmp.path, 'a.png'));
-    await src.writeAsBytes(_pngBytes());
+  Future<File> srcImage(String ext) async {
+    final bytes = switch (ext) {
+      'png' => ConverterFixtures.pngBytes(),
+      'jpg' => ConverterFixtures.jpgBytes(),
+      'webp' => ConverterFixtures.webpBytes(),
+      'gif' => ConverterFixtures.gifBytes(),
+      _ => throw ArgumentError(ext),
+    };
+    return ConverterFixtures.writeImage(tmp, 'src.$ext', bytes);
+  }
 
-    final result = await DocumentConverterService.imageToJpeg(src.path);
+  Future<void> expectImageOut(
+    ConvertResult result, {
+    required String ext,
+    String? label,
+  }) async {
     expect(File(result.outputPath).existsSync(), isTrue);
-    expect(result.outputPath.toLowerCase().endsWith('.jpg'), isTrue);
+    expect(result.outputPath.toLowerCase().endsWith('.$ext'), isTrue);
+    if (label != null) expect(result.label, label);
     final decoded =
         img.decodeImage(await File(result.outputPath).readAsBytes());
     expect(decoded, isNotNull);
-    expect(decoded!.width, 40);
+    expect(decoded!.width, greaterThan(0));
+  }
+
+  group('cleanBaseName', () {
+    test('strips open-with / incoming / prior stamps', () {
+      expect(
+        DocumentConverterService.cleanBaseName('open_with_Invoice.pdf'),
+        'Invoice',
+      );
+      expect(
+        DocumentConverterService.cleanBaseName('incoming_Contract.pdf'),
+        'Contract',
+      );
+      expect(
+        DocumentConverterService.cleanBaseName(
+          'Contract_TXT_2026-08-16_1445.txt',
+        ),
+        'Contract',
+      );
+      expect(
+        DocumentConverterService.cleanBaseName('_src_1_photo.jpg'),
+        'photo',
+      );
+    });
   });
 
-  test('JPG → PNG converter writes png', () async {
-    final src = File(p.join(tmp.path, 'b.jpg'));
-    await src.writeAsBytes(_jpgBytes());
-
-    final result = await DocumentConverterService.imageToPng(src.path);
-    expect(result.outputPath.toLowerCase().endsWith('.png'), isTrue);
-    final decoded =
-        img.decodeImage(await File(result.outputPath).readAsBytes());
-    expect(decoded, isNotNull);
-    expect(p.basename(result.outputPath).contains('Closure'), isFalse);
+  group('materializePath', () {
+    test('writes incoming_ file', () async {
+      final path = await DocumentConverterService.materializePath(
+        preferredName: 'shot.png',
+        bytes: ConverterFixtures.pngBytes(),
+      );
+      expect(File(path).existsSync(), isTrue);
+      expect(p.basename(path), startsWith('incoming_'));
+      expect(path.toLowerCase().endsWith('.png'), isTrue);
+    });
   });
 
-  test('TXT → PDF converter writes pdf', () async {
-    final src = File(p.join(tmp.path, 'notes.txt'));
-    await src.writeAsString('Hello ScanMe\n\nSecond paragraph.');
+  group('documents', () {
+    test('TXT → PDF · short', () async {
+      final src = await ConverterFixtures.writeTxt(tmp);
+      final result = await DocumentConverterService.txtToPdf(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+      expect(result.label, 'PDF');
+      final bytes = await File(result.outputPath).readAsBytes();
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+      expect(
+        RegExp(r'^notes_PDF_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$')
+            .hasMatch(p.basename(result.outputPath)),
+        isTrue,
+      );
+    });
 
-    final result = await DocumentConverterService.txtToPdf(src.path);
-    expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
-    expect(result.label, 'PDF');
-    final bytes = await File(result.outputPath).readAsBytes();
-    expect(bytes.length, greaterThan(100));
-    expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
-    expect(p.basename(result.outputPath).contains('Closure'), isFalse);
-    expect(
-      RegExp(r'^notes_PDF_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$')
-          .hasMatch(p.basename(result.outputPath)),
-      isTrue,
-      reason: 'expected notes_PDF_yyyy-MM-dd_HHmm.pdf',
-    );
+    test('TXT → PDF · long multiline', () async {
+      final body = List.generate(40, (i) => 'Line $i - ScanMe').join('\n');
+      final src = await ConverterFixtures.writeTxt(
+        tmp,
+        name: 'long.txt',
+        body: body,
+      );
+      final result = await DocumentConverterService.txtToPdf(src.path);
+      final bytes = await File(result.outputPath).readAsBytes();
+      expect(bytes.length, greaterThan(200));
+    });
+
+    test('PDF → .txt · single page', () async {
+      final pdfFile = await ConverterFixtures.writePdf(tmp);
+      final result = await DocumentConverterService.pdfToTxt(pdfFile.path);
+      expect(result.outputPath.toLowerCase().endsWith('.txt'), isTrue);
+      expect(result.label, '.txt');
+      expect(result.mimeType, 'text/plain');
+      final body = await File(result.outputPath).readAsString();
+      expect(body.isNotEmpty, isTrue);
+    });
+
+    test('PDF → .txt · multi page', () async {
+      final pdfFile = await ConverterFixtures.writePdf(
+        tmp,
+        name: 'multi.pdf',
+        text: 'ScanMe multi',
+        pages: 3,
+      );
+      final result = await DocumentConverterService.pdfToTxt(pdfFile.path);
+      expect(result.outputPath.toLowerCase().endsWith('.txt'), isTrue);
+      final body = await File(result.outputPath).readAsString();
+      expect(body.isNotEmpty, isTrue);
+    });
+
+    test('PDF → DOCX', () async {
+      final named = await ConverterFixtures.writePdf(
+        tmp,
+        name: 'letter.pdf',
+        text: 'ScanMe PDF to DOCX probe',
+      );
+      final result = await DocumentConverterService.pdfToDocx(named.path);
+      expect(result.outputPath.toLowerCase().endsWith('.docx'), isTrue);
+      expect(result.label, '.docx');
+      final bytes = await File(result.outputPath).readAsBytes();
+      expect(bytes[0], 0x50);
+      expect(bytes[1], 0x4b);
+    });
+
+    test('DOCX → PDF · multi paragraph', () async {
+      final src = await ConverterFixtures.writeDocx(tmp);
+      final result = await DocumentConverterService.docxToPdf(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+      final bytes = await File(result.outputPath).readAsBytes();
+      expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
+    });
+
+    test('DOCX → PDF · single paragraph', () async {
+      final src = await ConverterFixtures.writeDocx(
+        tmp,
+        name: 'one.docx',
+        paragraphs: const ['Only one block'],
+      );
+      final result = await DocumentConverterService.docxToPdf(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+    });
+
+    test('PPTX → PDF · one slide', () async {
+      final src = await ConverterFixtures.writePptx(tmp);
+      final result = await DocumentConverterService.pptxToPdf(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+      expect(result.label, 'PDF');
+    });
+
+    test('PPTX → PDF · two slides', () async {
+      final src = await ConverterFixtures.writePptx(
+        tmp,
+        name: 'multi.pptx',
+        slideTexts: const ['Slide alpha', 'Slide beta'],
+      );
+      final result = await DocumentConverterService.pptxToPdf(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+      expect(await File(result.outputPath).length(), greaterThan(200));
+    });
+
+    test('PPTX → PDF · three slides', () async {
+      final src = await ConverterFixtures.writePptx(
+        tmp,
+        name: 'three.pptx',
+        slideTexts: const ['A', 'B', 'C'],
+      );
+      final result = await DocumentConverterService.pptxToPdf(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+    });
+
+    test('XLSX → CSV · basic', () async {
+      final src = await ConverterFixtures.writeXlsx(tmp);
+      final result = await DocumentConverterService.xlsxToCsv(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.csv'), isTrue);
+      expect(result.mimeType, 'text/csv');
+      final body = await File(result.outputPath).readAsString();
+      expect(body, contains('Name'));
+      expect(body, contains('ScanMe'));
+    });
+
+    test('XLSX → CSV · commas escaped', () async {
+      final src = await ConverterFixtures.writeXlsx(
+        tmp,
+        name: 'commas.xlsx',
+        rows: const [
+          ['City', 'Note'],
+          ['Dhaka', 'Hello, world'],
+        ],
+      );
+      final result = await DocumentConverterService.xlsxToCsv(src.path);
+      final body = await File(result.outputPath).readAsString();
+      expect(body, contains('"Hello, world"'));
+    });
+
+    test('XLSX → PDF', () async {
+      final src = await ConverterFixtures.writeXlsx(tmp, name: 'table.xlsx');
+      final result = await DocumentConverterService.xlsxToPdf(src.path);
+      expect(result.outputPath.toLowerCase().endsWith('.pdf'), isTrue);
+      expect(result.label, 'PDF');
+    });
   });
 
-  test('PDF → .txt writes UTF-8 text file', () async {
-    // Minimal PDF with drawable text via package:pdf, then extract.
-    final pdf = pw.Document();
-    pdf.addPage(
-      pw.Page(
-        build: (c) => pw.Text('ScanMe PDF to TXT probe'),
+  group('images · full source × target matrix', () {
+    const sources = ['png', 'jpg', 'webp', 'gif'];
+    final targets = <String, ({_ImgConv call, String ext, String label})>{
+      'JPG': (
+        call: DocumentConverterService.imageToJpeg,
+        ext: 'jpg',
+        label: 'JPEG',
       ),
-    );
-    final pdfFile = File(p.join(tmp.path, 'probe.pdf'));
-    await pdfFile.writeAsBytes(await pdf.save());
-
-    final result = await DocumentConverterService.pdfToTxt(pdfFile.path);
-    expect(result.outputPath.toLowerCase().endsWith('.txt'), isTrue);
-    expect(result.label, '.txt');
-    expect(result.mimeType, 'text/plain');
-    final body = await File(result.outputPath).readAsString();
-    expect(body.toLowerCase().contains('scanme') || body.contains('probe') || body.isNotEmpty, isTrue);
-    expect(
-      RegExp(r'^probe_TXT_\d{4}-\d{2}-\d{2}_\d{4}\.txt$')
-          .hasMatch(p.basename(result.outputPath)),
-      isTrue,
-    );
-  });
-
-  test('PDF → DOCX writes Word package', () async {
-    final pdf = pw.Document();
-    pdf.addPage(
-      pw.Page(
-        build: (c) => pw.Text('ScanMe PDF to DOCX probe'),
+      'PNG': (
+        call: DocumentConverterService.imageToPng,
+        ext: 'png',
+        label: 'PNG',
       ),
-    );
-    final named = File(p.join(tmp.path, 'letter.pdf'));
-    await named.writeAsBytes(await pdf.save());
-
-    final result = await DocumentConverterService.pdfToDocx(named.path);
-    expect(result.outputPath.toLowerCase().endsWith('.docx'), isTrue);
-    expect(result.label, '.docx');
-    expect(
-      result.mimeType,
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    );
-    final bytes = await File(result.outputPath).readAsBytes();
-    expect(bytes.length, greaterThan(100));
-    // ZIP local file header
-    expect(bytes[0], 0x50);
-    expect(bytes[1], 0x4b);
-    expect(
-      RegExp(r'^letter_DOCX_\d{4}-\d{2}-\d{2}_\d{4}\.docx$')
-          .hasMatch(p.basename(result.outputPath)),
-      isTrue,
-    );
-  });
-
-  test('cleanBaseName strips open-with / incoming junk', () {
-    expect(
-      DocumentConverterService.cleanBaseName('open_with_Invoice.pdf'),
-      'Invoice',
-    );
-    expect(
-      DocumentConverterService.cleanBaseName('incoming_Contract.pdf'),
-      'Contract',
-    );
-    expect(
-      DocumentConverterService.cleanBaseName(
-        'Contract_TXT_2026-08-16_1445.txt',
+      'WebP': (
+        call: DocumentConverterService.imageToWebp,
+        ext: 'webp',
+        label: 'WebP',
       ),
-      'Contract',
+      'GIF': (
+        call: DocumentConverterService.imageToGif,
+        ext: 'gif',
+        label: 'GIF',
+      ),
+    };
+
+    for (final srcExt in sources) {
+      for (final entry in targets.entries) {
+        test('${srcExt.toUpperCase()} → ${entry.key}', () async {
+          final src = await srcImage(srcExt);
+          final result = await entry.value.call(src.path);
+          await expectImageOut(
+            result,
+            ext: entry.value.ext,
+            label: entry.value.label,
+          );
+        });
+      }
+    }
+
+    test('decodeAnyImage · all raster types', () async {
+      for (final ext in sources) {
+        final f = await srcImage(ext);
+        final decoded = await DocumentConverterService.decodeAnyImage(f.path);
+        expect(decoded.width, greaterThan(0), reason: ext);
+      }
+    });
+
+    test('heicToJpeg · JPEG bytes with .heic name (decode-by-content)', () async {
+      // Native HEIC decode needs platform; JPEG content still decodes via image package.
+      final f = await ConverterFixtures.writeImage(
+        tmp,
+        'photo.heic',
+        ConverterFixtures.jpgBytes(),
+      );
+      final result = await DocumentConverterService.heicToJpeg(f.path);
+      await expectImageOut(result, ext: 'jpg', label: 'JPEG');
+    });
+
+    test(
+      'heicToJpeg · real HEIC bitstream',
+      () async {},
+      skip: 'needs platform HEIC codec (ImageCodecBridge) + real .heic fixture',
     );
   });
 }

@@ -29,6 +29,7 @@ class _ImageCropToolScreenState extends State<ImageCropToolScreen> {
   ConvertResult? _result;
   bool _busy = false;
   String? _error;
+  bool _cropScaleUnlocked = false;
 
   ConvertToolMeta get _meta => convertToolMeta(ConvertToolId.crop)!;
 
@@ -50,6 +51,7 @@ class _ImageCropToolScreenState extends State<ImageCropToolScreen> {
       _bytes = jpg;
       _result = null;
       _error = null;
+      _cropScaleUnlocked = false;
     });
   }
 
@@ -162,6 +164,15 @@ class _ImageCropToolScreenState extends State<ImageCropToolScreen> {
                         image: _bytes!,
                         controller: _controller,
                         onCropped: _onCropped,
+                        interactive: true,
+                        willUpdateScale: (_) => _cropScaleUnlocked,
+                        onStatusChanged: (status) {
+                          if (status == CropStatus.ready) {
+                            _cropScaleUnlocked = true;
+                          } else if (status == CropStatus.loading) {
+                            _cropScaleUnlocked = false;
+                          }
+                        },
                         baseColor: scheme.surfaceContainerHighest,
                         maskColor: Colors.black.withValues(alpha: 0.55),
                         cornerDotBuilder: (size, edge) => const DotControl(

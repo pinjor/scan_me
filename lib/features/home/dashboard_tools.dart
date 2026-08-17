@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../converters/convert_catalog.dart';
 
-const _kDashboardToolsKey = 'dashboard_tool_ids_v5';
+const _kDashboardToolsKey = 'dashboard_tool_ids_v6';
 
 /// Not on Shortcuts: Scan = FAB · Convert = Convert tab.
 const kDashboardPinnedIds = <DashboardToolId>{
@@ -31,6 +31,7 @@ enum DashboardToolId {
   xlsxToCsv,
   xlsxToPdf,
   imageFormats,
+  /// Legacy — migrated to [imageFormats].
   editImages,
 }
 
@@ -39,7 +40,7 @@ const kDefaultDashboardTools = <DashboardToolId>[
   DashboardToolId.importImages,
   DashboardToolId.qrReader,
   DashboardToolId.favorites,
-  DashboardToolId.editImages,
+  DashboardToolId.imageFormats,
 ];
 
 class DashboardToolMeta {
@@ -138,15 +139,9 @@ const kDashboardToolCatalog = <DashboardToolMeta>[
   ),
   DashboardToolMeta(
     id: DashboardToolId.imageFormats,
-    label: 'Image formats',
-    icon: Icons.image_outlined,
+    label: 'Edit photo',
+    icon: Icons.photo_outlined,
     color: Color(0xFFEF6C00),
-  ),
-  DashboardToolMeta(
-    id: DashboardToolId.editImages,
-    label: 'Edit images',
-    icon: Icons.photo_filter,
-    color: Color(0xFF455A64),
   ),
 ];
 
@@ -180,17 +175,20 @@ ConvertToolId? convertToolIdForDashboard(DashboardToolId id) => switch (id) {
       DashboardToolId.docxToPdf => ConvertToolId.docxToPdf,
       DashboardToolId.xlsxToCsv => ConvertToolId.xlsxToCsv,
       DashboardToolId.xlsxToPdf => ConvertToolId.xlsxToPdf,
-      DashboardToolId.imageFormats => ConvertToolId.imageFormats,
-      DashboardToolId.editImages => ConvertToolId.editImages,
+      DashboardToolId.imageFormats || DashboardToolId.editImages =>
+        ConvertToolId.imageFormats,
       _ => null,
     };
 
 List<DashboardToolId> sanitizeDashboardTools(Iterable<DashboardToolId> ids) {
   final out = <DashboardToolId>[];
   for (final id in ids) {
-    if (kDashboardPinnedIds.contains(id)) continue;
-    if (out.contains(id)) continue;
-    out.add(id);
+    // Edit images merged into Images.
+    final resolved =
+        id == DashboardToolId.editImages ? DashboardToolId.imageFormats : id;
+    if (kDashboardPinnedIds.contains(resolved)) continue;
+    if (out.contains(resolved)) continue;
+    out.add(resolved);
   }
   if (out.isEmpty) return List.of(kDefaultDashboardTools);
   return out;
@@ -208,23 +206,27 @@ class DashboardToolsController extends StateNotifier<List<DashboardToolId>> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    var fromV5 = true;
+    var fromV6 = true;
     var raw = prefs.getStringList(_kDashboardToolsKey);
     // Migrate older keys.
     if (raw == null || raw.isEmpty) {
-      fromV5 = false;
+      fromV6 = false;
+      raw = prefs.getStringList('dashboard_tool_ids_v5');
+    }
+    if (raw == null || raw.isEmpty) {
+      fromV6 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v4');
     }
     if (raw == null || raw.isEmpty) {
-      fromV5 = false;
+      fromV6 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v3');
     }
     if (raw == null || raw.isEmpty) {
-      fromV5 = false;
+      fromV6 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v2');
     }
     if (raw == null || raw.isEmpty) {
-      fromV5 = false;
+      fromV6 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v1');
     }
     if (raw == null || raw.isEmpty) return;
@@ -232,9 +234,12 @@ class DashboardToolsController extends StateNotifier<List<DashboardToolId>> {
     final allowed = DashboardToolId.values.map((e) => e.name).toSet();
     final parsed = <DashboardToolId>[];
     for (final s in raw) {
-      if (s == 'cropImage' || s == 'resizeImage' || s == 'compressImage') {
-        if (!parsed.contains(DashboardToolId.editImages)) {
-          parsed.add(DashboardToolId.editImages);
+      if (s == 'cropImage' ||
+          s == 'resizeImage' ||
+          s == 'compressImage' ||
+          s == 'editImages') {
+        if (!parsed.contains(DashboardToolId.imageFormats)) {
+          parsed.add(DashboardToolId.imageFormats);
         }
         continue;
       }
@@ -257,7 +262,7 @@ class DashboardToolsController extends StateNotifier<List<DashboardToolId>> {
       }
     }
 
-    if (!fromV5) {
+    if (!fromV6) {
       // Files is bottom nav; Import becomes a shortcut tile (Start card gone).
       parsed.removeWhere((id) => id == DashboardToolId.files);
       if (!parsed.contains(DashboardToolId.importImages)) {
