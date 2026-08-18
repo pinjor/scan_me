@@ -64,11 +64,13 @@ class DocumentStorageService {
 
   Future<void> saveDocument(ScannedDocument doc) async {
     final file = await metaFile(doc.id);
-    await file.writeAsString(doc.toJsonString());
+    final tmp = File('${file.path}.tmp');
+    await tmp.writeAsString(doc.toJsonString(), flush: true);
+    await tmp.rename(file.path);
   }
 
   Future<ScannedDocument?> loadDocument(String id) async {
-    final file = await metaFile(id);
+    final file = File(p.join((await root).path, id, 'meta.json'));
     if (!await file.exists()) return null;
     try {
       return ScannedDocument.fromJsonString(await file.readAsString());
@@ -164,6 +166,12 @@ class DocumentStorageService {
       if (entity is! Directory) continue;
       final meta = File(p.join(entity.path, 'meta.json'));
       if (!await meta.exists()) {
+        // In-progress scans write images before meta.json. Don't wipe those
+        // if the user switches tabs / pull-to-refreshes Files mid-edit.
+        try {
+          final age = DateTime.now().difference((await entity.stat()).modified);
+          if (age < const Duration(hours: 2)) continue;
+        } catch (_) {}
         await entity.delete(recursive: true);
         removed++;
       }

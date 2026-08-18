@@ -3,7 +3,7 @@
 > What the app **does** (capabilities), not screen layouts.  
 > UI detail: [`UI_PAGES.md`](UI_PAGES.md) · Status / history: [`PROJECT_LOG.md`](PROJECT_LOG.md)  
 > **Package:** `app.atl.scanme` · **Offline-first** · No account · Data stays on device  
-> Aligned: **2026-08-17** · Version `1.0.2+2`
+> Aligned: **2026-08-18** · Version `1.0.2+7`
 
 ---
 
@@ -17,18 +17,19 @@
 | Open with | OS file manager opens ScanMe tools directly |
 | QR | Live + photo decode · copy · share · open links |
 | Privacy | Local storage · Apptriangle watermark on PDF exports · no cloud account |
+| First run | 7-page feature tour (once); replay from Me → About |
 | Updates | Soft Play Store reminder (optional · Remind later 3d · Update now) |
 
 ---
 
 ## 1. Navigation shell
 
-- **Home** — search, shortcut tiles, continue (recents)
-- **Files** — full library / recently deleted
-- **Scan (center FAB)** — start document capture
-- **Convert** — document + image tools hub
-- **Me** — appearance, trash retention, tags, about
+- **Home** — search, shortcut tiles, full library
+- **Inner slots** — default **Edit photo** + **Convert** (Me → Navigation; also Favorites, PDF Tools)
+- **Scan** — center FAB, docked in a notch on one nav bar
+- **Me** — appearance (M3 color presets) · nav slots · trash retention, tags, about
 - **Back** — on every *pushed* screen when the stack can pop (tab roots have no back)
+- **First launch** — full-screen walkthrough before Home (prefs `onboarding_done_v1`)
 
 ---
 
@@ -77,23 +78,24 @@
 
 ---
 
-## 3. Library (Files)
+## 3. Library (Home)
 
+- Lives on **Home** (no separate Files tab)
 - List of scanned documents (cards: thumb, name, meta)
-- **Search** by name
-- Filter chips (e.g. favorites / tags — see UI_PAGES)
-- **Sort** (library sort options)
-- **Favorites** bookmark
-- **Tags** — assign / edit colored tags
+- Convert outputs mixed into **All**, **Favorites**, **Tags**, and search (not Deleted)
+- **Search** by name (hidden in Deleted)
+- Filter chips: **All · Favorites · Tags · Deleted** + sort
+- **Favorites** — bookmark on the thumbnail (scans and converts)
+- **Tags** — assign from ⋯ · same catalog as Settings; Tags chip opens wrap immediately
 - **Rename**
 - **Share** (system share sheet)
 - **Open** → Document viewer
 - **Move to Trash** (recoverable)
-- **Recently deleted** view:
+- **Deleted** view:
   - Restore
   - Delete permanently (cannot undo)
 - Trash auto-purge after retention days (Settings)
-- Empty states with Scan / Import CTAs when library empty
+- Empty states per filter (FAB still scans)
 
 > **Folders:** data model exists; **folder UI paused** (no move / Unfiled chips).
 
@@ -116,17 +118,18 @@
 ## 5. Home dashboard
 
 - Brand header + **light/dark theme toggle** (quick)
-- Dense **search** (library)
+- Dense **search** — filters the list in place (hidden in Deleted)
 - **Shortcuts** — customizable 4-col tile grid  
-  Defaults: **Import · QR reader · Favorites · Edit photo** (+ Add)  
+  Defaults: **Import · PDF Tools · QR reader · Favorites · Edit photo** (+ Add)  
   Long-press remove · Customize sheet · Reset  
-  *Not* on shortcuts: Scan (FAB) · Convert (Convert tab)
-- **Continue** — recent scans **and** converter outputs → viewer / file viewer
-- Quick actions on cards (Open · Tags · View all files)
+  Tags / Favorites / Trash shortcuts apply Home filters (no tab jump)  
+  *Not* on shortcuts: Scan (FAB) · Files (removed)
+- **Library list** — full un-capped list; scans + converts; bookmark + tags on both
+- Card ⋯: Open · Favorite · Tags · Rename · Share · Move to Trash (Deleted: Restore / Delete forever)
 
 ### Shortcut catalog (optional pins)
 
-Import · Files · Tags · Favorites · Trash · QR reader · PDF→txt · PDF→DOCX · txt→PDF · PPTX→PDF · DOCX→PDF · XLSX→CSV · XLSX→PDF · Edit photo
+Import · Tags · Favorites · Trash · QR reader · PDF Tools · PDF→txt · PDF→DOCX · txt→PDF · PPTX→PDF · DOCX→PDF · XLSX→CSV · XLSX→PDF · Edit photo
 
 ---
 
@@ -160,6 +163,22 @@ Stage any combo on one photo → chips show staged edits → single **Apply** (o
 Changing a section stages it; chip × removes it. No per-tool action buttons.
 
 Open-with lands on matching section.
+
+### PDF Tools (Convert → PDF Tools)
+
+Offline. Original files never overwritten.
+
+| Tool | Does |
+|------|------|
+| Merge PDFs | Combine 2+ PDFs, reorder first |
+| Split PDF | Ranges, selected pages, or every page |
+| Reorder pages | Drag order → new PDF |
+| Delete pages | Confirm → new PDF of remaining pages |
+| Rotate pages | 90° / 180° / counter-clockwise |
+| Extract pages | Selected pages → new PDF |
+| PDF → images | JPG/PNG · small/balanced/high |
+| Images → PDF | Multi image, reorder (same export writer) |
+| Compress PDF | Small / balanced / high · reports real size |
 
 ---
 
@@ -215,6 +234,13 @@ Preview converted / opened files with Save + Share:
 ### Appearance
 
 - Theme: **System · Light · Dark**
+- **Themes studio:** 40+ presets. Tap applies app-wide (`ColorScheme.primary` on FAB, nav, filters, convert/PDF/edit-photo tiles, crop handles, update dialog). ScanMe brand stays hand-tuned.
+- **Custom themes:** pick 1–3 colors, name, save on device (max 30)
+
+### Navigation
+
+- Home / Scan / Me fixed
+- Inner slots: Edit photo · Convert · Favorites · PDF Tools (defaults: Photo + Convert)
 
 ### Storage
 
@@ -230,6 +256,7 @@ Preview converted / opened files with Save + Share:
 
 - ScanMe / Apptriangle · version
 - Privacy badge: stored privately on device · no account
+- **Replay tutorial** — same first-run walkthrough (does not reset other prefs)
 
 ### Store updates (Android)
 
@@ -285,12 +312,12 @@ Preview converted / opened files with Save + Share:
 |------------|-----|
 | Digitize paper | FAB Scan → Review → Save |
 | Photos → PDF | Import images → Review → Save PDF |
-| Find a scan | Home search / Files / Continue |
+| Find a scan | Home search / All · Favorites · Tags |
 | Mark important | Favorite · Tags |
 | Share or print | Viewer Share / Print |
 | Crop/resize/shrink a photo | Edit photo → Crop / Resize / Compress |
 | Convert a photo format | Edit photo → Convert |
 | Open file from Files app | Open with ScanMe alias |
 | Read a QR / barcode | QR reader shortcut |
-| Undo a delete | Files → Recently deleted → Restore |
+| Undo a delete | Home → Deleted → Restore |
 | Switch dark mode | Home toggle or Me → Appearance |

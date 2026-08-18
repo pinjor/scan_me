@@ -2,24 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/app_ui.dart';
+import '../pdf_tools/pdf_tools_hub_screen.dart';
 import 'convert_catalog.dart';
 import 'convert_tool_screen.dart';
 import 'image_formats_hub_screen.dart';
 
 /// Convert hub: documents · image formats (stacked) · edit images (stacked).
 class ConvertersHubScreen extends StatelessWidget {
-  const ConvertersHubScreen({
-    super.key,
-    this.embedded = false,
-  });
+  const ConvertersHubScreen({super.key, this.embedded = false});
 
   /// When true (Convert tab), no AppBar — shell provides chrome.
   final bool embedded;
 
   void _open(BuildContext context, ConvertToolMeta tool) {
     final page = switch (tool.id) {
-      ConvertToolId.imageFormats || ConvertToolId.editImages =>
-        const ImageFormatsHubScreen(),
+      ConvertToolId.imageFormats ||
+      ConvertToolId.editImages => const ImageFormatsHubScreen(),
+      ConvertToolId.pdfTools => const PdfToolsHubScreen(),
       _ => ConvertToolScreen(tool: tool),
     };
     AppPageRoute.push(context, page);
@@ -32,22 +31,19 @@ class ConvertersHubScreen extends StatelessWidget {
 
     final body = FadeRiseIn(
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
         children: [
           if (embedded) ...[
-            Text('Convert', style: text.titleLarge),
-            const SizedBox(height: 4),
+            Text('Convert', style: text.headlineSmall),
+            const SizedBox(height: 6),
             Text(
               'Documents, images, and edits — all on this phone.',
-              style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              style: text.bodyMedium?.copyWith(color: scheme.onSurfaceVariant),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 28),
           ],
           for (final section in kConvertSections) ...[
-            _SectionHeader(
-              title: section.title,
-              blurb: section.blurb,
-            ),
+            _SectionHeader(title: section.title, blurb: section.blurb),
             const SizedBox(height: 10),
             LayoutBuilder(
               builder: (context, constraints) {
@@ -107,7 +103,7 @@ class _SectionHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: text.titleMedium),
+        Text(title, style: text.titleSmall),
         const SizedBox(height: 2),
         Text(
           blurb,
@@ -127,17 +123,22 @@ class _ToolTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
+    final scheme = Theme.of(context).colorScheme;
     return AppCard(
-      elevated: false,
+      elevated: true,
+      bordered: false,
       onTap: onTap,
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      padding: const EdgeInsets.fromLTRB(14, 14, 12, 14),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: tool.color.withValues(alpha: 0.14),
-            foregroundColor: tool.color,
-            radius: 22,
-            child: Icon(tool.icon, size: 22),
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.14),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(tool.icon, size: 22, color: scheme.primary),
           ),
           const SizedBox(width: 12),
           Expanded(

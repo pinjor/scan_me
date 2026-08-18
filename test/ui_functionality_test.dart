@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
+import 'package:scanme/core/onboarding.dart';
 import 'package:scanme/core/providers.dart';
 import 'package:scanme/core/storage/document_storage_service.dart';
 import 'package:scanme/core/theme/app_theme.dart';
@@ -15,6 +16,7 @@ import 'package:scanme/features/export/export_screen.dart';
 import 'package:scanme/features/converters/converters_hub_screen.dart';
 import 'package:scanme/features/scanner/document_scanner_service.dart';
 import 'package:scanme/features/scanner/scan_capture_screen.dart';
+import 'package:scanme/features/settings/settings_screen.dart';
 import 'package:scanme/main.dart';
 import 'package:scanme/shared/models/library_models.dart';
 import 'package:scanme/shared/models/scanned_document.dart';
@@ -37,11 +39,10 @@ Future<File> _writeTempJpeg(Directory dir, String name) async {
   return f;
 }
 
-class _FakeDocs
-    extends StateNotifier<AsyncValue<List<ScannedDocument>>>
+class _FakeDocs extends StateNotifier<AsyncValue<List<ScannedDocument>>>
     implements DocumentsController {
   _FakeDocs([List<ScannedDocument>? docs])
-      : super(AsyncValue.data(docs ?? const []));
+    : super(AsyncValue.data(docs ?? const []));
 
   final deleted = <String>[];
   final renamed = <(String, String)>[];
@@ -119,8 +120,7 @@ class _FakeDocs
   }
 }
 
-class _FakeFolders
-    extends StateNotifier<AsyncValue<List<DocFolder>>>
+class _FakeFolders extends StateNotifier<AsyncValue<List<DocFolder>>>
     implements FoldersController {
   _FakeFolders() : super(const AsyncValue.data([]));
 
@@ -138,9 +138,10 @@ class _FakeFolders
 }
 
 List<Override> _libraryOverrides([_FakeDocs? docs]) => [
-      documentsProvider.overrideWith((ref) => docs ?? _FakeDocs()),
-      foldersProvider.overrideWith((ref) => _FakeFolders()),
-    ];
+  documentsProvider.overrideWith((ref) => docs ?? _FakeDocs()),
+  foldersProvider.overrideWith((ref) => _FakeFolders()),
+  onboardingProvider.overrideWith((ref) => OnboardingController.completed()),
+];
 
 class _FakeScanner extends DocumentScannerService {
   _FakeScanner({this.outcome});
@@ -199,62 +200,70 @@ void main() {
     });
   }
 
+  Future<void> openMeTab(WidgetTester tester) async {
+    await tester.tap(find.text('Me'));
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> scrollMeTo(WidgetTester tester, Finder target) async {
+    final scrollable = find
+        .descendant(
+          of: find.byType(SettingsScreen),
+          matching: find.byWidgetPredicate(
+            (w) => w is Scrollable && w.axis == Axis.vertical,
+          ),
+        )
+        .first;
+    await tester.scrollUntilVisible(target, 240, scrollable: scrollable);
+    await tester.pumpAndSettle();
+  }
+
   group('Home — empty state', () {
-    testWidgets('shows brand, empty copy, Scan Document',
-        (tester) async {
+    testWidgets('shows brand, empty copy, Scan Document', (tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: _libraryOverrides(),
-          child: const ScanMeApp(),
-        ),
+        ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
       );
       await tester.pumpAndSettle();
 
       expect(find.text('ScanMe'), findsWidgets);
-      expect(find.text('No documents yet'), findsOneWidget);
-      expect(find.text('Scan Document'), findsWidgets);
-      expect(find.text('Create PDF'), findsNothing);
-      expect(find.byTooltip('New'), findsOneWidget);
+      expect(find.text('SHORTCUTS'), findsOneWidget);
+      expect(find.text('Nothing here yet'), findsOneWidget);
+      expect(find.byTooltip('Scan Document'), findsOneWidget);
+      expect(find.text('Files'), findsNothing);
+      expect(find.widgetWithText(FilterChip, 'All'), findsOneWidget);
+      expect(find.widgetWithText(FilterChip, 'Deleted'), findsOneWidget);
+      expect(find.text('Photo'), findsOneWidget);
     });
 
     testWidgets('Settings button opens Settings', (tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: _libraryOverrides(),
-          child: const ScanMeApp(),
-        ),
+        ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Settings'));
-      await tester.pumpAndSettle();
-      expect(find.text('Settings'), findsOneWidget);
-      expect(find.text('Appearance'), findsOneWidget);
-      expect(find.text('About'), findsOneWidget);
+      await openMeTab(tester);
+      expect(find.text('APPEARANCE'), findsOneWidget);
+      await scrollMeTo(tester, find.text('ABOUT'));
+      expect(find.text('ABOUT'), findsOneWidget);
     });
 
-    testWidgets('FAB New expands to Scan Document + Images to PDF',
-        (tester) async {
+    testWidgets('Photo tab opens Edit photo', (tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: _libraryOverrides(),
-          child: const ScanMeApp(),
-        ),
+        ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
       );
       await tester.pumpAndSettle();
-
-      await tester.tap(find.byTooltip('New'));
+      await tester.tap(find.text('Photo'));
       await tester.pumpAndSettle();
-      expect(find.text('Scan Document'), findsWidgets);
-      expect(find.text('Images to PDF'), findsWidgets);
-      expect(find.text('Converters'), findsOneWidget);
+      expect(
+        find.text('Choose a photo first, then set edits and Apply.'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('Scan Document (empty) opens ScanCapture then cancels back',
-        (tester) async {
+    testWidgets('center FAB starts a scan', (tester) async {
       await tallSurface(tester);
       final scanner = _FakeScanner(outcome: ScanCancelled());
       await tester.pumpWidget(
@@ -268,16 +277,37 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(
-        find.widgetWithText(FilledButton, 'Scan Document'),
+      await tester.tap(find.byTooltip('Scan Document'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
+      expect(scanner.calls, greaterThan(0));
+      expect(find.text('SHORTCUTS'), findsOneWidget);
+    });
+
+    testWidgets('Scan Document (empty) opens ScanCapture then cancels back', (
+      tester,
+    ) async {
+      await tallSurface(tester);
+      final scanner = _FakeScanner(outcome: ScanCancelled());
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._libraryOverrides(),
+            documentScannerProvider.overrideWithValue(scanner),
+          ],
+          child: const ScanMeApp(),
+        ),
       );
-      await tester.tap(find.widgetWithText(FilledButton, 'Scan Document'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Scan Document'));
       await tester.pump(); // start route
       await tester.pump(const Duration(milliseconds: 100));
       // Auto-start scan cancels → pop back to home
       await tester.pumpAndSettle();
       expect(scanner.calls, greaterThan(0));
-      expect(find.text('No documents yet'), findsOneWidget);
+      expect(find.text('SHORTCUTS'), findsOneWidget);
     });
   });
 
@@ -306,11 +336,11 @@ void main() {
           child: const ScanMeApp(),
         ),
       );
-      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pumpAndSettle();
 
       expect(find.text('Lease agreement'), findsWidgets);
       expect(find.textContaining('page'), findsWidgets);
-      expect(find.byTooltip('Document options'), findsOneWidget);
+      expect(find.byTooltip('More actions'), findsOneWidget);
     });
 
     testWidgets('⋯ menu shows Open / Rename / Share / Delete', (tester) async {
@@ -323,7 +353,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Document options'));
+      await tester.tap(find.byTooltip('More actions'));
       await tester.pumpAndSettle();
       expect(find.text('Open'), findsOneWidget);
       expect(find.text('Rename'), findsOneWidget);
@@ -342,7 +372,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Document options'));
+      await tester.tap(find.byTooltip('More actions'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Move to Trash'));
       await tester.pumpAndSettle();
@@ -354,18 +384,15 @@ void main() {
   });
 
   group('Settings', () {
-    testWidgets('theme options Light / Dark / System are tappable',
-        (tester) async {
+    testWidgets('theme options Light / Dark / System are tappable', (
+      tester,
+    ) async {
       await tallSurface(tester);
       await tester.pumpWidget(
-        ProviderScope(
-          overrides: _libraryOverrides(),
-          child: const ScanMeApp(),
-        ),
+        ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byTooltip('Settings'));
-      await tester.pumpAndSettle();
+      await openMeTab(tester);
 
       await tester.tap(find.text('Light'));
       await tester.pumpAndSettle();
@@ -378,14 +405,39 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ScanMe'), findsWidgets);
+      expect(find.text('Themes'), findsOneWidget);
+      expect(find.text('Left of Scan'), findsOneWidget);
+      expect(find.text('Right of Scan'), findsOneWidget);
+      await scrollMeTo(tester, find.textContaining('Apptriangle'));
       expect(find.textContaining('Apptriangle'), findsOneWidget);
-      expect(find.textContaining('1.0.0'), findsOneWidget);
+    });
+
+    testWidgets('Themes page shows single dual triple and Create', (
+      tester,
+    ) async {
+      await tallSurface(tester);
+      await tester.pumpWidget(
+        ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
+      );
+      await tester.pumpAndSettle();
+      await openMeTab(tester);
+      await tester.tap(find.text('Themes'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ocean'), findsOneWidget);
+      expect(find.text('Dual'), findsWidgets);
+      expect(find.text('Triple'), findsWidgets);
+      expect(find.text('Create theme'), findsOneWidget);
+      await tester.tap(find.text('Create theme'));
+      await tester.pumpAndSettle();
+      expect(find.text('Primary'), findsWidgets);
+      expect(find.text('Save'), findsOneWidget);
     });
   });
 
   group('Scan capture', () {
-    testWidgets('Add Page / Continue labels; cancel first scan pops',
-        (tester) async {
+    testWidgets('Add Page / Continue labels; cancel first scan pops', (
+      tester,
+    ) async {
       await tallSurface(tester);
       final scanner = _FakeScanner(outcome: ScanCancelled());
       await tester.pumpWidget(
@@ -439,7 +491,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(find.text('Scanning'), findsOneWidget);
-      expect(find.text('Add Page'), findsOneWidget);
+      expect(find.text('Add page'), findsOneWidget);
       expect(find.text('Continue'), findsOneWidget);
       expect(find.textContaining('Page 1 of 1'), findsOneWidget);
     });
@@ -494,8 +546,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    testWidgets('toolbar + B&W/Original + Finish visible; rotate works',
-        (tester) async {
+    testWidgets('toolbar + B&W/Original + Finish visible; rotate works', (
+      tester,
+    ) async {
       await pumpReview(tester);
 
       expect(find.text('Review'), findsOneWidget);
@@ -503,13 +556,15 @@ void main() {
       expect(find.text('Rotate'), findsOneWidget);
       expect(find.text('Retake'), findsWidgets);
       expect(find.text('Delete'), findsOneWidget);
-      expect(find.text('Retake all'), findsOneWidget);
+      expect(find.text('More'), findsOneWidget);
       expect(find.text('B&W'), findsOneWidget);
       expect(find.byType(ChoiceChip), findsNWidgets(6));
       expect(find.text('Finish'), findsOneWidget);
 
-      final before =
-          container.read(editorSessionProvider)!.selectedPage!.rotation;
+      final before = container
+          .read(editorSessionProvider)!
+          .selectedPage!
+          .rotation;
       await tester.tap(find.text('Rotate'));
       await tester.pump(const Duration(milliseconds: 50));
       expect(
@@ -535,8 +590,12 @@ void main() {
 
     testWidgets('Retake all opens confirm dialog', (tester) async {
       await pumpReview(tester);
-      await tester.tap(find.text('Retake all'));
-      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('More'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Retake all pages'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Retake all pages?'), findsOneWidget);
     });
 
@@ -613,11 +672,7 @@ void main() {
         documentId: 'x',
         name: 'T',
         pages: [
-          ScannedPage(
-            id: 'p',
-            originalImagePath: jpeg.path,
-            pageIndex: 0,
-          ),
+          ScannedPage(id: 'p', originalImagePath: jpeg.path, pageIndex: 0),
         ],
       );
       ctrl.rotateSelected();
@@ -716,11 +771,7 @@ void main() {
         isFavorite: true,
         tags: const ['school'],
         pages: [
-          ScannedPage(
-            id: 'p1',
-            originalImagePath: jpeg.path,
-            pageIndex: 0,
-          ),
+          ScannedPage(id: 'p1', originalImagePath: jpeg.path, pageIndex: 0),
         ],
       );
       plain = ScannedDocument(
@@ -729,11 +780,7 @@ void main() {
         createdAt: now.subtract(const Duration(days: 1)),
         updatedAt: now.subtract(const Duration(days: 1)),
         pages: [
-          ScannedPage(
-            id: 'p2',
-            originalImagePath: jpeg.path,
-            pageIndex: 0,
-          ),
+          ScannedPage(id: 'p2', originalImagePath: jpeg.path, pageIndex: 0),
         ],
       );
     });
@@ -786,11 +833,7 @@ void main() {
         updatedAt: DateTime.now(),
         deletedAt: DateTime.now(),
         pages: [
-          ScannedPage(
-            id: 'pt',
-            originalImagePath: jpeg.path,
-            pageIndex: 0,
-          ),
+          ScannedPage(id: 'pt', originalImagePath: jpeg.path, pageIndex: 0),
         ],
       );
       await tester.pumpWidget(
@@ -802,11 +845,86 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('In trash'), findsNothing);
 
-      await tester.tap(find.byTooltip('Trash'));
+      await tester.tap(find.widgetWithText(FilterChip, 'Deleted'));
       await tester.pumpAndSettle();
-      expect(find.text('Trash'), findsWidgets);
       expect(find.text('In trash'), findsOneWidget);
       expect(find.text('Favorite doc'), findsNothing);
+      expect(find.textContaining('automatically removed'), findsOneWidget);
+    });
+  });
+
+  group('Onboarding', () {
+    testWidgets('first launch shows walkthrough; Skip opens Home', (
+      tester,
+    ) async {
+      await tallSurface(tester);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._libraryOverrides(),
+            onboardingProvider.overrideWith(
+              (ref) => OnboardingController.needed(),
+            ),
+          ],
+          child: const ScanMeApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Welcome to ScanMe'), findsOneWidget);
+      expect(find.text('Next'), findsOneWidget);
+      expect(find.byTooltip('Scan Document'), findsNothing);
+
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      expect(find.text('Scan from the middle button'), findsOneWidget);
+
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      expect(find.text('SHORTCUTS'), findsOneWidget);
+      expect(find.byTooltip('Scan Document'), findsOneWidget);
+    });
+
+    testWidgets('Get started on last page opens Home', (tester) async {
+      await tallSurface(tester);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ..._libraryOverrides(),
+            onboardingProvider.overrideWith(
+              (ref) => OnboardingController.needed(),
+            ),
+          ],
+          child: const ScanMeApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      for (var i = 0; i < 6; i++) {
+        await tester.tap(find.text('Next'));
+        await tester.pumpAndSettle();
+      }
+      expect(find.text("You're ready"), findsOneWidget);
+      await tester.tap(find.text('Get started'));
+      await tester.pumpAndSettle();
+      expect(find.text('SHORTCUTS'), findsOneWidget);
+    });
+
+    testWidgets('Me Replay tutorial reopens walkthrough', (tester) async {
+      await tallSurface(tester);
+      await tester.pumpWidget(
+        ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
+      );
+      await tester.pumpAndSettle();
+      await openMeTab(tester);
+      await scrollMeTo(tester, find.text('Replay tutorial'));
+      await tester.tap(find.text('Replay tutorial'));
+      await tester.pumpAndSettle();
+      expect(find.text('Welcome to ScanMe'), findsOneWidget);
+      expect(find.text('Close'), findsOneWidget);
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Replay tutorial'), findsOneWidget);
     });
   });
 
@@ -814,15 +932,11 @@ void main() {
     testWidgets('shows convert tiles', (tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(home: ConvertersHubScreen()),
-        ),
+        const ProviderScope(child: MaterialApp(home: ConvertersHubScreen())),
       );
       await tester.pumpAndSettle();
-      expect(find.text('PDF → Text'), findsOneWidget);
-      expect(find.text('PowerPoint → PDF'), findsOneWidget);
-      expect(find.text('PNG → JPG'), findsOneWidget);
-      expect(find.text('JPG → PNG'), findsOneWidget);
+      expect(find.text('Documents'), findsOneWidget);
+      expect(find.text('PDF to .txt'), findsOneWidget);
     });
   });
 }

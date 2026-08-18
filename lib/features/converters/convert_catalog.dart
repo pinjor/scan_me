@@ -23,9 +23,11 @@ enum ConvertToolId {
   crop,
   resize,
   compress,
+  /// Hub tile — merge / split / compress PDF tools.
+  pdfTools,
 }
 
-enum ConvertSectionId { documents, images }
+enum ConvertSectionId { documents, images, pdfTools }
 
 class ConvertToolMeta {
   const ConvertToolMeta({
@@ -71,6 +73,11 @@ const kConvertSections = <ConvertSectionMeta>[
     id: ConvertSectionId.images,
     title: 'Photo',
     blurb: 'Convert, crop, resize, or compress — one place',
+  ),
+  ConvertSectionMeta(
+    id: ConvertSectionId.pdfTools,
+    title: 'PDF Tools',
+    blurb: 'Merge, split, compress, and edit pages on this phone',
   ),
 ];
 
@@ -184,6 +191,20 @@ const kConvertTools = <ConvertToolMeta>[
     steps: [
       'Choose a photo',
       'Pick what to do',
+      'Save or share',
+    ],
+  ),
+  ConvertToolMeta(
+    id: ConvertToolId.pdfTools,
+    section: ConvertSectionId.pdfTools,
+    title: 'PDF Tools',
+    subtitle: 'Merge, split, rotate, compress, and more',
+    icon: Icons.picture_as_pdf_outlined,
+    color: Color(0xFFC62828),
+    progressLabel: 'Working…',
+    steps: [
+      'Choose a tool',
+      'Pick a PDF',
       'Save or share',
     ],
   ),
@@ -345,7 +366,8 @@ Future<ConvertResult> runSimpleConvert(
     ConvertToolId.editImages ||
     ConvertToolId.crop ||
     ConvertToolId.resize ||
-    ConvertToolId.compress =>
+    ConvertToolId.compress ||
+    ConvertToolId.pdfTools =>
       throw UnsupportedError('Use dedicated tool screen'),
   };
 }
@@ -377,5 +399,6 @@ Future<ConvertResult> runSimpleConvert(
         ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic', 'heif'],
         'Select image',
       ),
+    ConvertToolId.pdfTools => (['pdf'], 'Select PDF'),
   };
 }

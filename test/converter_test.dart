@@ -66,6 +66,12 @@ void main() {
         'Contract',
       );
       expect(
+        DocumentConverterService.cleanBaseName(
+          'Contract_TXT_2026-08-16_144532.txt',
+        ),
+        'Contract',
+      );
+      expect(
         DocumentConverterService.cleanBaseName('_src_1_photo.jpg'),
         'photo',
       );
@@ -93,7 +99,7 @@ void main() {
       final bytes = await File(result.outputPath).readAsBytes();
       expect(String.fromCharCodes(bytes.take(5)), '%PDF-');
       expect(
-        RegExp(r'^notes_PDF_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$')
+        RegExp(r'^notes_PDF_\d{4}-\d{2}-\d{2}_\d{4,6}\.pdf$')
             .hasMatch(p.basename(result.outputPath)),
         isTrue,
       );

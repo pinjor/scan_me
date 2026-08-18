@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:scanme/core/providers.dart';
+import 'package:scanme/core/services/convert_outputs_service.dart';
 import 'package:scanme/shared/models/library_models.dart';
 import 'package:scanme/shared/models/scanned_document.dart';
 
@@ -139,10 +140,7 @@ void main() {
     final byTagName = filterAndSortDocuments(
       uuidDocs,
       const LibraryQuery(search: 'urgent'),
-      tagNamesById: const {
-        'id-urgent': 'Urgent',
-        'id-work': 'Work',
-      },
+      tagNamesById: const {'id-urgent': 'Urgent', 'id-work': 'Work'},
     );
     expect(byTagName.map((d) => d.id), ['u1']);
   });
@@ -179,10 +177,7 @@ void main() {
   test('favoritesFirst pins starred docs', () {
     final list = filterAndSortDocuments(
       docs,
-      const LibraryQuery(
-        sort: LibrarySort.nameAsc,
-        favoritesFirst: true,
-      ),
+      const LibraryQuery(sort: LibrarySort.nameAsc, favoritesFirst: true),
     );
     expect(list.first.id, 'a');
   });
@@ -191,5 +186,56 @@ void main() {
     final tags = collectAllTags(docs);
     expect(tags, containsAll(['finance', 'urgent', 'personal']));
     expect(tags.length, 3);
+  });
+
+  test('entering trash clears favorites, search, and tag', () {
+    final c = LibraryQueryController();
+    c.setFavoritesOnly(true);
+    c.setSearch('invoice');
+    c.setTag('finance');
+    c.setFolder('work');
+    c.setShowTrash(true);
+    expect(c.state.showTrash, isTrue);
+    expect(c.state.favoritesOnly, isFalse);
+    expect(c.state.search, isEmpty);
+    expect(c.state.tag, isNull);
+    expect(c.state.folderId, isNull);
+  });
+
+  test('filterConvertOutputs respects favorite and tag', () {
+    final files = [
+      ConvertOutput(
+        path: '/a.pdf',
+        name: 'a.pdf',
+        modifiedAt: DateTime(2026, 8, 1),
+        bytes: 10,
+        isFavorite: true,
+        tags: const ['work'],
+      ),
+      ConvertOutput(
+        path: '/b.pdf',
+        name: 'b.pdf',
+        modifiedAt: DateTime(2026, 8, 2),
+        bytes: 20,
+      ),
+    ];
+    expect(
+      filterConvertOutputs(
+        files,
+        const LibraryQuery(favoritesOnly: true),
+      ).map((c) => c.name),
+      ['a.pdf'],
+    );
+    expect(
+      filterConvertOutputs(
+        files,
+        const LibraryQuery(tag: 'work'),
+      ).map((c) => c.name),
+      ['a.pdf'],
+    );
+    expect(
+      filterConvertOutputs(files, const LibraryQuery(showTrash: true)),
+      isEmpty,
+    );
   });
 }

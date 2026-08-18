@@ -57,7 +57,7 @@ class _QrReaderScreenState extends State<QrReaderScreen> {
     await _showResult(raw);
     if (!mounted) return;
     _handling = false;
-    _lastRaw = null;
+    // Keep [_lastRaw] so the same code still in frame cannot re-open the sheet.
     await _controller.start();
   }
 
@@ -198,7 +198,10 @@ class _QrReaderScreenState extends State<QrReaderScreen> {
               ),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => Navigator.pop(ctx),
+                onPressed: () {
+                  _lastRaw = null;
+                  Navigator.pop(ctx);
+                },
                 child: const Text('Scan again'),
               ),
             ],
@@ -277,7 +280,7 @@ class _QrReaderScreenState extends State<QrReaderScreen> {
                   data: Theme.of(context).copyWith(
                     brightness: Brightness.dark,
                     colorScheme: ColorScheme.fromSeed(
-                      seedColor: AppTheme.accent,
+                      seedColor: Theme.of(context).colorScheme.primary,
                       brightness: Brightness.dark,
                     ),
                   ),

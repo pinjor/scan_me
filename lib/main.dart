@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import 'core/onboarding.dart';
 import 'core/open_file_intent_bridge.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/main_shell_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'shared/widgets/scanme_widget_bridge.dart';
 
 Future<void> main() async {
@@ -16,7 +19,24 @@ Future<void> main() async {
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   ScanMeWidgetRouter.onNewScan = (_) async {};
   OpenFileIntentBridge.ensureListening();
-  runApp(const ProviderScope(child: ScanMeApp()));
+  final prefs = await SharedPreferences.getInstance();
+  final onboarded = prefs.getBool(kOnboardingDoneKey) ?? false;
+  final themeSel = await ThemeSelectionController.hydrate();
+  runApp(
+    ProviderScope(
+      overrides: [
+        onboardingProvider.overrideWith(
+          (ref) => onboarded
+              ? OnboardingController.completed()
+              : OnboardingController.needed(),
+        ),
+        themeSelectionProvider.overrideWith(
+          (ref) => ThemeSelectionController.hydrated(themeSel),
+        ),
+      ],
+      child: const ScanMeApp(),
+    ),
+  );
 }
 
 class ScanMeApp extends ConsumerWidget {
@@ -25,13 +45,16 @@ class ScanMeApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final sel = ref.watch(themeSelectionProvider);
+    final preset = sel.spec;
+    final gate = ref.watch(onboardingProvider);
 
     return MaterialApp(
       title: 'ScanMe',
       navigatorKey: scanMeNavigatorKey,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(preset),
+      darkTheme: AppTheme.dark(preset),
       themeMode: themeMode,
       builder: (context, child) {
         final mq = MediaQuery.of(context);
@@ -44,12 +67,13 @@ class ScanMeApp extends ConsumerWidget {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle(
             // Icon appearance only — avoid deprecated bar color APIs.
-            statusBarIconBrightness:
-                lightBars ? Brightness.dark : Brightness.light,
-            statusBarBrightness:
-                lightBars ? Brightness.light : Brightness.dark,
-            systemNavigationBarIconBrightness:
-                lightBars ? Brightness.dark : Brightness.light,
+            statusBarIconBrightness: lightBars
+                ? Brightness.dark
+                : Brightness.light,
+            statusBarBrightness: lightBars ? Brightness.light : Brightness.dark,
+            systemNavigationBarIconBrightness: lightBars
+                ? Brightness.dark
+                : Brightness.light,
             systemNavigationBarContrastEnforced: false,
           ),
           child: MediaQuery(
@@ -58,7 +82,11 @@ class ScanMeApp extends ConsumerWidget {
           ),
         );
       },
-      home: const MainShellScreen(),
+      home: switch (gate) {
+        OnboardingGate.loading => const OnboardingSplash(),
+        OnboardingGate.show => const OnboardingScreen(),
+        OnboardingGate.ready => const MainShellScreen(),
+      },
     );
   }
 }

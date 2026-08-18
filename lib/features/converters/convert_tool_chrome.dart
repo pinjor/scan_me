@@ -32,8 +32,8 @@ class ConvertToolHero extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor: tool.color.withValues(alpha: 0.14),
-                  foregroundColor: tool.color,
+                  backgroundColor: scheme.primary.withValues(alpha: 0.14),
+                  foregroundColor: scheme.primary,
                   child: Icon(tool.icon, size: 22),
                 ),
                 const SizedBox(width: 12),

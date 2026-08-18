@@ -1,12 +1,22 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:scanme/core/onboarding.dart';
 import 'package:scanme/core/providers.dart';
 import 'package:scanme/main.dart';
 import 'package:scanme/shared/models/library_models.dart';
 import 'package:scanme/shared/models/scanned_document.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   testWidgets('ScanMe home loads', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 900));
+    addTearDown(() async {
+      await tester.binding.setSurfaceSize(null);
+    });
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -16,13 +26,16 @@ void main() {
           foldersProvider.overrideWith(
             (ref) => _FakeFoldersController(),
           ),
+          onboardingProvider.overrideWith(
+            (ref) => OnboardingController.completed(),
+          ),
         ],
         child: const ScanMeApp(),
       ),
     );
-    await tester.pump();
-    expect(find.text('ScanMe'), findsOneWidget);
-    expect(find.text('No documents yet'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(find.text('ScanMe'), findsWidgets);
+    expect(find.byTooltip('Scan Document'), findsOneWidget);
   });
 }
 

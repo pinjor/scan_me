@@ -30,7 +30,16 @@ final class OpenFileIntentHandler {
     self.channel = channel
   }
 
+  private var lastUrl: URL?
+  private var lastHandledAt: Date?
+
   func handle(url: URL) {
+    let now = Date()
+    if lastUrl == url, let last = lastHandledAt, now.timeIntervalSince(last) < 1 {
+      return
+    }
+    lastUrl = url
+    lastHandledAt = now
     let accessed = url.startAccessingSecurityScopedResource()
     defer {
       if accessed {
@@ -42,13 +51,16 @@ final class OpenFileIntentHandler {
       let name = url.lastPathComponent.isEmpty
         ? "scanme_open_\(Int(Date().timeIntervalSince1970)).bin"
         : url.lastPathComponent
-      let dest = FileManager.default.temporaryDirectory
+      let dest: URL
+      let primary = FileManager.default.temporaryDirectory
         .appendingPathComponent("incoming_\(name)")
-      if FileManager.default.fileExists(atPath: dest.path) {
+      if FileManager.default.fileExists(atPath: primary.path) {
         dest = FileManager.default.temporaryDirectory
           .appendingPathComponent(
             "incoming_\(Int(Date().timeIntervalSince1970))_\(name)"
           )
+      } else {
+        dest = primary
       }
       try FileManager.default.copyItem(at: url, to: dest)
       let payload = ["path": dest.path, "action": "view"]

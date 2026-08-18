@@ -9,9 +9,13 @@
 	<key>CFBundleDisplayName</key>
 	<string>ScanMe</string>
 	<key>NSCameraUsageDescription</key>
-	<string>ScanMe needs camera access to scan documents and QR codes.</string>
+	<string>ScanMe uses the camera to capture document pages and read QR codes. Images are processed on this device and are not uploaded.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>ScanMe needs photo library access to import images and scan QR codes from photos.</string>
+	<string>ScanMe uses photos you select to import pages or decode a QR code. Images stay on this device.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UIRequiresFullScreen</key>
+	<true/>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -31,7 +35,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
+	<false/>
 	<key>UISupportsDocumentBrowser</key>
 	<false/>
 	<key>CFBundleDocumentTypes</key>

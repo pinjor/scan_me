@@ -3,29 +3,33 @@
 > Living status / task log: [`PROJECT_LOG.md`](PROJECT_LOG.md)  
 > Capability list (what app does): [`FEATURES.md`](FEATURES.md)  
 > **Single file** for every in-app page’s UI detail (no per-screen splits).  
-> Last aligned: **2026-08-16** Home dashboard redesign (Start · Shortcuts · Continue).
+> Last aligned: **2026-08-18** Premium visual pass (warm paper · floating nav · elevated cards).
 
-**Brand:** ScanMe / Apptriangle · Plus Jakarta Sans · navy `#1B3A4B` · accent `#2F6F7E` · paper `#F0F2F5` · light / dark / system
+**Brand:** ScanMe / Apptriangle · Plus Jakarta Sans · navy `#1B3A4B` · accent `#2A7A86` · warm paper `#F4F0EA` · light / dark / system
 
 ## Navigation map
 
 ```
+First launch → Onboarding (7 pages) → MainShell
+Replay: Me → About → Replay tutorial
+
 MainShell (bottom nav)
-├── Home — brand · search · Shortcuts tiles · Continue
-├── Files — library / Recently deleted · search · filters · sort
-├── Camera FAB — Scan capture → Review → Save document
-├── Convert — Documents · Photo → Edit photo
-└── Me — Appearance · Storage · Tags · About
+├── Home — brand · search · Shortcuts · library
+├── Photo (default inner) — Edit photo; slot customizable
+├── Scan FAB — elevated in the bar’s center notch → capture
+├── Convert (default inner) — Documents · Photo → Edit photo · PDF Tools
+└── Me — Appearance · Navigation · Storage · Tags · About (Replay tutorial)
 
 Open-with (OS) → Intent convert | Crop / Resize / Compress | File viewer
-Home Shortcuts → Import · QR · Favorites · Edit photo
+Home Shortcuts → Import · QR · Favorites · Edit photo · PDF Tools
 ```
 
 ## Contents
 
+0. [First-run walkthrough](#first-run-walkthrough)
 1. [Main shell](#main-shell)
 2. [Home dashboard](#home-dashboard)
-3. [Files library](#files-library)
+3. [Library on Home](#library-on-home)
 4. [Settings / Me](#settings-me)
 5. [System document scanner](#system-document-scanner)
 6. [Scan capture](#scan-capture)
@@ -60,9 +64,10 @@ Home Shortcuts → Import · QR · Favorites · Edit photo
 
 | Screen | Dart |
 |--------|------|
+| Onboarding | `lib/features/onboarding/onboarding_screen.dart` |
 | Main shell | `lib/features/home/main_shell_screen.dart` |
 | Home dashboard | `lib/features/home/home_dashboard_screen.dart` |
-| Files | `lib/features/home/home_screen.dart` |
+| Library actions | `lib/features/home/library_actions.dart` · `library_filter_bar.dart` |
 | Settings | `lib/features/settings/settings_screen.dart` |
 | Scan capture | `lib/features/scanner/scan_capture_screen.dart` |
 | Review | `lib/features/document_editor/review_screen.dart` |
@@ -80,38 +85,65 @@ Home Shortcuts → Import · QR · Favorites · Edit photo
 
 ---
 
+## First-run walkthrough
+
+**Class:** `OnboardingScreen`  
+**File:** `lib/features/onboarding/onboarding_screen.dart`  
+**Entry:** `ScanMeApp.home` when prefs `onboarding_done_v1` is unset; **Me → Replay tutorial** (`replay: true`)
+
+### Purpose
+
+One-time feature tour before the shell. Skip or finish writes the prefs flag. Does not start Scan.
+
+### Chrome
+
+Warm paper wash · step `n of 7` + back · Skip/Close · thin progress bar · per-page UI preview (nav FAB, library, tools, themes) · chips · **Next** / **Get started**
+
+### Pages
+
+1. Welcome / privacy (offline, no account)
+2. Scan FAB
+3. Review & save (enhance, PDF/images, watermark)
+4. Home library (search, shortcuts, filters)
+5. Convert · Edit photo · PDF Tools · QR · Open with
+6. Me (themes, nav slots)
+7. Ready
+
+Replay pushes over Me; Close / Get started pops.
+
+---
+
 ## Main shell
 
 **Class:** `MainShellScreen`  
 **File:** `lib/features/home/main_shell_screen.dart`  
-**Entry:** `MaterialApp.home`
+**Entry:** `ScanMeApp.home` after onboarding done
 
 ### Purpose
 
-App chrome: tabs + center Scan FAB. Hosts Home, Files, Convert, Me.
+App chrome: one notched bar + Scan FAB. Hosts Home, inner slots, Convert, Me, Edit photo, PDF Tools.
 
 ### Layout
 
 - **AppBar:** none (tabs own headers)
-- **Body:** non-swipeable `PageView` (keep-alive):
-  1. Home dashboard  
-  2. Files (`HomeScreen` embedded)  
-  3. Convert hub (`ConvertersHubScreen` embedded)  
-  4. Me (`SettingsScreen` embedded)
-- **FAB (center-docked):** circle · document-scanner icon · elevation 6  
-  - Tooltip / semantics: **Scan Document**  
-  - Color: navy (light) / navyOnDark (dark)  
-  - Strongest nav action — opens Scan capture
-- **BottomAppBar:** notched · height 64  
-  **Home · Files · [gap] · Convert · Me**  
-  - Outlined vs filled icons when selected  
-  - Selected: primary color + scale  
-  - Hit area ~56h · Plus Jakarta Sans 11 · Semantics labels
+- **Body:** `IndexedStack` (tabs stay mounted):
+  1. Home dashboard (also used if a slot is Favorites)
+  2. Convert hub (`ConvertersHubScreen` embedded)
+  3. Me (`SettingsScreen` embedded)
+  4. Edit photo (`ImageFormatsHubScreen` embedded)
+  5. PDF Tools (`PdfToolsHubScreen` embedded)
+- **Nav:** one full-width `BottomAppBar` with a circular notch  
+  **Home · [inner] · [Scan FAB] · [inner] · Me**
+  - Defaults: **Home · Photo · Scan · Convert · Me**
+  - Inner slots: Edit photo · Convert · Favorites · PDF Tools (Me → Navigation)
+  - Scan is a 64px elevated circle docked in the notch
+  - Tooltip / semantics: **Scan Document**
+  - Color: `ColorScheme.primary` (follows theme preset)
 
 ### Interactions
 
 - Tab switch unfocuses keyboard
-- Reduce-motion: jump page (no anim)
+- Tabs stay in memory (`IndexedStack`) — no page-slide
 - `resizeToAvoidBottomInset: false`
 - **Soft update reminder (Android):** after first frame, if Play reports an update and snooze expired → dialog **Update available** · **Remind later** (3 days) · **Update now** (opens Play Store listing). Not forced. Silent if sideload / no Play update.
 
@@ -125,84 +157,57 @@ App chrome: tabs + center Scan FAB. Hosts Home, Files, Convert, Me.
 
 ### Purpose
 
-Compact home: find docs fast · shortcuts · continue where you left off. Scan = FAB · Convert = Convert tab.
+Compact home: find docs fast · shortcuts · full library. Scan = FAB · Convert = Convert tab.
 
 ### Layout (top → bottom)
 
-1. **Header** — **ScanMe** · tagline · **light/dark toggle** (Me tab still has full Appearance)
-2. **Search** — dense · submit → Files with query
-3. **Shortcuts** — non-scrollable **4-col tile grid**. Defaults: Import · QR · Favorites · Edit photo · Add. Scan / Convert not listed (FAB + Convert tab). Long-press removes.
-4. **Continue** — “View all” → Files · up to 8 cards (scans **+** convert outputs, newest first)
+1. **Header** — greeting · **ScanMe** (display) · **light/dark toggle**
+2. **Search** — pill · soft shadow · filters list in place (hidden in Deleted)
+3. **Shortcuts** — 4-col wrap, equal-height tiles (two-line labels). Defaults: Import · PDF Tools · QR · Favorites · Edit photo · Add.
+4. **Filter bar** — segmented All · Favorites · Tags · Deleted + sort. Tags wrap opens immediately.
+5. **Library list** — file tiles: thumb · title · meta. Bookmark on thumb. Quiet ⋮. Converts included.
 
-Prefs key `dashboard_tool_ids_v5`.
+Prefs key `dashboard_tool_ids_v7`.
 
 ### Empty / load / error
 
 | State | UI |
 |-------|-----|
 | Loading | `AppListSkeleton` |
-| No documents | “Nothing here yet” · calm copy (no Scan CTAs) |
-| Search miss | “No documents found” · Search all files |
+| No documents | “Nothing here yet” |
+| Favorites empty | “No favorites yet” |
+| Tag miss | “No documents with this tag” |
+| Deleted empty | “Nothing in Trash” · Back to library |
+| Search miss | “No documents found” |
 | Load error | Try again |
 
 ### Sheets
 
 - Customize Shortcuts (Reset · tap add/remove)
-- Card ⋯: Open · Tags · View all files
+- Card ⋯: Open · Favorite · Tags · Rename · Share · Move to Trash
+- Convert ⋯: Open · Favorite · Tags · Remove
+- Bookmark on each card thumbnail (not Deleted)
+- Deleted ⋯: Restore · Delete permanently
 
 ### Persistence
 
-Shortcut ids: `dashboard_tool_ids_v6`. Defaults: Import · QR reader · Favorites · Edit photo. Migrate merges Edit images → Edit photo.
+Shortcut ids: `dashboard_tool_ids_v7`. Defaults: Import · PDF Tools · QR reader · Favorites · Edit photo. Sanitize drops leftover Files tiles.
 
 ---
 
-## Files library
+## Library on Home
 
-**Class:** `HomeScreen`  
-**File:** `lib/features/home/home_screen.dart`  
-**Entry:** Shell tab 1 (`embedded: true`); optional standalone push
-
-### Purpose
-
-Document management — Apple Files / Drive simplicity + ScanMe identity.
-
-### Chrome
-
-| Mode | Title |
-|------|--------|
-| Library | **Files** (embedded) or **ScanMe** (standalone) |
-| Trash | **Recently deleted** + blurb: kept until auto-removed |
-
-Trash toggle (48px) · Settings only if standalone.
-
-### Layout
-
-1. Search — “Search documents and tags” (hidden in Trash)
-2. Filters: All · Favorites · Tags · Sort popup  
-   Selected chips: navy fill + white label
-3. Tag chips row when Tags filter on
-4. List — `DocumentCard` · pull-to-refresh · `AppListSkeleton` · empty · error
+Library UI is the Home list + `LibraryFilterBar` + `library_actions.dart`. Former `HomeScreen` (Files tab) removed.
 
 ### Document card
 
-- Thumb (Hero) · favorite badge · name (2 lines)  
+- Thumb (Hero) · bookmark on the photo · name (2 lines)  
 - Meta: `N pages · PDF|Images · Updated today`  
-- Up to 2 tag chips · **More** (48px)
-
-### Empty
-
-| Mode | Copy / CTAs |
-|------|-------------|
-| Library | No documents yet · Scan Document · Import Images |
-| Trash | Nothing in Trash · restore blurb · Back to library |
-
-### FAB
-
-Standalone + not trash only: Scan / Images to PDF / Converters.
+- Up to 2 tag chips · quiet **⋮** on the title row
 
 ### Actions sheets
 
-See [sheets-overlays.md](sheets-overlays.md) — Open first · Trash last · permanent delete confirms “cannot be undone.”
+Open first · Trash last · permanent delete confirms “cannot be undone.”
 
 ---
 
@@ -210,7 +215,7 @@ See [sheets-overlays.md](sheets-overlays.md) — Open first · Trash last · per
 
 **Class:** `SettingsScreen`  
 **File:** `lib/features/settings/settings_screen.dart`  
-**Entry:** Shell **Me** tab · Settings from Home / Files
+**Entry:** Shell **Me** tab
 
 ### Purpose
 
@@ -229,6 +234,28 @@ Calm product settings — not a developer dump.
 
 System · Light · Dark (radio rows in card)
 
+**Themes** — opens Theme studio. Current preset name on the tile.
+
+### Theme studio
+
+**Class:** `ThemeStudioScreen`  
+**File:** `lib/features/settings/theme_studio_screen.dart`
+
+Filter: All · Single · Dual · Triple · Mine. **Create theme** row under filters (AppBar + as well). Grid of swatch cards.
+
+- Single / Dual / Triple seeds + M3 style (Tonal · Vibrant · Expressive · Neutral · Mono · Rainbow)
+- Tap applies live: `ColorScheme.primary/secondary/tertiary` pinned to card swatches. ScanMe brand scheme is hand-tuned.
+- Custom: name, 1–3 colors, style, live preview. Long-press custom card → Edit / Delete. Max 30. Local prefs.
+
+#### Navigation
+
+Home / Scan / Me are fixed. Inner slots:
+
+- **Left of Scan** (default Edit photo)
+- **Right of Scan** (default Convert)
+
+Choices: Edit photo · Convert · Favorites · PDF Tools. Duplicate dest blocked.
+
 #### Storage
 
 **Trash retention** — “Recently deleted documents are kept for N days…”  
@@ -241,8 +268,9 @@ Seeded: Urgent · Work · Personal · Receipt · ID · Finance
 
 #### About
 
-ScanMe · Apptriangle · v1.0.0  
-**PrivacyBadge:** “Stored privately on this device · No account required”
+ScanMe · Apptriangle · live version  
+**PrivacyBadge:** “Stored privately on this device · No account required”  
+**Replay tutorial** — pushes `OnboardingScreen(replay: true)`
 
 ---
 
@@ -442,6 +470,7 @@ Intuitive groups — not a wall of technical tools.
 |---------|-------|--------|
 | Documents | Turn PDFs, Word, Excel, and slides into the format you need | PDF→txt · **PDF→DOCX** · TXT/PPTX/DOCX/XLSX tools |
 | Edit photo | Convert, crop, resize, or compress — one place | **Edit photo** (one screen) |
+| PDF Tools | Merge, split, compress, and edit pages on this phone | **PDF Tools** hub |
 
 ### Opens
 
@@ -449,6 +478,21 @@ Intuitive groups — not a wall of technical tools.
 |------|--------|
 | Format / office (Documents) | [Convert tool](#convert-tool) |
 | Edit photo | [Edit photo](#edit-photo-convert--crop--resize--compress) |
+| PDF Tools | [PDF Tools](#pdf-tools) |
+
+---
+
+## PDF Tools
+
+**Class:** `PdfToolsHubScreen`  
+**File:** `lib/features/pdf_tools/`  
+**Entry:** Convert tab **PDF Tools**
+
+Organize: Merge · Split · Reorder · Delete · Rotate · Extract  
+Convert: PDF → images · Images → PDF  
+Optimize: Compress  
+
+Always **save as new file**. Open / Save / Share via `ConvertResultPanel` / `PdfToolsResultPanel`. Shared `PdfPageSelector`.
 
 ---
 
@@ -686,9 +730,10 @@ Consistent sheet language: large top radius · clear title · optional descripti
 | UI | Where | What |
 |----|-------|------|
 | Customize tools | Home | Add/remove · Reset |
-| Document actions | Files ⋯ | Open · Favorite · Tags · Rename · Share · **Move to Trash** (last, error color) |
-| Quick actions | Home card ⋯ | Open · Tags · View all files |
-| Trash actions | Recently deleted ⋯ | Restore · Delete permanently |
+| Document actions | Home ⋯ | Open · Favorite · Tags · Rename · Share · **Move to Trash** (last, error color) |
+| Convert actions | Home convert ⋯ | Open · Favorite · Tags · Remove |
+| Quick favorite | Card bookmark | Toggle favorite |
+| Trash actions | Deleted ⋯ | Restore · Delete permanently |
 | Confirm Move to Trash | Files / Viewer | “Move to Trash?” · can restore |
 | Confirm permanent delete | Trash | “Delete permanently?” · **This cannot be undone.** |
 | Tags sheet | Files / Viewer | Toggle · New · Done |
@@ -721,13 +766,15 @@ Cross-cutting tokens after UI/UX upgrade. Not a screen.
 | Token | Value / role |
 |-------|----------------|
 | Primary navy | `#1B3A4B` |
-| Accent | `#2F6F7E` |
-| Navy on dark | `#4A7A92` |
-| Paper | `#F0F2F5` |
-| Dark scaffold | `#0A0A0A` |
+| Accent | `#2A7A86` |
+| Navy on dark | `#7AADC0` |
+| Paper | `#F4F0EA` (warm ivory) |
+| Dark scaffold | `#0C1216` |
+| Dark surface | `#151C22` |
 | Scanner bg | `#0A0A0A` |
 | Success / warning / info | Semantic greens / amber / blue |
-| Radii | Sm **12** · Md **16** · Lg **20** · Xl **24** |
+| Radii | Sm **14** · Md **18** · Lg **22** · Xl **28** · pill **999** |
+| Shadows | `cardShadow` · `floatShadow` |
 | Spacing | Xs 4 · Sm 8 · Md 12 · Lg 16 · Xl 20 · 2xl 24 · 3xl 32 |
 | Tap min | **48** |
 | Font | Plus Jakarta Sans |

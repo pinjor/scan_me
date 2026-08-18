@@ -23,11 +23,15 @@ class ImageFormatsHubScreen extends StatefulWidget {
     this.initialPath,
     this.initialFormat,
     this.initialAction,
+    this.embedded = false,
   });
 
   final String? initialPath;
   final String? initialFormat;
   final String? initialAction;
+
+  /// Convert tab / nav slot — no back chevron, pad for the shell bar.
+  final bool embedded;
 
   @override
   State<ImageFormatsHubScreen> createState() => _ImageFormatsHubScreenState();
@@ -41,16 +45,7 @@ enum _QualityPreset { high, balanced, small }
 
 enum _ResizeMode { longEdge, exact }
 
-enum _CropAspect {
-  free,
-  original,
-  square,
-  r4_3,
-  r3_4,
-  r16_9,
-  r9_16,
-  exactPx,
-}
+enum _CropAspect { free, original, square, r4_3, r3_4, r16_9, r9_16, exactPx }
 
 class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
   String? _path;
@@ -59,6 +54,7 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
   int? _w;
   int? _h;
   int? _bytes;
+
   /// Display format (JPEG / PNG / …) — from ext or file sniff.
   String _sourceFormat = 'Image';
 
@@ -150,7 +146,10 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
       // JPEG
       if (raw[0] == 0xFF && raw[1] == 0xD8 && raw[2] == 0xFF) return 'JPEG';
       // PNG
-      if (raw[0] == 0x89 && raw[1] == 0x50 && raw[2] == 0x4E && raw[3] == 0x47) {
+      if (raw[0] == 0x89 &&
+          raw[1] == 0x50 &&
+          raw[2] == 0x4E &&
+          raw[3] == 0x47) {
         return 'PNG';
       }
       // GIF
@@ -282,9 +281,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
 
   void _selectTab(_ToolTab tab) {
     if (_path == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose an image first.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Choose an image first.')));
       return;
     }
     setState(() {
@@ -296,10 +295,10 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
   }
 
   int get _qualityValue => switch (_quality) {
-        _QualityPreset.high => 95,
-        _QualityPreset.balanced => 85,
-        _QualityPreset.small => 70,
-      };
+    _QualityPreset.high => 95,
+    _QualityPreset.balanced => 85,
+    _QualityPreset.small => 70,
+  };
 
   bool get _qualityApplies =>
       _format == _OutFormat.jpg || _format == _OutFormat.webp;
@@ -335,7 +334,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
     if (_plannedOps.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Set at least one edit (Convert, Crop, Resize, or Compress), then Apply.'),
+          content: Text(
+            'Set at least one edit (Convert, Crop, Resize, or Compress), then Apply.',
+          ),
         ),
       );
       return;
@@ -405,18 +406,18 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
       if (_useResize) {
         step = switch (_resizeMode) {
           _ResizeMode.longEdge => await ImageToolsService.resizePixels(
-              imagePath: current,
-              maxLongEdge: _longEdge.round(),
-              format: 'jpg',
-              quality: 95,
-            ),
+            imagePath: current,
+            maxLongEdge: _longEdge.round(),
+            format: 'jpg',
+            quality: 95,
+          ),
           _ResizeMode.exact => await ImageToolsService.resizePixels(
-              imagePath: current,
-              width: int.tryParse(_widthCtrl.text.trim()) ?? _w,
-              height: int.tryParse(_heightCtrl.text.trim()) ?? _h,
-              format: 'jpg',
-              quality: 95,
-            ),
+            imagePath: current,
+            width: int.tryParse(_widthCtrl.text.trim()) ?? _w,
+            height: int.tryParse(_heightCtrl.text.trim()) ?? _h,
+            format: 'jpg',
+            quality: 95,
+          ),
         };
         current = step.outputPath;
       }
@@ -449,8 +450,7 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
 
       if (!mounted) return;
       final done = step;
-      final label =
-          _plannedOps.isEmpty ? done.label : _plannedOps.join(' · ');
+      final label = _plannedOps.isEmpty ? done.label : _plannedOps.join(' · ');
       setState(() {
         _busy = false;
         _result = ConvertResult(
@@ -520,6 +520,35 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
   @override
   Widget build(BuildContext context) {
     final hasImage = _path != null;
+    final workspace = _buildToolWorkspace(context);
+
+    if (widget.embedded) {
+      final text = Theme.of(context).textTheme;
+      return SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text('Edit photo', style: text.headlineSmall),
+                  ),
+                  if (hasImage)
+                    TextButton(
+                      onPressed: _busy ? null : _pick,
+                      child: const Text('Change'),
+                    ),
+                ],
+              ),
+            ),
+            Expanded(child: workspace),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -533,7 +562,7 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
             ),
         ],
       ),
-      body: _buildToolWorkspace(context),
+      body: workspace,
     );
   }
 
@@ -551,7 +580,7 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
             maxHeight: MediaQuery.sizeOf(context).height * 0.42,
           ),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -644,7 +673,12 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
         SafeArea(
           top: false,
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+            padding: EdgeInsets.fromLTRB(
+              16,
+              10,
+              16,
+              widget.embedded ? 100 : 16,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -663,9 +697,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
                     onPressed: _busy
                         ? null
                         : () => setState(() {
-                              _result = null;
-                              _error = null;
-                            }),
+                            _result = null;
+                            _error = null;
+                          }),
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('Edit again'),
                     style: convertOutlineButtonStyle(),
@@ -695,10 +729,7 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
     if (!hasImage) return _buildEmptyPreview(context);
 
     if (_result != null && !_busy) {
-      return _ImagePreview(
-        path: _result!.outputPath,
-        expand: true,
-      );
+      return _ImagePreview(path: _result!.outputPath, expand: true);
     }
 
     // Keep Crop mounted (Offstage) so Apply can bake crop from any tab.
@@ -790,13 +821,16 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
             if (_useCrop)
               InputChip(
                 label: const Text('Crop'),
-                onDeleted: _busy ? null : () => setState(() => _useCrop = false),
+                onDeleted: _busy
+                    ? null
+                    : () => setState(() => _useCrop = false),
               ),
             if (_useResize)
               InputChip(
                 label: const Text('Resize'),
-                onDeleted:
-                    _busy ? null : () => setState(() => _useResize = false),
+                onDeleted: _busy
+                    ? null
+                    : () => setState(() => _useResize = false),
               ),
             if (_useConvert)
               InputChip(
@@ -806,14 +840,16 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
                   _OutFormat.webp => 'WebP',
                   _OutFormat.gif => 'GIF',
                 }),
-                onDeleted:
-                    _busy ? null : () => setState(() => _useConvert = false),
+                onDeleted: _busy
+                    ? null
+                    : () => setState(() => _useConvert = false),
               ),
             if (_useCompress)
               InputChip(
                 label: const Text('Compress'),
-                onDeleted:
-                    _busy ? null : () => setState(() => _useCompress = false),
+                onDeleted: _busy
+                    ? null
+                    : () => setState(() => _useCompress = false),
               ),
           ],
         ),
@@ -852,9 +888,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
       return Center(
         child: Text(
           'Could not load this image for cropping.',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: scheme.error,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: scheme.error),
         ),
       );
     }
@@ -887,9 +923,8 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
             },
             baseColor: scheme.surfaceContainerHighest,
             maskColor: Colors.black.withValues(alpha: 0.55),
-            cornerDotBuilder: (size, edge) => const DotControl(
-              color: AppTheme.navy,
-            ),
+            cornerDotBuilder: (size, edge) =>
+                DotControl(color: scheme.primary),
           ),
           if (_busy)
             const ColoredBox(
@@ -902,12 +937,14 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
   }
 
   String get _tabBlurb => switch (_tab) {
-        _ToolTab.convert => 'Pick output type & quality. Apply runs everything together.',
-        _ToolTab.crop => 'Frame the photo. Apply runs crop with your other edits.',
-        _ToolTab.resize => 'Set pixel size. Apply runs resize with your other edits.',
-        _ToolTab.compress =>
-          'Set target KB. Apply compresses last (JPEG) with your other edits.',
-      };
+    _ToolTab.convert =>
+      'Pick output type & quality. Apply runs everything together.',
+    _ToolTab.crop => 'Frame the photo. Apply runs crop with your other edits.',
+    _ToolTab.resize =>
+      'Set pixel size. Apply runs resize with your other edits.',
+    _ToolTab.compress =>
+      'Set target KB. Apply compresses last (JPEG) with your other edits.',
+  };
 
   Widget _buildConvertOptions(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -943,10 +980,7 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
                   value: _QualityPreset.balanced,
                   label: 'Balanced — recommended',
                 ),
-                (
-                  value: _QualityPreset.small,
-                  label: 'Small — smaller file',
-                ),
+                (value: _QualityPreset.small, label: 'Small — smaller file'),
               ],
               onChanged: (v) => setState(() {
                 _quality = v;
@@ -981,9 +1015,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
           onSelectionChanged: _busy
               ? null
               : (s) => setState(() {
-                    _resizeMode = s.first;
-                    _useResize = true;
-                  }),
+                  _resizeMode = s.first;
+                  _useResize = true;
+                }),
         ),
         const SizedBox(height: 12),
         if (_resizeMode == _ResizeMode.longEdge) ...[
@@ -1000,9 +1034,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
             onChanged: _busy
                 ? null
                 : (v) => setState(() {
-                      _longEdge = v;
-                      _useResize = true;
-                    }),
+                    _longEdge = v;
+                    _useResize = true;
+                  }),
           ),
         ] else ...[
           Row(
@@ -1048,10 +1082,7 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          'Target size · ≈ ${_targetKb.round()} KB',
-          style: text.titleSmall,
-        ),
+        Text('Target size · ≈ ${_targetKb.round()} KB', style: text.titleSmall),
         Slider(
           value: _targetKb,
           min: 50,
@@ -1061,9 +1092,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
           onChanged: _busy
               ? null
               : (v) => setState(() {
-                    _targetKb = v;
-                    _useCompress = true;
-                  }),
+                  _targetKb = v;
+                  _useCompress = true;
+                }),
         ),
         Wrap(
           spacing: 8,
@@ -1074,9 +1105,9 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
                 onPressed: _busy
                     ? null
                     : () => setState(() {
-                          _targetKb = kb.toDouble();
-                          _useCompress = true;
-                        }),
+                        _targetKb = kb.toDouble();
+                        _useCompress = true;
+                      }),
               ),
           ],
         ),
@@ -1103,31 +1134,15 @@ class _ToolRail extends StatelessWidget {
   final ValueChanged<_ToolTab> onSelect;
   final bool enabled;
 
-  static const _items = <({_ToolTab tab, IconData icon, String label, Color color})>[
-    (
-      tab: _ToolTab.convert,
-      icon: Icons.transform,
-      label: 'Convert',
-      color: Color(0xFFEF6C00),
-    ),
-    (
-      tab: _ToolTab.crop,
-      icon: Icons.crop,
-      label: 'Crop',
-      color: Color(0xFF455A64),
-    ),
+  static const _items = <({_ToolTab tab, IconData icon, String label})>[
+    (tab: _ToolTab.convert, icon: Icons.transform, label: 'Convert'),
+    (tab: _ToolTab.crop, icon: Icons.crop, label: 'Crop'),
     (
       tab: _ToolTab.resize,
       icon: Icons.photo_size_select_large,
       label: 'Resize',
-      color: Color(0xFF1565C0),
     ),
-    (
-      tab: _ToolTab.compress,
-      icon: Icons.compress,
-      label: 'Compress',
-      color: Color(0xFF6A1B9A),
-    ),
+    (tab: _ToolTab.compress, icon: Icons.compress, label: 'Compress'),
   ];
 
   @override
@@ -1142,7 +1157,6 @@ class _ToolRail extends StatelessWidget {
               child: _ToolRailItem(
                 icon: item.icon,
                 label: item.label,
-                color: item.color,
                 selected: selected == item.tab,
                 enabled: enabled,
                 onTap: () => onSelect(item.tab),
@@ -1158,7 +1172,6 @@ class _ToolRailItem extends StatelessWidget {
   const _ToolRailItem({
     required this.icon,
     required this.label,
-    required this.color,
     required this.selected,
     required this.onTap,
     this.enabled = true,
@@ -1166,7 +1179,6 @@ class _ToolRailItem extends StatelessWidget {
 
   final IconData icon;
   final String label;
-  final Color color;
   final bool selected;
   final VoidCallback onTap;
   final bool enabled;
@@ -1175,9 +1187,9 @@ class _ToolRailItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final text = Theme.of(context).textTheme;
     final scheme = Theme.of(context).colorScheme;
-    final fg = selected ? color : scheme.onSurfaceVariant;
+    final fg = selected ? scheme.primary : scheme.onSurfaceVariant;
     final bg = selected
-        ? color.withValues(alpha: 0.16)
+        ? scheme.primary.withValues(alpha: 0.16)
         : scheme.surfaceContainerHighest.withValues(alpha: 0.5);
 
     return Material(
@@ -1198,7 +1210,10 @@ class _ToolRailItem extends StatelessWidget {
                   color: bg,
                   shape: BoxShape.circle,
                   border: selected
-                      ? Border.all(color: color.withValues(alpha: 0.45), width: 1.5)
+                      ? Border.all(
+                          color: scheme.primary.withValues(alpha: 0.45),
+                          width: 1.5,
+                        )
                       : null,
                 ),
                 child: Icon(icon, color: fg, size: 24),
@@ -1209,7 +1224,7 @@ class _ToolRailItem extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: text.labelMedium?.copyWith(
-                  color: selected ? color : scheme.onSurfaceVariant,
+                  color: selected ? scheme.primary : scheme.onSurfaceVariant,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                 ),
               ),
@@ -1237,11 +1252,7 @@ class _ImagePreview extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final fit = expand ? BoxFit.contain : BoxFit.cover;
     final image = previewBytes != null
-        ? Image.memory(
-            previewBytes!,
-            fit: fit,
-            gaplessPlayback: true,
-          )
+        ? Image.memory(previewBytes!, fit: fit, gaplessPlayback: true)
         : Image.file(
             File(path),
             fit: fit,
@@ -1268,10 +1279,7 @@ class _ImagePreview extends StatelessWidget {
 
     if (expand) return framed;
 
-    return AspectRatio(
-      aspectRatio: 16 / 10,
-      child: framed,
-    );
+    return AspectRatio(aspectRatio: 16 / 10, child: framed);
   }
 }
 
@@ -1303,9 +1311,7 @@ class _DropdownRow<T> extends StatelessWidget {
             width: 96,
             child: Text(
               label,
-              style: text.titleSmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-              ),
+              style: text.titleSmall?.copyWith(color: scheme.onSurfaceVariant),
             ),
           ),
           Expanded(
@@ -1316,10 +1322,7 @@ class _DropdownRow<T> extends StatelessWidget {
                 isDense: true,
                 itemHeight: 48,
                 borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-                icon: Icon(
-                  Icons.expand_more,
-                  color: scheme.onSurfaceVariant,
-                ),
+                icon: Icon(Icons.expand_more, color: scheme.onSurfaceVariant),
                 style: text.bodyLarge?.copyWith(color: scheme.onSurface),
                 items: [
                   for (final item in items)

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/providers.dart';
 import '../../core/services/store_update_reminder.dart';
-import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../converters/converters_hub_screen.dart';
+import '../converters/image_formats_hub_screen.dart';
+import '../pdf_tools/pdf_tools_hub_screen.dart';
 import '../settings/settings_screen.dart';
 import 'home_dashboard_screen.dart';
 import 'home_flows.dart';
-import 'home_screen.dart';
+import 'nav_catalog.dart';
 
-/// Bottom nav shell: Home · Files · Camera FAB · Convert · Me.
+/// Bottom nav: Home · [slot] · [Scan FAB] · [slot] · Me.
 class MainShellScreen extends ConsumerStatefulWidget {
   const MainShellScreen({super.key});
 
@@ -18,9 +20,29 @@ class MainShellScreen extends ConsumerStatefulWidget {
   ConsumerState<MainShellScreen> createState() => _MainShellScreenState();
 }
 
+enum _ShellTab { home, innerLeft, innerRight, me }
+
 class _MainShellScreenState extends ConsumerState<MainShellScreen> {
-  var _index = 0;
-  late final PageController _pageController = PageController();
+  var _tab = _ShellTab.home;
+
+  NavDest _destFor(_ShellTab tab, NavSlots slots) => switch (tab) {
+    _ShellTab.home => NavDest.editPhoto, // unused
+    _ShellTab.innerLeft => slots.innerLeft,
+    _ShellTab.innerRight => slots.innerRight,
+    _ShellTab.me => NavDest.convert, // unused
+  };
+
+  int _stackIndex(NavSlots slots) {
+    if (_tab == _ShellTab.home) return 0;
+    if (_tab == _ShellTab.me) return 2;
+    final dest = _destFor(_tab, slots);
+    return switch (dest) {
+      NavDest.favorites => 0,
+      NavDest.convert => 1,
+      NavDest.editPhoto => 3,
+      NavDest.pdfTools => 4,
+    };
+  }
 
   @override
   void initState() {
@@ -31,87 +53,80 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
     });
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
+  void _go(_ShellTab tab, NavSlots slots) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    final q = ref.read(libraryQueryProvider.notifier);
+    if (tab == _ShellTab.home) q.showAll();
+    if (tab == _ShellTab.innerLeft && slots.innerLeft == NavDest.favorites) {
+      q.showFavorites();
+    }
+    if (tab == _ShellTab.innerRight && slots.innerRight == NavDest.favorites) {
+      q.showFavorites();
+    }
+    if (tab == _tab) return;
+    setState(() => _tab = tab);
   }
 
-  void _go(int i) {
-    if (i == _index) return;
-    // Drop keyboard / search focus before leaving a tab (KeepAlive keeps nodes).
-    FocusManager.instance.primaryFocus?.unfocus();
-    setState(() => _index = i);
-    if (AppMotion.reduce(context)) {
-      _pageController.jumpToPage(i);
-    } else {
-      _pageController.animateToPage(
-        i,
-        duration: AppMotion.tab,
-        curve: AppMotion.emphasizedDecelerate,
-      );
+  void _openConvert(NavSlots slots) {
+    if (slots.innerLeft == NavDest.convert) {
+      _go(_ShellTab.innerLeft, slots);
+      return;
     }
+    if (slots.innerRight == NavDest.convert) {
+      _go(_ShellTab.innerRight, slots);
+      return;
+    }
+    AppPageRoute.push(context, const ConvertersHubScreen());
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final fabColor = isDark ? AppTheme.navyOnDark : AppTheme.navy;
+    final slots = ref.watch(navSlotsProvider);
+    final dest = _tab == _ShellTab.home || _tab == _ShellTab.me
+        ? null
+        : _destFor(_tab, slots);
+    final homeActive = _tab == _ShellTab.home || dest == NavDest.favorites;
 
     return Scaffold(
+      extendBody: true,
       resizeToAvoidBottomInset: false,
-      body: PageView(
-        controller: _pageController,
-        physics: const NeverScrollableScrollPhysics(),
-        onPageChanged: (i) {
-          FocusManager.instance.primaryFocus?.unfocus();
-          if (_index != i) setState(() => _index = i);
+      body: PopScope(
+        canPop: _tab == _ShellTab.home,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop && _tab != _ShellTab.home) _go(_ShellTab.home, slots);
         },
-        children: [
-          _KeepAlivePage(
-            child: HomeDashboardScreen(
-              isActive: _index == 0,
-              onOpenFiles: () => _go(1),
-              onOpenTools: () => _go(2),
+        child: IndexedStack(
+          index: _stackIndex(slots),
+          children: [
+            HomeDashboardScreen(
+              isActive: homeActive,
+              onOpenTools: () => _openConvert(slots),
             ),
-          ),
-          _KeepAlivePage(
-            child: HomeScreen(
-              embedded: true,
-              isActive: _index == 1,
-              onOpenTools: () => _go(2),
-            ),
-          ),
-          const _KeepAlivePage(child: ConvertersHubScreen(embedded: true)),
-          const _KeepAlivePage(child: SettingsScreen(embedded: true)),
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FadeRiseIn(
-        offset: 8,
-        scaleFrom: 0.9,
-        child: Semantics(
-          button: true,
-          label: 'Scan Document',
-          child: FloatingActionButton(
-            onPressed: () => HomeFlows.startScan(context),
-            tooltip: 'Scan Document',
-            backgroundColor: fabColor,
-            foregroundColor: scheme.onPrimary,
-            elevation: 6,
-            highlightElevation: 10,
-            shape: const CircleBorder(),
-            child: const Icon(Icons.document_scanner, size: 30),
-          ),
+            const ConvertersHubScreen(embedded: true),
+            const SettingsScreen(embedded: true),
+            const ImageFormatsHubScreen(embedded: true),
+            const PdfToolsHubScreen(embedded: true),
+          ],
         ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: _ScanFab(
+        color: scheme.primary,
+        foreground: scheme.onPrimary,
+        onPressed: () => HomeFlows.startScan(context),
+      ),
       bottomNavigationBar: BottomAppBar(
-        height: 64,
+        elevation: isDark ? 0 : 10,
+        shadowColor: Colors.black.withValues(alpha: 0.18),
+        color: scheme.surface.withValues(alpha: isDark ? 0.92 : 0.96),
+        surfaceTintColor: Colors.transparent,
         padding: EdgeInsets.zero,
-        notchMargin: 8,
+        height: 64,
+        clipBehavior: Clip.antiAlias,
+        notchMargin: 6,
         shape: const CircularNotchedRectangle(),
-        color: scheme.surface,
         child: Row(
           children: [
             Expanded(
@@ -119,27 +134,27 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
                 icon: Icons.home_outlined,
                 selectedIcon: Icons.home_rounded,
                 label: 'Home',
-                selected: _index == 0,
-                onTap: () => _go(0),
+                selected: _tab == _ShellTab.home,
+                onTap: () => _go(_ShellTab.home, slots),
               ),
             ),
             Expanded(
               child: _NavItem(
-                icon: Icons.inventory_2_outlined,
-                selectedIcon: Icons.inventory_2_rounded,
-                label: 'Files',
-                selected: _index == 1,
-                onTap: () => _go(1),
+                icon: slots.innerLeft.icon,
+                selectedIcon: slots.innerLeft.selectedIcon,
+                label: slots.innerLeft.navLabel,
+                selected: _tab == _ShellTab.innerLeft,
+                onTap: () => _go(_ShellTab.innerLeft, slots),
               ),
             ),
-            const SizedBox(width: 64),
+            const SizedBox(width: 72),
             Expanded(
               child: _NavItem(
-                icon: Icons.swap_horiz,
-                selectedIcon: Icons.swap_horiz,
-                label: 'Convert',
-                selected: _index == 2,
-                onTap: () => _go(2),
+                icon: slots.innerRight.icon,
+                selectedIcon: slots.innerRight.selectedIcon,
+                label: slots.innerRight.navLabel,
+                selected: _tab == _ShellTab.innerRight,
+                onTap: () => _go(_ShellTab.innerRight, slots),
               ),
             ),
             Expanded(
@@ -147,8 +162,8 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
                 icon: Icons.manage_accounts_outlined,
                 selectedIcon: Icons.manage_accounts,
                 label: 'Me',
-                selected: _index == 3,
-                onTap: () => _go(3),
+                selected: _tab == _ShellTab.me,
+                onTap: () => _go(_ShellTab.me, slots),
               ),
             ),
           ],
@@ -158,24 +173,54 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   }
 }
 
-class _KeepAlivePage extends StatefulWidget {
-  const _KeepAlivePage({required this.child});
+class _ScanFab extends StatelessWidget {
+  const _ScanFab({
+    required this.color,
+    required this.foreground,
+    required this.onPressed,
+  });
 
-  final Widget child;
-
-  @override
-  State<_KeepAlivePage> createState() => _KeepAlivePageState();
-}
-
-class _KeepAlivePageState extends State<_KeepAlivePage>
-    with AutomaticKeepAliveClientMixin {
-  @override
-  bool get wantKeepAlive => true;
+  final Color color;
+  final Color foreground;
+  final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
-    return widget.child;
+    return Semantics(
+      button: true,
+      label: 'Scan Document',
+      child: Tooltip(
+        message: 'Scan Document',
+        child: PressableScale(
+          onTap: onPressed,
+          scale: 0.94,
+          child: Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.4),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.22),
+                width: 2,
+              ),
+            ),
+            child: Icon(
+              Icons.document_scanner_rounded,
+              size: 28,
+              color: foreground,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -206,7 +251,7 @@ class _NavItem extends StatelessWidget {
         onTap: onTap,
         scale: 0.92,
         child: SizedBox(
-          height: 56,
+          height: 64,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -226,7 +271,7 @@ class _NavItem extends StatelessWidget {
                     selected ? selectedIcon : icon,
                     key: ValueKey(selected),
                     color: color,
-                    size: 24,
+                    size: 22,
                   ),
                 ),
               ),
@@ -240,7 +285,11 @@ class _NavItem extends StatelessWidget {
                   color: color,
                   fontFamily: 'PlusJakartaSans',
                 ),
-                child: Text(label),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),

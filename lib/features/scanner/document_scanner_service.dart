@@ -25,10 +25,10 @@ class DocumentScannerService {
   Future<ScanOutcome> scan({int pageLimit = 1}) async {
     try {
       if (Platform.isAndroid) {
-        return _scanAndroid(pageLimit: pageLimit);
+        return await _scanAndroid(pageLimit: pageLimit);
       }
       if (Platform.isIOS) {
-        return _scanIos();
+        return await _scanIos();
       }
       return ScanError('Document scanner only available on Android and iOS.');
     } catch (e, st) {

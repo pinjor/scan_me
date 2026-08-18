@@ -213,12 +213,11 @@ class _ResultAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isPrimary = emphasis == _ActionEmphasis.primary;
     final bg = isPrimary
-        ? (isDark ? AppTheme.navyOnDark : AppTheme.navy)
+        ? scheme.primary
         : scheme.surfaceContainerHighest.withValues(alpha: 0.7);
-    final fg = isPrimary ? Colors.white : scheme.onSurface;
+    final fg = isPrimary ? scheme.onPrimary : scheme.onSurface;
     final border = isPrimary
         ? null
         : Border.all(color: scheme.outlineVariant.withValues(alpha: 0.55));

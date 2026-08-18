@@ -230,6 +230,7 @@ void main() {
       ConvertToolId.crop,
       ConvertToolId.resize,
       ConvertToolId.compress,
+      ConvertToolId.pdfTools,
     ]) {
       test('$id unsupported', () async {
         final src = await ConverterFixtures.writeImage(
@@ -390,7 +391,7 @@ void main() {
       final src = await ConverterFixtures.writeTxt(tmp, name: 'notes.txt');
       final r = await runSimpleConvert(ConvertToolId.txtToPdf, src.path);
       expect(
-        RegExp(r'^notes_PDF_\d{4}-\d{2}-\d{2}_\d{4}\.pdf$')
+        RegExp(r'^notes_PDF_\d{4}-\d{2}-\d{2}_\d{4,6}\.pdf$')
             .hasMatch(p.basename(r.outputPath)),
         isTrue,
       );
@@ -400,7 +401,7 @@ void main() {
       final src = await ConverterFixtures.writePdf(tmp, name: 'probe.pdf');
       final r = await runSimpleConvert(ConvertToolId.pdfToTxt, src.path);
       expect(
-        RegExp(r'^probe_TXT_\d{4}-\d{2}-\d{2}_\d{4}\.txt$')
+        RegExp(r'^probe_TXT_\d{4}-\d{2}-\d{2}_\d{4,6}\.txt$')
             .hasMatch(p.basename(r.outputPath)),
         isTrue,
       );
@@ -410,7 +411,7 @@ void main() {
       final src = await ConverterFixtures.writeXlsx(tmp, name: 'sheet.xlsx');
       final r = await runSimpleConvert(ConvertToolId.xlsxToCsv, src.path);
       expect(
-        RegExp(r'^sheet_CSV_\d{4}-\d{2}-\d{2}_\d{4}\.csv$')
+        RegExp(r'^sheet_CSV_\d{4}-\d{2}-\d{2}_\d{4,6}\.csv$')
             .hasMatch(p.basename(r.outputPath)),
         isTrue,
       );

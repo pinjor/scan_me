@@ -58,10 +58,23 @@ abstract final class OpenFileIntentBridge {
     }
   }
 
+  static String? _lastOpenKey;
+  static DateTime? _lastOpenAt;
+
   /// Open [path] in viewer or run convert [action] when navigator is ready.
   static Future<void> openPath(String path, {String action = 'view'}) async {
     final file = File(path);
     if (!await file.exists()) return;
+
+    final key = '$action|$path';
+    final now = DateTime.now();
+    if (_lastOpenKey == key &&
+        _lastOpenAt != null &&
+        now.difference(_lastOpenAt!) < const Duration(milliseconds: 900)) {
+      return;
+    }
+    _lastOpenKey = key;
+    _lastOpenAt = now;
 
     final nav = scanMeNavigatorKey.currentState;
     if (nav == null) {

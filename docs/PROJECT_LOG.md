@@ -8,7 +8,8 @@
 > **Agent rule:** After every user task, update this file (Current status · Task log · relevant sections).  
 > Deep UI screen detail: [`UI_PAGES.md`](UI_PAGES.md) (single file — all screens).  
 > Capability inventory: [`FEATURES.md`](FEATURES.md) (what the app does).  
-> CamScan B&W spec: [`PROPOSAL_FORM_BW_CAMSCAN_SPEC.md`](PROPOSAL_FORM_BW_CAMSCAN_SPEC.md) — **every page**.
+> CamScan B&W spec: [`PROPOSAL_FORM_BW_CAMSCAN_SPEC.md`](PROPOSAL_FORM_BW_CAMSCAN_SPEC.md) — **every page**.  
+> iOS App Store: [`IOS_APP_STORE.md`](IOS_APP_STORE.md)
 
 ---
 
@@ -27,11 +28,11 @@
 | Area | State |
 |------|--------|
 | Core flows | Scan → Review → Export → Library → Viewer (architecturally complete) |
-| Home UI | Compact: search · Shortcuts tiles · Continue (scans **+** converts) |
+| Home UI | Premium: warm paper · greeting · pill search · shortcut strip · segmented filters · elevated cards |
 | Motion | Modern M3-style shared `AppMotion` (routes, lists, press, sheets, nav) |
 | CamScan B&W | **Fixed 2026-08-16** — async path no longer full-white; SLI spec on every page |
 | Document tags | Colored `TagDef` catalog; Settings CRUD; assign Home ⋯ / Viewer; filter chips |
-| Tools / converters | Hub: Documents · **Edit photo** (settings rail · staged chips · one **Apply**) |
+| Tools / converters | Hub: Documents · **Edit photo** · **PDF Tools** (merge/split/pages/compress) |
 | QR reader | Camera + photo · URL → Open link primary · Copy / Share · Quick tools default |
 | UX redesign | Complete transformation pass 2026-08-16 — shared kit + screen polish; prior phases 1–8 retained |
 | UI docs | Single [`UI_PAGES.md`](UI_PAGES.md) · features [`FEATURES.md`](FEATURES.md) |
@@ -39,10 +40,12 @@
 | Open with OS | Android aliases (ScanMe **launcher icon** + tool labels); iOS PDF/TXT/image/PPTX/DOCX/XLSX/HEIC/WebP/GIF |
 | Folders | Data model kept; **UI paused** (no chips / move / Unfiled) |
 | PDF watermark | Apptriangle corner on **every PDF page** (PDF draw + image bake on exports) |
+| First-run tour | Polished 7-page walkthrough (previews + progress); prefs `onboarding_done_v1`; replay from Me |
 | Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
-| Automated tests | Converters **135 PASS · 1 SKIP** (`all_converters` + matrices); full suite may OOM |
-| Device smoke | User self-testing (paused agent device runs until asked) |
-| Play release | Ready to build AAB **+7**; edge-to-edge Play flags reworked |
+| Automated tests | Targeted QA suite PASS (`pdf_tools` + UI + library). Full `all_converters` may OOM |
+| Device smoke | **Still required** before Play — see [`QA_REPORT.md`](QA_REPORT.md) |
+| Play release | **NOT READY** until device Scan→Save + PDF Tools + Open With smoke |
+| App Store (iOS) | Config ready (privacy manifest, purpose strings, export). **IPA needs a Mac.** See [`IOS_APP_STORE.md`](IOS_APP_STORE.md) |
 | Open device gaps | Full capture→Save PDF; Viewer/print/share E2E; PDF/PPTX convert E2E |
 | Audit (2026-08-12) | Historical; verify C1/C2/H* before treating as fixed |
 
@@ -56,6 +59,9 @@ flutter build appbundle --release
 
 ### Open / watch
 
+- [ ] **Release:** device Scan → Save PDF → reopen (P0 smoke)
+- [ ] **Release:** PDF Tools merge/split/delete/compress → open in external viewer
+- [ ] **Release:** Open With from file manager (single destination)
 - [ ] Device: back on pushed stacks (Scan · Review · Export · Viewer · Convert · QR · Settings)
 - [ ] Device: UI transform — light/dark · large text · Home search · Export progress · QR Open link
 - [ ] Device: QR reader — camera permission · torch · copy/share · open URL · scan from photo
@@ -66,11 +72,175 @@ flutter build appbundle --release
 - [ ] Device: full scan → Review → Save PDF
 - [ ] Device: colored tags — Settings CRUD + assign on Home/Viewer + filter chips
 - [ ] Device: Save as dialog (file manager) for Tools / Viewer / Export
-- [ ] Confirm audit C1 (iOS channel) / C2 (editor autoDispose) still relevant
+- [ ] Device: iOS scan channel (audit C1 — UIScene / MethodChannel)
+
+Converts still omitted from Deleted. Folders UI paused.
 
 ---
 
 ## Task log
+
+### 2026-08-18 — iOS App Store prep
+- **Request:** Full iOS build covering everything; keep App Store publishability.
+- **Done:** This host is Linux — **no IPA** (Xcode required). Store config: `PrivacyInfo.xcprivacy` (no tracking, UserDefaults CA92.1, file timestamp C617.1); purpose strings (camera/photos on-device); `ITSAppUsesNonExemptEncryption=false`; `UIRequiresFullScreen`; Open In copies (not in-place). 1024 icon RGB no alpha. Play update already Android-only. Mac script `tool/build_ios_release.sh`. Guide [`IOS_APP_STORE.md`](IOS_APP_STORE.md).
+- **Files:** `ios/Runner/Info.plist` · `ios/Runner/PrivacyInfo.xcprivacy` · `ios/Runner.xcodeproj/project.pbxproj` · `ios/ExportOptions.plist` · `tool/build_ios_release.sh` · `docs/IOS_APP_STORE.md`
+- **Leftover:** Archive on Mac with Apple team; Connect privacy/screenshots; device smoke still blocks submit.
+
+### 2026-08-18 — Theme chrome everywhere
+- **Request:** Theme should apply everywhere in the app.
+- **Done:** Convert/PDF/edit-photo tiles, crop handles, QR error seed, store-update CTA, shortcut customize avatars, onboarding wash, Edit photo tool rail now use `scheme.primary`. BottomAppBar + checkbox themes follow scheme. Catalog still stores type colors but UI ignores them.
+- **Files:** `convert_tool_chrome.dart` · `converters_hub_screen.dart` · `pdf_tools_hub_screen.dart` · `image_formats_hub_screen.dart` · `image_crop_tool_screen.dart` · `store_update_dialog.dart` · `qr_reader_screen.dart` · `home_dashboard_screen.dart` · `onboarding_screen.dart` · `app_theme.dart`
+- **Leftover:** Scanner camera black bg stays black on purpose.
+
+### 2026-08-18 — Edit photo title spacing
+- **Request:** Space under Edit photo title too tight.
+- **Done:** Embedded header padding bottom 0→16; workspace top 8→12.
+- **Files:** `image_formats_hub_screen.dart`
+- **Leftover:** None.
+
+### 2026-08-18 — Themes actually apply
+- **Request:** All themes don’t apply; check thoroughly.
+- **Done:** `fromSeed` remapped swatches so Sunset/Ocean looked like ScanMe. Now pin primary/secondary/tertiary to card colors + contrast `on*`. Tint surface. Home filters/shortcuts/convert primary CTA use `scheme.primary`. Hydrate prefs in `main` so async load can’t overwrite a tap. Tests: every builtin pins; widget tap Sunset recolors app.
+- **Files:** `theme_spec.dart` · `main.dart` · `library_filter_bar.dart` · `home_dashboard_screen.dart` · `convert_result_panel.dart` · `test/theme_apply_test.dart` · docs
+- **Leftover:** None (chrome pass 2026-08-18).
+
+### 2026-08-18 — Theme studio Create CTA
+- **Request:** Create button on Themes page very bad.
+- **Done:** Dropped extended FAB (covered grid). In-flow `Create theme` card under filters + AppBar add. Empty copy no longer points at +.
+- **Files:** `theme_studio_screen.dart` · `test/ui_functionality_test.dart` · `docs/UI_PAGES.md`
+- **Leftover:** None.
+
+### 2026-08-18 — Onboarding UI polish
+- **Request:** Tour looked basic; better UI/UX.
+- **Done:** Paper wash, step+progress, back, per-page product previews (scan FAB, review, library, tools, themes), chips, PrivacyBadge. No looping anim (tests settle).
+- **Files:** `onboarding_screen.dart` · `docs/UI_PAGES.md`
+- **Leftover:** Device look on first install.
+
+### 2026-08-18 — First-run feature walkthrough
+- **Request:** Setup wizard / feature tour for first open only.
+- **Done:** Gated `ScanMeApp.home` (`loading` splash / 7-page `OnboardingScreen` / `MainShell`). Prefs `onboarding_done_v1`. Skip + Next + Get started. Replay from Me → About. Tests skip tour via `OnboardingController.completed()`; new tests for first launch, last page, replay.
+- **Files:** `lib/core/onboarding.dart` · `lib/features/onboarding/onboarding_screen.dart` · `lib/main.dart` · `lib/features/settings/settings_screen.dart` · `test/widget_test.dart` · `test/ui_functionality_test.dart` · `docs/FEATURES.md` · `docs/UI_PAGES.md`
+- **Leftover:** Device confirm first-install tour; Play still NOT READY.
+
+### 2026-08-18 — Theme studio (dual/triple + custom)
+- **Request:** Lots of presets, multiple types, combined dual/triple, own page, user-made presets.
+- **Done:** `ThemeStudioScreen` — All/Single/Dual/Triple/Mine. 40+ builtins. Create/edit: 1–3 seeds + M3 style. Customs in prefs.
+- **Files:** `theme_spec.dart` · `theme_studio_screen.dart` · `app_theme.dart` · `settings_screen.dart` · tests · docs
+- **Leftover:** None.
+
+### 2026-08-18 — Nav Photo + M3 theme presets
+- **Request:** Replace Favorites with Edit photo; customize nav in Me; M3 theme presets.
+- **Done:** Inner slots default Photo + Convert (also Favorites, PDF Tools). Me: Color presets (ScanMe/Ocean/Forest/Sunset/Grape/Slate/Ink) + Left/Right of Scan. `ColorScheme.fromSeed` for non-brand.
+- **Files:** `nav_catalog.dart` · `main_shell_screen.dart` · `app_theme.dart` · `settings_screen.dart` · hubs embedded · tests · docs
+- **Leftover:** Device check long nav labels.
+
+### 2026-08-18 — xml `namespace` deprecation
+- **Request:** Fix `deprecated_member_use` on `XmlNode.namespace` in converter service.
+- **Done:** `findAllElements` / `getElement` now pass `namespaceUri: '*'`.
+- **Files:** `document_converter_service.dart`
+- **Leftover:** None.
+
+### 2026-08-18 — Library card redesign
+- **Request:** Favorite + ⋯ too big, don’t match the card. Redesign the whole card.
+- **Done:** File tile: 52×70 thumb, bookmark chip on the photo, quiet ⋮ on the title row. Hairline + tighter type. Scan + convert share `LibraryFileCard`.
+- **Files:** `document_card.dart` · `home_dashboard_screen.dart` · FEATURES · UI_PAGES
+- **Leftover:** None.
+
+### 2026-08-18 — Align Scan FAB
+- **Request:** Scan button misaligned.
+- **Done:** Dropped side-padded bar (notch used screen X, bar was inset). Full-width `CircularNotchedRectangle` so FAB and cradle share origin.
+- **Files:** `main_shell_screen.dart` · UI_PAGES
+- **Leftover:** None.
+
+### 2026-08-18 — Unify navbar
+- **Request:** Navbar should not be disjoint.
+- **Done:** One rounded `BottomAppBar` with circular notch. Scan FAB docks in the cradle. Tabs still Home · Favorites · Convert · Me.
+- **Files:** `main_shell_screen.dart` · FEATURES · UI_PAGES
+- **Leftover:** Device check that notch lines up with FAB.
+
+### 2026-08-18 — Dashboard spacing
+- **Request:** Dashboard spacing looks weird.
+- **Done:** Even 12/16 section rhythm. Shortcut tiles equal height. Empty sits under filters (no leftover-viewport cavern). SafeArea bottom off; list pads for nav/FAB only.
+- **Files:** `home_dashboard_screen.dart` · `library_filter_bar.dart` · `app_ui.dart` · UI_PAGES
+- **Leftover:** None.
+
+### 2026-08-18 — Center Scan FAB + Favorites tab
+- **Request:** Scan not in middle; add a nav option; elevated curved FAB detached from bar (like before).
+- **Done:** Two pills **[Home · Favorites]** · **Scan** · **[Convert · Me]**. 64px glow FAB floats in the gap. Favorites tab = Home + starred filter.
+- **Files:** `main_shell_screen.dart` · FEATURES · UI_PAGES
+- **Leftover:** Device check on small widths.
+
+### 2026-08-18 — Kill shortcut grid gap
+- **Request:** Weird gap after two-line shortcuts.
+- **Done:** Grid aspect leftover height gone. Wrap hugs icon + two-line labels.
+- **Files:** `home_dashboard_screen.dart` · `library_filter_bar.dart`
+- **Leftover:** None.
+
+### 2026-08-18 — Raised Scan FAB in middle slot
+- **Request:** Bring back previous middle Scan button look.
+- **Done:** 60px glow circle sits raised in the Home | Scan | Convert | Me slot (not the small in-bar icon).
+- **Files:** `main_shell_screen.dart` · UI_PAGES
+- **Leftover:** Device check.
+
+### 2026-08-18 — Favorite + tags on convert files
+- **Request:** No way to favorite files or give them tags.
+- **Done:** Convert ⋯ has Favorite + Tags (sidecar `converts/library.json`). Bookmark button on scan + convert cards. Favorites/Tags filters include converts. Tag chips on convert cards.
+- **Files:** `convert_outputs_service.dart` · `providers.dart` · `library_actions.dart` · `tag_sheets.dart` · `document_card.dart` · `home_dashboard_screen.dart` · docs
+- **Leftover:** Converts still not in Deleted (they delete immediately).
+
+### 2026-08-18 — Shortcuts two-line wrap
+- **Request:** Shortcuts should be double line.
+- **Done:** 4-col wrap (two rows). Labels wrap after first space (`PDF Tools` → two lines).
+- **Files:** `home_dashboard_screen.dart` · UI_PAGES
+- **Leftover:** None.
+
+### 2026-08-18 — Scan nav slot after Files gone
+- **Request:** Middle scan button looks off after Files tab dropped.
+- **Done:** Dropped 2+gap+1 FAB hole. Bar is four equal slots: **Home · Scan · Convert · Me**. Scan is in-bar circle + label, still **Scan Document** tooltip.
+- **Files:** `main_shell_screen.dart` · UI_PAGES · this log
+- **Leftover:** Device check on narrow phones.
+
+### 2026-08-18 — Premium visual pass
+- **Request:** UI too basic; raise premiumness.
+- **Done:** Warm ivory paper + navy-black dark (not grey/OLED crush). Floating nav capsule + glowing Scan. Greeting header, pill search, horizontal squircle shortcuts, segmented filters, elevated cards (bigger thumbs). Convert/Me match display type. Soft layered shadows. UI tests PASS.
+- **Files:** `app_theme.dart` · `app_ui.dart` · `document_card.dart` · `main_shell_screen.dart` · `home_dashboard_screen.dart` · `library_filter_bar.dart` · convert hub · settings · tests · docs
+- **Leftover:** Device look in light/dark; Review/Export/Viewer not restyled as deeply as Home chrome.
+
+### 2026-08-18 — Home library, drop Files tab
+- **Request:** Drop Files tab; Home = shortcuts + friendlier filters; fix retake-all wipe; prune Open/watch.
+- **Done:** Nav **Home · Convert · Me**. Library list + All/Favorites/Tags/Deleted on Home (full list, converts on All). Files shortcut + `home_screen.dart` gone. Retake-all imports new pages first; old files deleted only after success. Analyzer clean. UI/library tests PASS.
+- **Files:** `main_shell_screen.dart` · `home_dashboard_screen.dart` · `library_filter_bar.dart` · `library_actions.dart` · `dashboard_tools.dart` · `editor_controller.dart` · `providers.dart` · tests · FEATURES · UI_PAGES
+- **Leftover:** Device smoke (scan/PDF Tools/Open With); converts not on Favorites/Tags; folders UI paused.
+
+### 2026-08-18 — PDF Tools Home shortcut
+- **Request:** PDF Tools should appear in Home shortcuts.
+- **Done:** Unpinned from “Convert tab only”. Catalog + defaults include **PDF Tools** (opens hub). Prefs `dashboard_tool_ids_v7`; v6 migrate inserts tile after Import. Tap → `PdfToolsHubScreen`.
+- **Files:** `dashboard_tools.dart` · `home_dashboard_screen.dart` · docs
+- **Leftover:** Hot restart to pick up prefs migrate.
+
+### 2026-08-18 — Full QA pass (code + tests; no device)
+- **Request:** End-to-end QA of all features + PDF Tools; fix real bugs; store-ready verdict.
+- **Done:** Analyzer 0 errors. Fixed P0 QR loop + compress dropping pages; P1 mounted/empty-name/trash-filters/busy-pop/atomic meta/Open With dedup/iOS dest. About uses live version. PDF tool tests (merge 10p, split 12, extract). Widget tests aligned to Home dashboard. Report [`QA_REPORT.md`](QA_REPORT.md). **NOT READY** for stores.
+- **Files:** PDF tools · QR · export · editor · storage · providers · Open With Android/iOS · settings · tests · `docs/QA_REPORT.md`
+- **Leftover:** Device smoke Scan/PDF Tools/Open With; retake-all wipe on import fail; `/Rotate` flatten on copy.
+
+### 2026-08-18 — Audit storage / library / nav / privacy
+- **Request:** Real bugs in storage, library, trash, tags, favorites, export, editor, nav, permissions, Open With, QR, privacy (network).
+- **Done:** Code audit only (no fixes). P0: QR sheet re-opens same code (back trap). P1: Open With double delivery; iOS `let dest` + dual URL handlers; empty export name; Files omits `converts/`; trash keeps favorites filter; back during `applyFilter`/`export`; retake-all deletes files first; corrupt `meta.json` hides docs.
+- **Files:** `document_storage_service.dart` · `editor_controller.dart` · `export_screen.dart` · `home_screen.dart` · `home_dashboard_screen.dart` · `open_file_intent_bridge.dart` · `MainActivity.kt` · `OpenFileIntentHandler.swift` · `qr_reader_screen.dart`
+- **Leftover:** Most P0/P1 items fixed in the Full QA pass; retake-all wipe and Files-omits-converts remain.
+
+### 2026-08-18 — Dashboard Continue persists across tabs
+- **Request:** Scanned/converted files vanish or get overwritten when leaving Home; should stay.
+- **Done:** Shell `IndexedStack` keeps tabs mounted. Convert refresh no longer flashes empty. Home Continue uses local search (Files filters don't hide it). Recents cap 40. Convert outputs unique per-second (+ collision). Draft purge skips dirs <2h without meta.
+- **Files:** `main_shell_screen.dart` · `home_dashboard_screen.dart` · `home_screen.dart` · `convert_outputs_service.dart` · `document_converter_service.dart` · `document_storage_service.dart` · tests · docs
+- **Leftover:** Converts still not listed on Files tab (Continue + `converts/` folder).
+
+### 2026-08-18 — PDF Tools hub
+- **Request:** Offline PDF Tools (merge/split/reorder/delete/rotate/extract/PDF↔images/compress) inside Convert.
+- **Done:** `PdfToolsService` (Syncfusion copy/rotate/compress + Printing raster for images). Hub Convert → PDF Tools. Shared page selector + result panel. Always new file. Tests in `pdf_tools_test.dart`. Dashboard convert shortcuts now open matching tool (not Edit photo).
+- **Files:** `lib/features/pdf_tools/*` · `convert_catalog.dart` · `converters_hub_screen.dart` · `home_dashboard_screen.dart` · tests · docs
+- **Leftover:** Device smoke each tool; PDF→images needs Printing.raster on device.
 
 ### 2026-08-18 — Ignore markdown in git
 - **Request:** Add md files in gitignore.
@@ -759,7 +929,7 @@ Medium/Low (export re-encode, rename vs filenames, Google Fonts network, GMS che
 
 | Concern | Path |
 |---------|------|
-| Home | `lib/features/home/home_screen.dart` |
+| Home | `lib/features/home/home_dashboard_screen.dart` |
 | Theme | `lib/core/theme/app_theme.dart` |
 | Compression | `lib/core/services/scan_compression.dart` |
 | MainActivity | `android/app/src/main/kotlin/app/atl/scanme/MainActivity.kt` |

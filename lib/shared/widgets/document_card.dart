@@ -15,6 +15,7 @@ class DocumentCard extends StatelessWidget {
     required this.doc,
     required this.onOpen,
     required this.onMore,
+    this.onFavorite,
     this.onDelete,
     this.folderName,
     this.tagDefs = const [],
@@ -23,6 +24,7 @@ class DocumentCard extends StatelessWidget {
   final ScannedDocument doc;
   final VoidCallback onOpen;
   final VoidCallback onMore;
+  final VoidCallback? onFavorite;
   final VoidCallback? onDelete;
   final String? folderName;
   final List<TagDef> tagDefs;
@@ -30,7 +32,6 @@ class DocumentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
     final type = doc.pdfPath != null ? 'PDF' : 'Images';
     final date = _friendlyDate(doc.updatedAt);
     // Compact meta: pages · type · relative date (size via More / Activity).
@@ -41,115 +42,37 @@ class DocumentCard extends StatelessWidget {
     ].join(' · ');
     final byId = {for (final t in tagDefs) t.id: t};
 
-    final card = Semantics(
-      button: true,
-      label: '${doc.name}, $meta',
-      child: AppCard(
-      onTap: onOpen,
-      elevated: false,
-      padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Hero(
-            tag: 'doc-thumb-${doc.id}',
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 56,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: scheme.surfaceContainerHighest,
-                  border: Border.all(color: scheme.outlineVariant),
-                ),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    doc.thumbnailPath != null &&
-                            File(doc.thumbnailPath!).existsSync()
-                        ? Image.file(
-                            File(doc.thumbnailPath!),
-                            fit: BoxFit.cover,
-                            cacheWidth: 160,
-                            filterQuality: FilterQuality.medium,
-                          )
-                        : Icon(
-                            Icons.description_outlined,
-                            color: scheme.onSurfaceVariant,
-                            size: 26,
-                          ),
-                    if (doc.isFavorite)
-                      Positioned(
-                        top: 4,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.35),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.bookmark,
-                            size: 12,
-                            color: AppTheme.warning,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
+    final card = LibraryFileCard(
+      name: doc.name,
+      meta: meta,
+      onOpen: onOpen,
+      onMore: onMore,
+      heroTag: 'doc-thumb-${doc.id}',
+      isFavorite: doc.isFavorite,
+      onFavorite: onFavorite,
+      tagChips: [
+        if (folderName != null) MetaChip(label: folderName!),
+        for (final id in doc.tags.take(2))
+          MetaChip(
+            label: byId[id]?.name ?? id,
+            color: byId[id] != null ? Color(byId[id]!.color) : null,
+          ),
+      ],
+      thumbnail:
+          doc.thumbnailPath != null && File(doc.thumbnailPath!).existsSync()
+          ? Image.file(
+              File(doc.thumbnailPath!),
+              fit: BoxFit.cover,
+              cacheWidth: 160,
+              filterQuality: FilterQuality.medium,
+            )
+          : Center(
+              child: Icon(
+                Icons.description_outlined,
+                color: scheme.onSurfaceVariant,
+                size: 24,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  doc.name,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  meta,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-                if (folderName != null || doc.tags.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 4,
-                    runSpacing: 4,
-                    children: [
-                      if (folderName != null) MetaChip(label: folderName!),
-                      for (final id in doc.tags.take(2))
-                        MetaChip(
-                          label: byId[id]?.name ?? id,
-                          color: byId[id] != null
-                              ? Color(byId[id]!.color)
-                              : null,
-                        ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          AppCircleIconButton(
-            icon: Icons.more_horiz,
-            tooltip: 'More actions',
-            size: AppTheme.tapMin,
-            onPressed: onMore,
-          ),
-        ],
-      ),
-    ),
     );
 
     if (onDelete == null) return card;
@@ -190,6 +113,212 @@ class DocumentCard extends StatelessWidget {
   }
 }
 
+/// Compact library row — thumb + title + quiet more. Favorite lives on the thumb.
+class LibraryFileCard extends StatelessWidget {
+  const LibraryFileCard({
+    super.key,
+    required this.name,
+    required this.meta,
+    required this.thumbnail,
+    required this.onOpen,
+    required this.onMore,
+    this.heroTag,
+    this.isFavorite = false,
+    this.onFavorite,
+    this.tagChips = const [],
+  });
+
+  final String name;
+  final String meta;
+  final Widget thumbnail;
+  final VoidCallback onOpen;
+  final VoidCallback onMore;
+  final Object? heroTag;
+  final bool isFavorite;
+  final VoidCallback? onFavorite;
+  final List<Widget> tagChips;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+
+    return Semantics(
+      button: true,
+      label: '$name, $meta',
+      child: AppCard(
+        onTap: onOpen,
+        elevated: true,
+        bordered: true,
+        padding: const EdgeInsets.fromLTRB(10, 10, 4, 10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _FileThumb(
+              heroTag: heroTag,
+              isFavorite: isFavorite,
+              onFavorite: onFavorite,
+              child: thumbnail,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: text.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                      ),
+                      _QuietIconButton(
+                        icon: Icons.more_vert,
+                        tooltip: 'More actions',
+                        onPressed: onMore,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (tagChips.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Wrap(spacing: 4, runSpacing: 4, children: tagChips),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FileThumb extends StatelessWidget {
+  const _FileThumb({
+    required this.child,
+    required this.isFavorite,
+    this.heroTag,
+    this.onFavorite,
+  });
+
+  final Widget child;
+  final Object? heroTag;
+  final bool isFavorite;
+  final VoidCallback? onFavorite;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    Widget thumb = ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        width: 52,
+        height: 70,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ColoredBox(color: scheme.surfaceContainerHighest),
+            Positioned.fill(child: child),
+            if (onFavorite != null)
+              Positioned(
+                right: 3,
+                bottom: 3,
+                child: _ThumbFavorite(
+                  isFavorite: isFavorite,
+                  onPressed: onFavorite!,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (heroTag != null) {
+      thumb = Hero(tag: heroTag!, child: thumb);
+    }
+    return thumb;
+  }
+}
+
+class _ThumbFavorite extends StatelessWidget {
+  const _ThumbFavorite({required this.isFavorite, required this.onPressed});
+
+  final bool isFavorite;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: isFavorite ? 'Remove from favorites' : 'Favorite',
+      child: Material(
+        color: Colors.black.withValues(alpha: 0.42),
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.all(4),
+            child: Icon(
+              isFavorite ? Icons.bookmark : Icons.bookmark_border,
+              size: 13,
+              color: isFavorite ? AppTheme.warning : Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuietIconButton extends StatelessWidget {
+  const _QuietIconButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Icon(icon, size: 18),
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+      style: IconButton.styleFrom(
+        foregroundColor: scheme.onSurfaceVariant,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+    );
+  }
+}
+
 /// Speed-dial FAB: fixed circular trigger; actions stack above, right-aligned.
 class ScanFabMenu extends StatefulWidget {
   const ScanFabMenu({
@@ -216,10 +345,7 @@ class _ScanFabMenuState extends State<ScanFabMenu>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: AppMotion.chip,
-    );
+    _ctrl = AnimationController(vsync: this, duration: AppMotion.chip);
     _t = CurvedAnimation(
       parent: _ctrl,
       curve: AppMotion.emphasizedDecelerate,

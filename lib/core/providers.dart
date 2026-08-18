@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'storage/document_storage_service.dart';
+import 'services/convert_outputs_service.dart';
 import '../features/scanner/document_scanner_service.dart';
 import '../shared/models/library_models.dart';
 import '../shared/models/scanned_document.dart';
@@ -14,9 +15,10 @@ final documentScannerProvider = Provider<DocumentScannerService>(
 );
 
 final documentsProvider =
-    StateNotifierProvider<DocumentsController, AsyncValue<List<ScannedDocument>>>(
-      (ref) => DocumentsController(ref.watch(documentStorageProvider)),
-    );
+    StateNotifierProvider<
+      DocumentsController,
+      AsyncValue<List<ScannedDocument>>
+    >((ref) => DocumentsController(ref.watch(documentStorageProvider)));
 
 final foldersProvider =
     StateNotifierProvider<FoldersController, AsyncValue<List<DocFolder>>>(
@@ -41,17 +43,22 @@ class LibraryQuery {
     this.tag,
     this.favoritesOnly = false,
     this.showTrash = false,
+    this.tagsPickerOpen = false,
     this.sort = LibrarySort.recentlyModified,
     this.favoritesFirst = true,
   });
 
   final String search;
+
   /// null = all folders; otherwise filter by this folder id.
   final String? folderId;
   final bool unfiledOnly;
   final String? tag;
   final bool favoritesOnly;
   final bool showTrash;
+
+  /// Tags chip selected — wrap is visible even before a tag is chosen.
+  final bool tagsPickerOpen;
   final LibrarySort sort;
   final bool favoritesFirst;
 
@@ -64,19 +71,20 @@ class LibraryQuery {
     bool clearTag = false,
     bool? favoritesOnly,
     bool? showTrash,
+    bool? tagsPickerOpen,
     LibrarySort? sort,
     bool? favoritesFirst,
-  }) =>
-      LibraryQuery(
-        search: search ?? this.search,
-        folderId: clearFolder ? null : (folderId ?? this.folderId),
-        unfiledOnly: unfiledOnly ?? this.unfiledOnly,
-        tag: clearTag ? null : (tag ?? this.tag),
-        favoritesOnly: favoritesOnly ?? this.favoritesOnly,
-        showTrash: showTrash ?? this.showTrash,
-        sort: sort ?? this.sort,
-        favoritesFirst: favoritesFirst ?? this.favoritesFirst,
-      );
+  }) => LibraryQuery(
+    search: search ?? this.search,
+    folderId: clearFolder ? null : (folderId ?? this.folderId),
+    unfiledOnly: unfiledOnly ?? this.unfiledOnly,
+    tag: clearTag ? null : (tag ?? this.tag),
+    favoritesOnly: favoritesOnly ?? this.favoritesOnly,
+    showTrash: showTrash ?? this.showTrash,
+    tagsPickerOpen: tagsPickerOpen ?? this.tagsPickerOpen,
+    sort: sort ?? this.sort,
+    favoritesFirst: favoritesFirst ?? this.favoritesFirst,
+  );
 }
 
 class LibraryQueryController extends StateNotifier<LibraryQuery> {
@@ -85,19 +93,47 @@ class LibraryQueryController extends StateNotifier<LibraryQuery> {
   void setSearch(String v) => state = state.copyWith(search: v);
 
   void setFolder(String? id, {bool unfiled = false}) => state = state.copyWith(
-        folderId: id,
-        clearFolder: id == null && !unfiled,
-        unfiledOnly: unfiled,
-      );
+    folderId: id,
+    clearFolder: id == null && !unfiled,
+    unfiledOnly: unfiled,
+  );
 
-  void setTag(String? tag) => state = state.copyWith(
-        tag: tag,
-        clearTag: tag == null,
-      );
+  void setTag(String? tag) =>
+      state = state.copyWith(tag: tag, clearTag: tag == null);
 
   void setFavoritesOnly(bool v) => state = state.copyWith(favoritesOnly: v);
 
-  void setShowTrash(bool v) => state = state.copyWith(showTrash: v);
+  void showAll() => state = state.copyWith(
+    showTrash: false,
+    favoritesOnly: false,
+    tagsPickerOpen: false,
+    clearTag: true,
+  );
+
+  void showFavorites() => state = state.copyWith(
+    showTrash: false,
+    favoritesOnly: true,
+    tagsPickerOpen: false,
+    clearTag: true,
+  );
+
+  void showTagsPicker() => state = state.copyWith(
+    showTrash: false,
+    favoritesOnly: false,
+    tagsPickerOpen: true,
+  );
+
+  void setShowTrash(bool v) => state = v
+      ? state.copyWith(
+          showTrash: true,
+          favoritesOnly: false,
+          tagsPickerOpen: false,
+          search: '',
+          clearTag: true,
+          clearFolder: true,
+          unfiledOnly: false,
+        )
+      : state.copyWith(showTrash: false);
 
   void setSort(LibrarySort sort) => state = state.copyWith(sort: sort);
 
@@ -247,12 +283,9 @@ class DocumentsController
   }
 
   Future<void> setTags(String id, List<String> tags) async {
-    final cleaned = tags
-        .map((t) => t.trim())
-        .where((t) => t.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final cleaned =
+        tags.map((t) => t.trim()).where((t) => t.isNotEmpty).toSet().toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     await _storage.updateDocumentMeta(id, tags: cleaned);
     await refresh();
   }
@@ -315,10 +348,10 @@ List<ScannedDocument> filterAndSortDocuments(
     list = list.where((d) {
       if (d.name.toLowerCase().contains(q)) return true;
       if (d.tags.any((t) {
-            if (t.toLowerCase().contains(q)) return true;
-            final name = tagNamesById?[t];
-            return name != null && name.toLowerCase().contains(q);
-          })) {
+        if (t.toLowerCase().contains(q)) return true;
+        final name = tagNamesById?[t];
+        return name != null && name.toLowerCase().contains(q);
+      })) {
         return true;
       }
       return false;
@@ -348,6 +381,35 @@ List<ScannedDocument> filterAndSortDocuments(
 
   out.sort(cmp);
   return out;
+}
+
+List<ConvertOutput> filterConvertOutputs(
+  List<ConvertOutput> all,
+  LibraryQuery query, {
+  Map<String, String>? tagNamesById,
+}) {
+  if (query.showTrash) return const [];
+  Iterable<ConvertOutput> list = all;
+  if (query.favoritesOnly) {
+    list = list.where((c) => c.isFavorite);
+  }
+  if (query.tag != null && query.tag!.isNotEmpty) {
+    final needle = query.tag!;
+    list = list.where((c) => c.tags.contains(needle));
+  }
+  final q = query.search.trim().toLowerCase();
+  if (q.isNotEmpty) {
+    list = list.where((c) {
+      if (c.name.toLowerCase().contains(q)) return true;
+      if (c.kindLabel?.toLowerCase().contains(q) ?? false) return true;
+      return c.tags.any((t) {
+        if (t.toLowerCase().contains(q)) return true;
+        final name = tagNamesById?[t];
+        return name != null && name.toLowerCase().contains(q);
+      });
+    });
+  }
+  return list.toList();
 }
 
 Set<String> collectAllTags(List<ScannedDocument> docs) {

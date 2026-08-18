@@ -91,11 +91,7 @@ class EditorController extends StateNotifier<EditorSession?> {
           pageId: pageId,
         );
         pages.add(
-          ScannedPage(
-            id: pageId,
-            originalImagePath: dest,
-            pageIndex: i,
-          ),
+          ScannedPage(id: pageId, originalImagePath: dest, pageIndex: i),
         );
       }
     } catch (e) {
@@ -103,11 +99,7 @@ class EditorController extends StateNotifier<EditorSession?> {
       rethrow;
     }
 
-    state = EditorSession(
-      documentId: docId,
-      name: name,
-      pages: pages,
-    );
+    state = EditorSession(documentId: docId, name: name, pages: pages);
     await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
   }
 
@@ -124,7 +116,7 @@ class EditorController extends StateNotifier<EditorSession?> {
 
     final docId = s.documentId;
     final name = s.name;
-    await _storage.clearWorkingFiles(docId);
+    final oldPages = List<ScannedPage>.from(s.pages);
 
     final pages = <ScannedPage>[];
     try {
@@ -136,23 +128,22 @@ class EditorController extends StateNotifier<EditorSession?> {
           pageId: pageId,
         );
         pages.add(
-          ScannedPage(
-            id: pageId,
-            originalImagePath: dest,
-            pageIndex: i,
-          ),
+          ScannedPage(id: pageId, originalImagePath: dest, pageIndex: i),
         );
       }
     } catch (e) {
-      // Leave empty session folder; caller may discard.
+      for (final page in pages) {
+        await _storage.deleteQuietly(page.originalImagePath);
+      }
       rethrow;
     }
 
-    state = EditorSession(
-      documentId: docId,
-      name: name,
-      pages: pages,
-    );
+    for (final old in oldPages) {
+      await _storage.deleteQuietly(old.originalImagePath);
+      await _storage.deleteQuietly(old.processedImagePath);
+    }
+
+    state = EditorSession(documentId: docId, name: name, pages: pages);
     await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
   }
 
@@ -185,10 +176,7 @@ class EditorController extends StateNotifier<EditorSession?> {
       );
     }
 
-    state = s.copyWith(
-      pages: pages,
-      selectedIndex: pages.length - 1,
-    );
+    state = s.copyWith(pages: pages, selectedIndex: pages.length - 1);
     // applyToAll skips pages already B&W; new pages get CamScan filter.
     await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
   }
@@ -325,16 +313,16 @@ class EditorController extends StateNotifier<EditorSession?> {
         final label = work.length <= 1
             ? 'Applying filter…'
             : 'Applying filter · ${n + 1} of ${work.length}…';
-        state = state!.copyWith(
-          isProcessing: true,
-          processingLabel: label,
-        );
+        if (state == null) return;
+        state = state!.copyWith(isProcessing: true, processingLabel: label);
 
         final originalBytes = await File(page.originalImagePath).readAsBytes();
+        if (state == null) return;
         final out = await DocumentFilterEngine.apply(
           originalBytes: originalBytes,
           filter: filter,
         );
+        if (state == null) return;
         final oldPath = page.processedImagePath;
         final path = await _storage.writeProcessed(
           documentId: s.documentId,
@@ -342,6 +330,7 @@ class EditorController extends StateNotifier<EditorSession?> {
           bytes: out,
           variant: filter.wire,
         );
+        if (state == null) return;
         // Same-path overwrites used to leave Flutter FileImage cache stale.
         if (oldPath != null && oldPath != path) {
           await FileImage(File(oldPath)).evict();
@@ -353,6 +342,7 @@ class EditorController extends StateNotifier<EditorSession?> {
         );
       }
 
+      if (state == null) return;
       state = state!.copyWith(
         pages: pages,
         isProcessing: false,
@@ -436,8 +426,7 @@ class EditorController extends StateNotifier<EditorSession?> {
         onProgress?.call('Saving images… $outIndex of ${indexes.length}');
         final page = s.pages[i];
         final alreadyCompressed =
-            page.selectedFilter.isProcessed &&
-            page.processedImagePath != null;
+            page.selectedFilter.isProcessed && page.processedImagePath != null;
         final bytes = await prepareExportImageBytes(
           imagePath: page.displayPath,
           rotation: page.rotation,
@@ -450,7 +439,9 @@ class EditorController extends StateNotifier<EditorSession?> {
           name: s.name,
           index1Based: outIndex,
           bytes: bytes,
-          extension: settings.imageFormat == ImageExportFormat.png ? 'png' : 'jpg',
+          extension: settings.imageFormat == ImageExportFormat.png
+              ? 'png'
+              : 'jpg',
         );
         exportImages.add(path);
       }
@@ -482,8 +473,9 @@ class EditorController extends StateNotifier<EditorSession?> {
       pages: [...s.pages],
       thumbnailPath: thumbPath,
       pdfPath: pdfPath ?? existing?.pdfPath,
-      exportImagePaths:
-          exportImages.isNotEmpty ? exportImages : (existing?.exportImagePaths ?? []),
+      exportImagePaths: exportImages.isNotEmpty
+          ? exportImages
+          : (existing?.exportImagePaths ?? []),
       folderId: existing?.folderId,
       tags: existing?.tags ?? const [],
       isFavorite: existing?.isFavorite ?? false,
@@ -521,10 +513,11 @@ class EditorController extends StateNotifier<EditorSession?> {
         final i = settings.currentPageIndex.clamp(0, pageCount - 1);
         return [i];
       case ImageExportScope.selectedPages:
-        final selected = settings.selectedPageIndexes
-            .where((i) => i >= 0 && i < pageCount)
-            .toList()
-          ..sort();
+        final selected =
+            settings.selectedPageIndexes
+                .where((i) => i >= 0 && i < pageCount)
+                .toList()
+              ..sort();
         if (selected.isEmpty) {
           return List.generate(pageCount, (i) => i);
         }

@@ -50,7 +50,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return PopScope(
-      canPop: true,
+      canPop: !session.isProcessing,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop && widget.discardOnPop) {
           ref.read(editorSessionProvider.notifier).discardUnsaved();

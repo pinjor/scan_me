@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
-
 enum StoreUpdateAction { updateNow, remindLater }
 
 /// Soft caution dialog: update available on Play Store — optional.
@@ -39,13 +37,6 @@ Future<StoreUpdateAction?> showStoreUpdateDialog(
           FilledButton(
             onPressed: () =>
                 Navigator.of(ctx).pop(StoreUpdateAction.updateNow),
-            style: FilledButton.styleFrom(
-              backgroundColor: AppTheme.navy,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              ),
-            ),
             child: const Text('Update now'),
           ),
         ],

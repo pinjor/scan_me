@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/services/convert_outputs_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/library_models.dart';
 import '../../shared/models/scanned_document.dart';
@@ -12,6 +13,60 @@ Future<void> showDocumentTagsSheet({
   required WidgetRef ref,
   required ScannedDocument doc,
   VoidCallback? onChanged,
+}) {
+  return _showTagsSheet(
+    context: context,
+    selectedOf: (ref) {
+      final latest =
+          ref
+              .watch(documentsProvider)
+              .valueOrNull
+              ?.where((d) => d.id == doc.id)
+              .firstOrNull ??
+          doc;
+      return latest.tags.toSet();
+    },
+    onToggle: (ref, tagId) async {
+      await ref.read(documentsProvider.notifier).toggleTag(doc.id, tagId);
+      onChanged?.call();
+    },
+    onCreated: (ref, created) async {
+      await ref.read(documentsProvider.notifier).addTag(doc.id, created.id);
+      onChanged?.call();
+    },
+  );
+}
+
+Future<void> showConvertTagsSheet({
+  required BuildContext context,
+  required WidgetRef ref,
+  required ConvertOutput output,
+}) {
+  return _showTagsSheet(
+    context: context,
+    selectedOf: (ref) {
+      final latest =
+          ref
+              .watch(convertOutputsProvider)
+              .valueOrNull
+              ?.where((c) => c.path == output.path)
+              .firstOrNull ??
+          output;
+      return latest.tags.toSet();
+    },
+    onToggle: (ref, tagId) =>
+        ref.read(convertOutputsProvider.notifier).toggleTag(output.path, tagId),
+    onCreated: (ref, created) => ref
+        .read(convertOutputsProvider.notifier)
+        .addTag(output.path, created.id),
+  );
+}
+
+Future<void> _showTagsSheet({
+  required BuildContext context,
+  required Set<String> Function(WidgetRef ref) selectedOf,
+  required Future<void> Function(WidgetRef ref, String tagId) onToggle,
+  required Future<void> Function(WidgetRef ref, TagDef created) onCreated,
 }) async {
   await showModalBottomSheet<void>(
     context: context,
@@ -29,13 +84,7 @@ Future<void> showDocumentTagsSheet({
           builder: (ctx, ref, _) {
             final tags =
                 ref.watch(tagsProvider).valueOrNull ?? const <TagDef>[];
-            final latest = ref
-                    .watch(documentsProvider)
-                    .valueOrNull
-                    ?.where((d) => d.id == doc.id)
-                    .firstOrNull ??
-                doc;
-            final selected = latest.tags.toSet();
+            final selected = selectedOf(ref);
 
             return ConstrainedBox(
               constraints: BoxConstraints(
@@ -50,8 +99,8 @@ Future<void> showDocumentTagsSheet({
                   Text(
                     'Tap to add or remove. Manage colors in Settings.',
                     style: Theme.of(ctx).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(ctx).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(ctx).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   Flexible(
@@ -68,15 +117,11 @@ Future<void> showDocumentTagsSheet({
                                 backgroundColor: Color(tag.color),
                                 radius: 8,
                               ),
-                              selectedColor:
-                                  Color(tag.color).withValues(alpha: 0.28),
+                              selectedColor: Color(
+                                tag.color,
+                              ).withValues(alpha: 0.28),
                               checkmarkColor: Color(tag.color),
-                              onSelected: (_) async {
-                                await ref
-                                    .read(documentsProvider.notifier)
-                                    .toggleTag(doc.id, tag.id);
-                                onChanged?.call();
-                              },
+                              onSelected: (_) => onToggle(ref, tag.id),
                             ),
                           ActionChip(
                             avatar: const Icon(Icons.add, size: 18),
@@ -87,10 +132,7 @@ Future<void> showDocumentTagsSheet({
                                 ref: ref,
                               );
                               if (created != null) {
-                                await ref
-                                    .read(documentsProvider.notifier)
-                                    .addTag(doc.id, created.id);
-                                onChanged?.call();
+                                await onCreated(ref, created);
                               }
                             },
                           ),
@@ -148,10 +190,7 @@ Future<TagDef?> showCreateOrEditTagDialog({
                     ),
                   ),
                   const SizedBox(height: 16),
-                  Text(
-                    'Color',
-                    style: Theme.of(ctx).textTheme.titleSmall,
-                  ),
+                  Text('Color', style: Theme.of(ctx).textTheme.titleSmall),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 10,
@@ -209,9 +248,7 @@ Future<TagDef?> showCreateOrEditTagDialog({
                   },
                   child: Text(
                     'Delete',
-                    style: TextStyle(
-                      color: Theme.of(ctx).colorScheme.error,
-                    ),
+                    style: TextStyle(color: Theme.of(ctx).colorScheme.error),
                   ),
                 ),
               TextButton(
@@ -229,11 +266,9 @@ Future<TagDef?> showCreateOrEditTagDialog({
                           .create(name, color);
                       if (ctx.mounted) Navigator.pop(ctx, tag);
                     } else {
-                      await ref.read(tagsProvider.notifier).update(
-                            existing.id,
-                            name: name,
-                            color: color,
-                          );
+                      await ref
+                          .read(tagsProvider.notifier)
+                          .update(existing.id, name: name, color: color);
                       if (ctx.mounted) {
                         Navigator.pop(
                           ctx,
@@ -248,9 +283,9 @@ Future<TagDef?> showCreateOrEditTagDialog({
                     }
                   } catch (e) {
                     if (ctx.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('$e')),
-                      );
+                      ScaffoldMessenger.of(
+                        context,
+                      ).showSnackBar(SnackBar(content: Text('$e')));
                     }
                   }
                 },

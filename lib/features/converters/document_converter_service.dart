@@ -47,10 +47,10 @@ abstract final class DocumentConverterService {
       base = base.substring('incoming_'.length);
     }
     base = base.replaceFirst(RegExp(r'^_?src_\d+_'), '');
-    // Prior convert outputs: Contract_TXT_2026-08-16_1445
+    // Prior convert outputs: Contract_TXT_2026-08-16_1445 or …_144532
     base = base.replaceFirst(
       RegExp(
-        r'_(TXT|PDF|JPG|PNG|WEBP|GIF|CSV|DOCX|XLSX|CROP|RESIZE|COMPRESS)_\d{4}-\d{2}-\d{2}_\d{4}$',
+        r'_(TXT|PDF|JPG|PNG|WEBP|GIF|CSV|DOCX|XLSX|CROP|RESIZE|COMPRESS|MERGE|SPLIT|EXTRACT|ROTATE|REORDER|PAGES)_\d{4}-\d{2}-\d{2}_\d{4,6}(?:-\d+)?$',
       ),
       '',
     );
@@ -68,7 +68,7 @@ abstract final class DocumentConverterService {
     final now = at ?? DateTime.now();
     String two(int n) => n.toString().padLeft(2, '0');
     return '${now.year}-${two(now.month)}-${two(now.day)}_'
-        '${two(now.hour)}${two(now.minute)}';
+        '${two(now.hour)}${two(now.minute)}${two(now.second)}';
   }
 
   /// Output format: `Contract_TXT_2026-08-16_1445.txt`
@@ -92,7 +92,7 @@ abstract final class DocumentConverterService {
     );
     if (!await candidate.exists()) return candidate;
 
-    // Same-minute collision → append -2, -3…
+    // Same-second collision → append -2, -3…
     for (var i = 2; i < 100; i++) {
       candidate = File(
         p.join(
@@ -123,6 +123,21 @@ abstract final class DocumentConverterService {
     if (await file.exists()) {
       file = File(
         p.join(dir.path, 'incoming_${base}_${_timeStamp()}$ext'),
+      );
+    }
+    var n = 2;
+    while (await file.exists() && n < 100) {
+      file = File(
+        p.join(dir.path, 'incoming_${base}_${_timeStamp()}-$n$ext'),
+      );
+      n++;
+    }
+    if (await file.exists()) {
+      file = File(
+        p.join(
+          dir.path,
+          'incoming_${base}_${DateTime.now().millisecondsSinceEpoch}$ext',
+        ),
       );
     }
     await file.writeAsBytes(bytes, flush: true);
@@ -619,9 +634,9 @@ abstract final class DocumentConverterService {
     }
     final xml = XmlDocument.parse(utf8.decode(docFile.content as List<int>));
     final paragraphs = <String>[];
-    for (final pNode in xml.findAllElements('p', namespace: '*')) {
+    for (final pNode in xml.findAllElements('p', namespaceUri: '*')) {
       final parts = pNode
-          .findAllElements('t', namespace: '*')
+          .findAllElements('t', namespaceUri: '*')
           .map((t) => t.innerText)
           .join();
       final line = parts.trim();
@@ -759,9 +774,9 @@ abstract final class DocumentConverterService {
     final ss = archive.findFile('xl/sharedStrings.xml');
     if (ss != null) {
       final xml = XmlDocument.parse(utf8.decode(ss.content as List<int>));
-      for (final si in xml.findAllElements('si', namespace: '*')) {
+      for (final si in xml.findAllElements('si', namespaceUri: '*')) {
         final text = si
-            .findAllElements('t', namespace: '*')
+            .findAllElements('t', namespaceUri: '*')
             .map((t) => t.innerText)
             .join();
         shared.add(text);
@@ -784,11 +799,11 @@ abstract final class DocumentConverterService {
     final sheetXml =
         XmlDocument.parse(utf8.decode(sheetFile.content as List<int>));
     final rows = <List<String>>[];
-    for (final row in sheetXml.findAllElements('row', namespace: '*')) {
+    for (final row in sheetXml.findAllElements('row', namespaceUri: '*')) {
       final cells = <String>[];
-      for (final c in row.findAllElements('c', namespace: '*')) {
+      for (final c in row.findAllElements('c', namespaceUri: '*')) {
         final type = c.getAttribute('t');
-        final v = c.getElement('v', namespace: '*')?.innerText ?? '';
+        final v = c.getElement('v', namespaceUri: '*')?.innerText ?? '';
         if (type == 's') {
           final idx = int.tryParse(v) ?? -1;
           cells.add(idx >= 0 && idx < shared.length ? shared[idx] : v);

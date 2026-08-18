@@ -5,7 +5,6 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 
-import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_ui.dart';
 import 'convert_catalog.dart';
 import 'convert_result_panel.dart';
@@ -175,8 +174,8 @@ class _ImageCropToolScreenState extends State<ImageCropToolScreen> {
                         },
                         baseColor: scheme.surfaceContainerHighest,
                         maskColor: Colors.black.withValues(alpha: 0.55),
-                        cornerDotBuilder: (size, edge) => const DotControl(
-                          color: AppTheme.navy,
+                        cornerDotBuilder: (size, edge) => DotControl(
+                          color: scheme.primary,
                         ),
                       ),
                       if (_busy)

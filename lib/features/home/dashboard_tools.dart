@@ -5,18 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/theme/app_theme.dart';
 import '../converters/convert_catalog.dart';
 
-const _kDashboardToolsKey = 'dashboard_tool_ids_v6';
+const _kDashboardToolsKey = 'dashboard_tool_ids_v7';
 
-/// Not on Shortcuts: Scan = FAB · Convert = Convert tab.
-const kDashboardPinnedIds = <DashboardToolId>{
-  DashboardToolId.smartScan,
-  DashboardToolId.pdfTools,
-};
+/// Not on Shortcuts: Scan = FAB.
+const kDashboardPinnedIds = <DashboardToolId>{DashboardToolId.smartScan};
 
 /// All tools that can appear on the Home shortcut strip.
 enum DashboardToolId {
   smartScan,
-  pdfTools, // labeled “Convert” — opens Tools hub
+  pdfTools,
   importImages,
   files,
   tags,
@@ -31,6 +28,7 @@ enum DashboardToolId {
   xlsxToCsv,
   xlsxToPdf,
   imageFormats,
+
   /// Legacy — migrated to [imageFormats].
   editImages,
 }
@@ -38,6 +36,7 @@ enum DashboardToolId {
 /// Default shortcut tiles — Scan/Convert via FAB + Convert tab.
 const kDefaultDashboardTools = <DashboardToolId>[
   DashboardToolId.importImages,
+  DashboardToolId.pdfTools,
   DashboardToolId.qrReader,
   DashboardToolId.favorites,
   DashboardToolId.imageFormats,
@@ -66,12 +65,6 @@ const kDashboardToolCatalog = <DashboardToolMeta>[
     color: Color(0xFF1565C0),
   ),
   DashboardToolMeta(
-    id: DashboardToolId.files,
-    label: 'Files',
-    icon: Icons.inventory_2_outlined,
-    color: Color(0xFF455A64),
-  ),
-  DashboardToolMeta(
     id: DashboardToolId.tags,
     label: 'Tags',
     icon: Icons.local_offer_outlined,
@@ -94,6 +87,12 @@ const kDashboardToolCatalog = <DashboardToolMeta>[
     label: 'QR reader',
     icon: Icons.qr_code_scanner,
     color: Color(0xFF2F6F7E),
+  ),
+  DashboardToolMeta(
+    id: DashboardToolId.pdfTools,
+    label: 'PDF Tools',
+    icon: Icons.picture_as_pdf_outlined,
+    color: Color(0xFFC62828),
   ),
   DashboardToolMeta(
     id: DashboardToolId.pdfToTxt,
@@ -151,41 +150,44 @@ DashboardToolMeta? metaForTool(DashboardToolId id) {
   }
   return switch (id) {
     DashboardToolId.smartScan => const DashboardToolMeta(
-        id: DashboardToolId.smartScan,
-        label: 'Smart Scan',
-        icon: Icons.document_scanner_outlined,
-        color: AppTheme.navy,
-      ),
+      id: DashboardToolId.smartScan,
+      label: 'Smart Scan',
+      icon: Icons.document_scanner_outlined,
+      color: AppTheme.navy,
+    ),
     DashboardToolId.pdfTools => const DashboardToolMeta(
-        id: DashboardToolId.pdfTools,
-        label: 'Convert',
-        icon: Icons.swap_horiz,
-        color: Color(0xFFEF6C00),
-      ),
+      id: DashboardToolId.pdfTools,
+      label: 'PDF Tools',
+      icon: Icons.picture_as_pdf_outlined,
+      color: Color(0xFFC62828),
+    ),
     _ => null,
   };
 }
 
 /// Map dashboard convert shortcuts → Convert hub tool id.
 ConvertToolId? convertToolIdForDashboard(DashboardToolId id) => switch (id) {
-      DashboardToolId.pdfToTxt => ConvertToolId.pdfToTxt,
-      DashboardToolId.pdfToDocx => ConvertToolId.pdfToDocx,
-      DashboardToolId.txtToPdf => ConvertToolId.txtToPdf,
-      DashboardToolId.pptxToPdf => ConvertToolId.pptxToPdf,
-      DashboardToolId.docxToPdf => ConvertToolId.docxToPdf,
-      DashboardToolId.xlsxToCsv => ConvertToolId.xlsxToCsv,
-      DashboardToolId.xlsxToPdf => ConvertToolId.xlsxToPdf,
-      DashboardToolId.imageFormats || DashboardToolId.editImages =>
-        ConvertToolId.imageFormats,
-      _ => null,
-    };
+  DashboardToolId.pdfTools => ConvertToolId.pdfTools,
+  DashboardToolId.pdfToTxt => ConvertToolId.pdfToTxt,
+  DashboardToolId.pdfToDocx => ConvertToolId.pdfToDocx,
+  DashboardToolId.txtToPdf => ConvertToolId.txtToPdf,
+  DashboardToolId.pptxToPdf => ConvertToolId.pptxToPdf,
+  DashboardToolId.docxToPdf => ConvertToolId.docxToPdf,
+  DashboardToolId.xlsxToCsv => ConvertToolId.xlsxToCsv,
+  DashboardToolId.xlsxToPdf => ConvertToolId.xlsxToPdf,
+  DashboardToolId.imageFormats ||
+  DashboardToolId.editImages => ConvertToolId.imageFormats,
+  _ => null,
+};
 
 List<DashboardToolId> sanitizeDashboardTools(Iterable<DashboardToolId> ids) {
   final out = <DashboardToolId>[];
   for (final id in ids) {
     // Edit images merged into Images.
-    final resolved =
-        id == DashboardToolId.editImages ? DashboardToolId.imageFormats : id;
+    final resolved = id == DashboardToolId.editImages
+        ? DashboardToolId.imageFormats
+        : id;
+    if (resolved == DashboardToolId.files) continue;
     if (kDashboardPinnedIds.contains(resolved)) continue;
     if (out.contains(resolved)) continue;
     out.add(resolved);
@@ -196,8 +198,8 @@ List<DashboardToolId> sanitizeDashboardTools(Iterable<DashboardToolId> ids) {
 
 final dashboardToolsProvider =
     StateNotifierProvider<DashboardToolsController, List<DashboardToolId>>(
-  (ref) => DashboardToolsController(),
-);
+      (ref) => DashboardToolsController(),
+    );
 
 class DashboardToolsController extends StateNotifier<List<DashboardToolId>> {
   DashboardToolsController() : super(List.of(kDefaultDashboardTools)) {
@@ -206,27 +208,31 @@ class DashboardToolsController extends StateNotifier<List<DashboardToolId>> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    var fromV6 = true;
+    var fromV7 = true;
     var raw = prefs.getStringList(_kDashboardToolsKey);
     // Migrate older keys.
     if (raw == null || raw.isEmpty) {
-      fromV6 = false;
+      fromV7 = false;
+      raw = prefs.getStringList('dashboard_tool_ids_v6');
+    }
+    if (raw == null || raw.isEmpty) {
+      fromV7 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v5');
     }
     if (raw == null || raw.isEmpty) {
-      fromV6 = false;
+      fromV7 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v4');
     }
     if (raw == null || raw.isEmpty) {
-      fromV6 = false;
+      fromV7 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v3');
     }
     if (raw == null || raw.isEmpty) {
-      fromV6 = false;
+      fromV7 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v2');
     }
     if (raw == null || raw.isEmpty) {
-      fromV6 = false;
+      fromV7 = false;
       raw = prefs.getStringList('dashboard_tool_ids_v1');
     }
     if (raw == null || raw.isEmpty) return;
@@ -262,11 +268,15 @@ class DashboardToolsController extends StateNotifier<List<DashboardToolId>> {
       }
     }
 
-    if (!fromV6) {
+    if (!fromV7) {
       // Files is bottom nav; Import becomes a shortcut tile (Start card gone).
       parsed.removeWhere((id) => id == DashboardToolId.files);
       if (!parsed.contains(DashboardToolId.importImages)) {
         parsed.insert(0, DashboardToolId.importImages);
+      }
+      if (!parsed.contains(DashboardToolId.pdfTools)) {
+        final i = parsed.indexOf(DashboardToolId.importImages);
+        parsed.insert(i >= 0 ? i + 1 : 0, DashboardToolId.pdfTools);
       }
     }
 

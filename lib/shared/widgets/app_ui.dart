@@ -58,18 +58,9 @@ class AppButton extends StatelessWidget {
           );
 
     final button = switch (_variant) {
-      _Variant.filled => FilledButton(
-          onPressed: onPressed,
-          child: child,
-        ),
-      _Variant.outlined => OutlinedButton(
-          onPressed: onPressed,
-          child: child,
-        ),
-      _Variant.text => TextButton(
-          onPressed: onPressed,
-          child: child,
-        ),
+      _Variant.filled => FilledButton(onPressed: onPressed, child: child),
+      _Variant.outlined => OutlinedButton(onPressed: onPressed, child: child),
+      _Variant.text => TextButton(onPressed: onPressed, child: child),
     };
 
     if (!expand) return button;
@@ -122,24 +113,14 @@ class _AppCardState extends State<AppCard> {
       child: AnimatedScale(
         scale: _pressed && canPress ? 0.97 : 1,
         duration: AppMotion.press,
-        curve: _pressed
-            ? AppMotion.emphasizedAccelerate
-            : AppMotion.softSpring,
+        curve: _pressed ? AppMotion.emphasizedAccelerate : AppMotion.softSpring,
         child: AnimatedContainer(
           duration: AppMotion.press,
           curve: AppMotion.emphasized,
           decoration: BoxDecoration(
             borderRadius: radius,
             boxShadow: widget.elevated && isLight
-                ? [
-                    BoxShadow(
-                      color: Colors.black.withValues(
-                        alpha: _pressed ? 0.04 : 0.07,
-                      ),
-                      blurRadius: _pressed ? 6 : 14,
-                      offset: Offset(0, _pressed ? 2 : 4),
-                    ),
-                  ]
+                ? AppTheme.cardShadow(pressed: _pressed && canPress)
                 : null,
           ),
           child: Material(
@@ -149,19 +130,28 @@ class _AppCardState extends State<AppCard> {
               borderRadius: radius,
               side: widget.bordered
                   ? BorderSide(
-                      color: scheme.outlineVariant.withValues(alpha: 0.9),
+                      color: scheme.outlineVariant.withValues(
+                        alpha: isLight ? 0.85 : 1,
+                      ),
                     )
-                  : BorderSide.none,
+                  : (isLight
+                        ? BorderSide.none
+                        : BorderSide(
+                            color: scheme.outlineVariant.withValues(alpha: 0.9),
+                          )),
             ),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: widget.onTap,
-              onTapDown:
-                  canPress ? (_) => setState(() => _pressed = true) : null,
-              onTapUp:
-                  canPress ? (_) => setState(() => _pressed = false) : null,
-              onTapCancel:
-                  canPress ? () => setState(() => _pressed = false) : null,
+              onTapDown: canPress
+                  ? (_) => setState(() => _pressed = true)
+                  : null,
+              onTapUp: canPress
+                  ? (_) => setState(() => _pressed = false)
+                  : null,
+              onTapCancel: canPress
+                  ? () => setState(() => _pressed = false)
+                  : null,
               borderRadius: radius,
               child: Padding(padding: widget.padding, child: widget.child),
             ),
@@ -186,6 +176,7 @@ class AppEmptyState extends StatelessWidget {
     this.onSecondary,
     this.secondaryIcon,
     this.padding = const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
+    this.centered = true,
   });
 
   final String title;
@@ -198,60 +189,58 @@ class AppEmptyState extends StatelessWidget {
   final VoidCallback? onSecondary;
   final IconData? secondaryIcon;
   final EdgeInsetsGeometry padding;
+  final bool centered;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
 
-    return FadeRiseIn(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: padding,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              illustration ??
-                  _DefaultDocIllustration(color: scheme.primary),
-              const SizedBox(height: 20),
-              Text(
-                title,
-                style: text.titleLarge,
-                textAlign: TextAlign.center,
+    final content = Padding(
+      padding: padding,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          illustration ?? _DefaultDocIllustration(color: scheme.primary),
+          const SizedBox(height: 16),
+          Text(title, style: text.titleLarge, textAlign: TextAlign.center),
+          if (subtitle.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: text.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.4,
               ),
-              if (subtitle.trim().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Text(
-                  subtitle,
-                  style: text.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    height: 1.4,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-              if (primaryLabel != null && onPrimary != null) ...[
-                const SizedBox(height: 20),
-                AppButton.filled(
-                  label: primaryLabel!,
-                  onPressed: onPrimary,
-                  icon: primaryIcon ?? Icons.document_scanner_outlined,
-                  expand: true,
-                ),
-              ],
-              if (secondaryLabel != null && onSecondary != null) ...[
-                const SizedBox(height: 8),
-                AppButton.outlined(
-                  label: secondaryLabel!,
-                  onPressed: onSecondary,
-                  icon: secondaryIcon ?? Icons.picture_as_pdf_outlined,
-                  expand: true,
-                ),
-              ],
-            ],
-          ),
-        ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          if (primaryLabel != null && onPrimary != null) ...[
+            const SizedBox(height: 16),
+            AppButton.filled(
+              label: primaryLabel!,
+              onPressed: onPrimary,
+              icon: primaryIcon ?? Icons.document_scanner_outlined,
+              expand: true,
+            ),
+          ],
+          if (secondaryLabel != null && onSecondary != null) ...[
+            const SizedBox(height: 8),
+            AppButton.outlined(
+              label: secondaryLabel!,
+              onPressed: onSecondary,
+              icon: secondaryIcon ?? Icons.picture_as_pdf_outlined,
+              expand: true,
+            ),
+          ],
+        ],
       ),
+    );
+
+    return FadeRiseIn(
+      child: centered
+          ? Center(child: SingleChildScrollView(child: content))
+          : content,
     );
   }
 }
@@ -342,9 +331,7 @@ class _DefaultDocIllustration extends StatelessWidget {
             child: SizedBox(
               width: 108,
               height: 118,
-              child: CustomPaint(
-                painter: _ScanFramePainter(color: color),
-              ),
+              child: CustomPaint(painter: _ScanFramePainter(color: color)),
             ),
           ),
         ],
@@ -466,11 +453,7 @@ class _ScanFramePainter extends CustomPainter {
       Offset(0, size.height),
       paint,
     );
-    canvas.drawLine(
-      Offset(0, size.height),
-      Offset(len, size.height),
-      paint,
-    );
+    canvas.drawLine(Offset(0, size.height), Offset(len, size.height), paint);
     // Bottom-right
     canvas.drawLine(
       Offset(size.width - len, size.height),
@@ -514,53 +497,65 @@ class AppSearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final isLight = Theme.of(context).brightness == Brightness.light;
 
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
         final hasText = controller.text.trim().isNotEmpty;
-        return TextField(
-          controller: controller,
-          focusNode: focusNode,
-          style: dense ? text.bodyMedium : text.bodyLarge,
-          textInputAction: TextInputAction.search,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
-          onTapOutside: (_) => focusNode?.unfocus(),
-          decoration: InputDecoration(
-            hintText: hintText,
-            prefixIcon: Icon(Icons.search, size: dense ? 20 : 22),
-            isDense: dense,
-            filled: true,
-            fillColor: scheme.surfaceContainerHighest,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              borderSide: BorderSide.none,
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+            boxShadow: isLight ? AppTheme.cardShadow() : null,
+          ),
+          child: TextField(
+            controller: controller,
+            focusNode: focusNode,
+            style: dense ? text.bodyMedium : text.bodyLarge,
+            textInputAction: TextInputAction.search,
+            onChanged: onChanged,
+            onSubmitted: onSubmitted,
+            onTapOutside: (_) => focusNode?.unfocus(),
+            decoration: InputDecoration(
+              hintText: hintText,
+              prefixIcon: Icon(Icons.search, size: dense ? 20 : 22),
+              isDense: dense,
+              filled: true,
+              fillColor: isLight
+                  ? scheme.surface
+                  : scheme.surfaceContainerHighest.withValues(alpha: 0.55),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                borderSide: BorderSide.none,
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusPill),
+                borderSide: BorderSide(
+                  color: scheme.primary.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+              ),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: dense ? 12 : 16,
+              ),
+              suffixIcon: hasText
+                  ? IconButton(
+                      tooltip: 'Clear search',
+                      icon: Icon(Icons.close, size: dense ? 18 : 20),
+                      onPressed: () {
+                        controller.clear();
+                        onClear?.call();
+                        onChanged?.call('');
+                        focusNode?.unfocus();
+                      },
+                    )
+                  : null,
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusSm),
-              borderSide: BorderSide(color: scheme.primary, width: 1.5),
-            ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: dense ? 10 : 14,
-            ),
-            suffixIcon: hasText
-                ? IconButton(
-                    tooltip: 'Clear search',
-                    icon: Icon(Icons.close, size: dense ? 18 : 20),
-                    onPressed: () {
-                      controller.clear();
-                      onClear?.call();
-                      onChanged?.call('');
-                      focusNode?.unfocus();
-                    },
-                  )
-                : null,
           ),
         );
       },
@@ -605,11 +600,7 @@ class AppErrorState extends StatelessWidget {
 
 /// Inline / full-screen short loading with contextual message.
 class AppLoadingState extends StatelessWidget {
-  const AppLoadingState({
-    super.key,
-    required this.message,
-    this.subtitle,
-  });
+  const AppLoadingState({super.key, required this.message, this.subtitle});
 
   final String message;
   final String? subtitle;
@@ -670,10 +661,7 @@ class AppProgressCard extends StatelessWidget {
           SizedBox(
             width: 40,
             height: 40,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              value: progress,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 3, value: progress),
           ),
           const SizedBox(height: 16),
           Text(title, textAlign: TextAlign.center, style: text.titleMedium),
@@ -722,11 +710,7 @@ class AppListSkeleton extends StatelessWidget {
 
 /// Dimmed overlay with spinner + friendly label.
 class LoadingOverlay extends StatelessWidget {
-  const LoadingOverlay({
-    super.key,
-    required this.message,
-    this.progress,
-  });
+  const LoadingOverlay({super.key, required this.message, this.progress});
 
   final String message;
   final double? progress;
@@ -765,24 +749,24 @@ class LoadingOverlay extends StatelessWidget {
                       height: 48,
                       child: CircularProgressIndicator(strokeWidth: 3),
                     ),
-                const SizedBox(height: 18),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: text.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'This stays on your device',
-                  textAlign: TextAlign.center,
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+                  const SizedBox(height: 18),
+                  Text(
+                    message,
+                    textAlign: TextAlign.center,
+                    style: text.titleMedium,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    'This stays on your device',
+                    textAlign: TextAlign.center,
+                    style: text.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         ),
       ),
     );
@@ -833,22 +817,22 @@ class AppCircleIconButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final label = tooltip ?? 'Button';
+    final isLight = Theme.of(context).brightness == Brightness.light;
     final btn = Semantics(
       button: true,
       label: label,
       child: Material(
-        color: scheme.surface,
-        shape: CircleBorder(
-          side: BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.8)),
-        ),
+        color: isLight ? scheme.surface : scheme.surfaceContainerHighest,
+        shape: const CircleBorder(),
         elevation: 0,
+        shadowColor: Colors.transparent,
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: onPressed,
           child: SizedBox(
             width: size,
             height: size,
-            child: Icon(icon, size: 24, color: scheme.onSurface),
+            child: Icon(icon, size: 22, color: scheme.onSurface),
           ),
         ),
       ),
@@ -880,11 +864,12 @@ class SectionHeader extends StatelessWidget {
         children: [
           Expanded(
             child: Text(
-              title,
-              style: text.titleSmall?.copyWith(
+              title.toUpperCase(),
+              style: text.labelSmall?.copyWith(
                 color: scheme.onSurfaceVariant,
-                letterSpacing: 0.2,
+                letterSpacing: 1.4,
                 fontWeight: FontWeight.w700,
+                fontSize: 11,
               ),
             ),
           ),
@@ -926,9 +911,7 @@ class PrivacyBadge extends StatelessWidget {
         decoration: BoxDecoration(
           color: scheme.primaryContainer.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: scheme.primary.withValues(alpha: 0.18),
-          ),
+          border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -957,23 +940,22 @@ class PrivacyBadge extends StatelessWidget {
 
 /// Meta chip for document cards (pages, PDF, size, date).
 class MetaChip extends StatelessWidget {
-  const MetaChip({
-    super.key,
-    required this.label,
-    this.color,
-  });
+  const MetaChip({super.key, required this.label, this.color});
 
   final String label;
+
   /// Optional brand/tag color (fill + contrasting label).
   final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final bg = color?.withValues(alpha: 0.18) ??
+    final bg =
+        color?.withValues(alpha: 0.18) ??
         scheme.surfaceContainerHighest.withValues(alpha: 0.85);
     final fg = color ?? scheme.onSurfaceVariant;
-    final border = color?.withValues(alpha: 0.45) ??
+    final border =
+        color?.withValues(alpha: 0.45) ??
         scheme.outlineVariant.withValues(alpha: 0.6);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -985,9 +967,9 @@ class MetaChip extends StatelessWidget {
       child: Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: fg,
-              fontWeight: FontWeight.w700,
-            ),
+          color: fg,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1058,8 +1040,9 @@ Future<bool> showConfirmSheet({
               width: 56,
               height: 56,
               decoration: BoxDecoration(
-                color: (destructive ? scheme.error : scheme.primary)
-                    .withValues(alpha: 0.12),
+                color: (destructive ? scheme.error : scheme.primary).withValues(
+                  alpha: 0.12,
+                ),
                 shape: BoxShape.circle,
               ),
               child: Icon(

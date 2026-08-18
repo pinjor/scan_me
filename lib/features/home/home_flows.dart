@@ -16,10 +16,7 @@ abstract final class HomeFlows {
     await AppPageRoute.push(context, const ScanCaptureScreen());
   }
 
-  static Future<void> imagesToPdf(
-    BuildContext context,
-    WidgetRef ref,
-  ) async {
+  static Future<void> imagesToPdf(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
@@ -42,9 +39,7 @@ abstract final class HomeFlows {
       if (context.mounted) navigator.pop();
       if (!context.mounted) return;
       await navigator.push(
-        AppPageRoute(
-          builder: (_) => const ReviewScreen(discardOnPop: true),
-        ),
+        AppPageRoute(builder: (_) => const ReviewScreen(discardOnPop: true)),
       );
     } catch (e) {
       if (context.mounted) navigator.pop();

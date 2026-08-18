@@ -48,7 +48,9 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     final scheme = Theme.of(context).colorScheme;
     final pageCount = session?.pages.length ?? 0;
 
-    return Scaffold(
+    return PopScope(
+      canPop: !_busy,
+      child: Scaffold(
       appBar: AppBar(
         leading: scanMeAppBarLeading(context),
         title: const Text('Save document'),
@@ -308,6 +310,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
                 ),
               ],
             ),
+      ),
     );
   }
 
@@ -375,11 +378,18 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
   }
 
   Future<void> _export() async {
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a document name.')),
+      );
+      return;
+    }
     setState(() {
       _busy = true;
       _progress = 'Preparing pages…';
     });
-    ref.read(editorSessionProvider.notifier).setName(_nameController.text);
+    ref.read(editorSessionProvider.notifier).setName(name);
     _settings.currentPageIndex =
         ref.read(editorSessionProvider)?.selectedIndex ?? 0;
     try {

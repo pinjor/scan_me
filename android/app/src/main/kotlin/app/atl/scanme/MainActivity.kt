@@ -204,6 +204,19 @@ class MainActivity : FlutterFragmentActivity() {
         val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)
         return if (ext.isNullOrBlank()) {
             when (mime) {
+                "application/pdf" -> ".pdf"
+                "text/plain" -> ".txt"
+                "text/csv", "text/comma-separated-values" -> ".csv"
+                "text/markdown" -> ".md"
+                "image/jpeg" -> ".jpg"
+                "image/png" -> ".png"
+                "image/webp" -> ".webp"
+                "image/gif" -> ".gif"
+                "image/heic", "image/heif" -> ".heic"
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ->
+                    ".docx"
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ->
+                    ".xlsx"
                 "application/vnd.openxmlformats-officedocument.presentationml.presentation" ->
                     ".pptx"
                 else -> ".bin"
