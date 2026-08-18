@@ -383,7 +383,7 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
     _settings.currentPageIndex =
         ref.read(editorSessionProvider)?.selectedIndex ?? 0;
     try {
-      await ref.read(editorSessionProvider.notifier).export(
+      final outcome = await ref.read(editorSessionProvider.notifier).export(
             settings: _settings,
             onProgress: (label) {
               if (mounted) setState(() => _progress = label);
@@ -394,11 +394,16 @@ class _ExportScreenState extends ConsumerState<ExportScreen> {
         if (_settings.createPdf) 'PDF',
         if (_settings.saveImages) 'Images',
       ];
+      // File manager already ran during export — do not say “pick a folder”.
+      final deviceNote = !_settings.alsoSaveToDevice
+          ? ''
+          : outcome.deviceSavedCount > 0
+              ? ' · saved to device'
+              : ' · device copy skipped';
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Document saved · ${parts.join(' · ')}'
-            '${_settings.alsoSaveToDevice ? ' · pick a folder for device copy' : ''}',
+            'Document saved · ${parts.join(' · ')}$deviceNote',
           ),
         ),
       );

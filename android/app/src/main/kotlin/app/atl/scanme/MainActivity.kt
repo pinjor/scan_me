@@ -4,10 +4,12 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.view.WindowManager
 import android.webkit.MimeTypeMap
-import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -26,8 +28,30 @@ class MainActivity : FlutterFragmentActivity() {
     private var pendingOpen: Map<String, String>? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // Java EdgeToEdge.enable — Play Pre-launch looks for this.
+        PlayEdgeToEdge.enable(this)
+        applyEdgeToEdgeCutout()
         super.onCreate(savedInstanceState)
+        // FlutterFragmentActivity.onCreate may reset chrome; pin cutout again.
+        applyEdgeToEdgeCutout()
+    }
+
+    override fun onPostResume() {
+        super.onPostResume()
+        applyEdgeToEdgeCutout()
+    }
+
+    /**
+     * Backward-compat edge-to-edge + cutout ALWAYS (not deprecated SHORT_EDGES).
+     */
+    private fun applyEdgeToEdgeCutout() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val lp = window.attributes
+            lp.layoutInDisplayCutoutMode =
+                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            window.attributes = lp
+        }
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -75,8 +99,21 @@ class MainActivity : FlutterFragmentActivity() {
         handleViewIntent(intent)
     }
 
-    private fun heicFileToJpeg(path: String): ByteArray? {
+    private fun heicFileToJpeg(path: String, maxLongEdge: Int = 4096): ByteArray? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(path, bounds)
+        val w = bounds.outWidth
+        val h = bounds.outHeight
+        if (w <= 0 || h <= 0) return null
+
+        var sample = 1
+        val longEdge = maxOf(w, h)
+        while (longEdge / sample > maxLongEdge) {
+            sample *= 2
+        }
+
         val opts = BitmapFactory.Options().apply {
+            inSampleSize = sample
             inPreferredConfig = Bitmap.Config.ARGB_8888
         }
         val bitmap = BitmapFactory.decodeFile(path, opts) ?: return null

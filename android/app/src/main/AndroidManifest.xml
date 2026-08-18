@@ -46,14 +46,14 @@
             </intent-filter>
         </activity>
 
-        <!-- Open-with tool entries (icons + capability labels). -->
+        <!-- Open-with tool entries (ScanMe icon + capability labels). -->
         <activity-alias
             android:name=".OpenViewPdf"
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="View PDF"
-            android:icon="@drawable/ic_alias_view_pdf"
-            android:roundIcon="@drawable/ic_alias_view_pdf">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -68,8 +68,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="PDF to .txt"
-            android:icon="@drawable/ic_alias_pdf_to_txt"
-            android:roundIcon="@drawable/ic_alias_pdf_to_txt">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -84,8 +84,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="PDF to DOCX"
-            android:icon="@drawable/ic_alias_pdf_to_docx"
-            android:roundIcon="@drawable/ic_alias_pdf_to_docx">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -100,8 +100,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="View text"
-            android:icon="@drawable/ic_alias_view_txt"
-            android:roundIcon="@drawable/ic_alias_view_txt">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -117,8 +117,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label=".txt to PDF"
-            android:icon="@drawable/ic_alias_txt_to_pdf"
-            android:roundIcon="@drawable/ic_alias_txt_to_pdf">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -133,8 +133,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="View image"
-            android:icon="@drawable/ic_alias_view_image"
-            android:roundIcon="@drawable/ic_alias_view_image">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -149,8 +149,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="PNG to JPG"
-            android:icon="@drawable/ic_alias_png_to_jpg"
-            android:roundIcon="@drawable/ic_alias_png_to_jpg">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -168,8 +168,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="JPG to PNG"
-            android:icon="@drawable/ic_alias_jpg_to_png"
-            android:roundIcon="@drawable/ic_alias_jpg_to_png">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -184,8 +184,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="View slides"
-            android:icon="@drawable/ic_alias_view_pptx"
-            android:roundIcon="@drawable/ic_alias_view_pptx">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -201,8 +201,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="PPTX to PDF"
-            android:icon="@drawable/ic_alias_pptx_to_pdf"
-            android:roundIcon="@drawable/ic_alias_pptx_to_pdf">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -217,8 +217,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="DOCX to PDF"
-            android:icon="@drawable/ic_alias_docx_to_pdf"
-            android:roundIcon="@drawable/ic_alias_docx_to_pdf">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -233,8 +233,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="XLSX to CSV"
-            android:icon="@drawable/ic_alias_xlsx_to_csv"
-            android:roundIcon="@drawable/ic_alias_xlsx_to_csv">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -249,8 +249,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="XLSX to PDF"
-            android:icon="@drawable/ic_alias_xlsx_to_pdf"
-            android:roundIcon="@drawable/ic_alias_xlsx_to_pdf">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -265,8 +265,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="Image to JPG"
-            android:icon="@drawable/ic_alias_to_jpg"
-            android:roundIcon="@drawable/ic_alias_to_jpg">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -281,8 +281,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="Image to PNG"
-            android:icon="@drawable/ic_alias_to_png"
-            android:roundIcon="@drawable/ic_alias_to_png">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -297,8 +297,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="Image to WebP"
-            android:icon="@drawable/ic_alias_to_webp"
-            android:roundIcon="@drawable/ic_alias_to_webp">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -313,8 +313,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="Image to GIF"
-            android:icon="@drawable/ic_alias_to_gif"
-            android:roundIcon="@drawable/ic_alias_to_gif">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -329,8 +329,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="HEIC to JPG"
-            android:icon="@drawable/ic_alias_heic_to_jpg"
-            android:roundIcon="@drawable/ic_alias_heic_to_jpg">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -346,8 +346,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="Crop in ScanMe"
-            android:icon="@drawable/ic_alias_crop"
-            android:roundIcon="@drawable/ic_alias_crop">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -362,8 +362,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="Resize in ScanMe"
-            android:icon="@drawable/ic_alias_resize"
-            android:roundIcon="@drawable/ic_alias_resize">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -378,8 +378,8 @@
             android:targetActivity=".MainActivity"
             android:exported="true"
             android:label="Compress in ScanMe"
-            android:icon="@drawable/ic_alias_compress"
-            android:roundIcon="@drawable/ic_alias_compress">
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />

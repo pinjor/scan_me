@@ -113,6 +113,7 @@ App chrome: tabs + center Scan FAB. Hosts Home, Files, Convert, Me.
 - Tab switch unfocuses keyboard
 - Reduce-motion: jump page (no anim)
 - `resizeToAvoidBottomInset: false`
+- **Soft update reminder (Android):** after first frame, if Play reports an update and snooze expired → dialog **Update available** · **Remind later** (3 days) · **Update now** (opens Play Store listing). Not forced. Silent if sideload / no Play update.
 
 ---
 
@@ -131,7 +132,7 @@ Compact home: find docs fast · shortcuts · continue where you left off. Scan =
 1. **Header** — **ScanMe** · tagline · **light/dark toggle** (Me tab still has full Appearance)
 2. **Search** — dense · submit → Files with query
 3. **Shortcuts** — non-scrollable **4-col tile grid**. Defaults: Import · QR · Favorites · Edit photo · Add. Scan / Convert not listed (FAB + Convert tab). Long-press removes.
-4. **Continue** — “View all” → Files · up to 8 `DocumentCard`s
+4. **Continue** — “View all” → Files · up to 8 cards (scans **+** convert outputs, newest first)
 
 Prefs key `dashboard_tool_ids_v5`.
 
@@ -380,7 +381,7 @@ Card: “Saving document” + contextual line + linear bar.
 
 ### Success / error
 
-SnackBar “Document saved · PDF · …” → pop Home · clear session.  
+SnackBar “Document saved · PDF · …” (+ “saved to device” / “device copy skipped” if Also save was on) → pop Home · clear session.  
 Errors: friendly copy, no stack traces.
 
 ---
@@ -472,7 +473,7 @@ Intuitive groups — not a wall of technical tools.
 3. Primary CTA — Choose file / Convert another  
 4. Busy card — progress label  
 5. Error — `AppEmptyState` Try again  
-6. **`ConvertResultPanel`** — success check · Ready · type · size · Open / Save / Share  
+6. **`ConvertResultPanel`** — success check · Ready to use · type · size · file chip · equal **Open / Save / Share** tiles (Open primary navy)  
 
 ### Catalog tools on this screen
 
@@ -506,7 +507,7 @@ Same as convert tool: compact hero → auto-run progress → error (Retry / View
 
 ### Android
 
-Activity-aliases + per-tool icons (incl. **PDF to DOCX**). Reinstall to refresh Open-with list.
+Activity-aliases · **ScanMe launcher icon** + per-tool labels (incl. **PDF to DOCX**). Reinstall/update to refresh Open-with icons.
 
 ---
 

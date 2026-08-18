@@ -16,3 +16,12 @@
 
 # Coroutines (plugins)
 -dontwarn kotlinx.coroutines.**
+
+# Play Pre-launch: keep EdgeToEdge.enable() recognizable after R8
+# (obfuscated names look like b.a0.b and the checker misses the call).
+-keep class androidx.activity.EdgeToEdge { *; }
+-keepclassmembers class androidx.activity.EdgeToEdge {
+    public static *** enable(...);
+}
+-keep class app.atl.scanme.MainActivity { *; }
+-keep class app.atl.scanme.PlayEdgeToEdge { *; }

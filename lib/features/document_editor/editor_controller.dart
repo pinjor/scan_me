@@ -374,7 +374,9 @@ class EditorController extends StateNotifier<EditorSession?> {
     state = s.copyWith(name: name);
   }
 
-  Future<ScannedDocument> export({
+  /// Library export. [deviceSavedCount] = how many system “Save as” dialogs
+  /// completed (0 if toggle off or user cancelled every one).
+  Future<({ScannedDocument doc, int deviceSavedCount})> export({
     required ExportSettings settings,
     void Function(String label)? onProgress,
   }) async {
@@ -492,23 +494,25 @@ class EditorController extends StateNotifier<EditorSession?> {
     await _storage.saveDocument(doc);
     await _ref.read(documentsProvider.notifier).refresh();
 
+    var deviceSavedCount = 0;
     if (settings.alsoSaveToDevice) {
       onProgress?.call('Saving to device…');
       try {
         if (pdfPath != null) {
-          await DeviceSaveService.saveFile(sourcePath: pdfPath);
+          final where = await DeviceSaveService.saveFile(sourcePath: pdfPath);
+          if (where != null) deviceSavedCount++;
         }
         for (final path in exportImages) {
-          await DeviceSaveService.saveFile(sourcePath: path);
+          final where = await DeviceSaveService.saveFile(sourcePath: path);
+          if (where != null) deviceSavedCount++;
         }
       } catch (e, st) {
         if (kDebugMode) debugPrint('alsoSaveToDevice: $e\n$st');
-        // Library save already succeeded; surface soft failure via rethrow only
-        // if nothing was written to library — keep going.
+        // Library save already succeeded — device copy is optional.
       }
     }
 
-    return doc;
+    return (doc: doc, deviceSavedCount: deviceSavedCount);
   }
 
   List<int> _imageIndexes(ExportSettings settings, int pageCount) {

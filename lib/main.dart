@@ -10,15 +10,10 @@ import 'shared/widgets/scanme_widget_bridge.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Edge-to-edge on all Android versions (required path for SDK 35+).
+  // Do not set statusBarColor / navigationBarColor — those map to
+  // Window.setStatusBarColor / setNavigationBarColor (deprecated on API 35).
+  // Native enableEdgeToEdge() + theme keep bars transparent.
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      systemNavigationBarColor: Colors.transparent,
-      systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarContrastEnforced: false,
-    ),
-  );
   ScanMeWidgetRouter.onNewScan = (_) async {};
   OpenFileIntentBridge.ensureListening();
   runApp(const ProviderScope(child: ScanMeApp()));
@@ -48,16 +43,14 @@ class ScanMeApp extends ConsumerWidget {
         final lightBars = brightness == Brightness.light;
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: SystemUiOverlayStyle(
-            statusBarColor: Colors.transparent,
-            systemNavigationBarColor: Colors.transparent,
-            systemNavigationBarDividerColor: Colors.transparent,
-            systemNavigationBarContrastEnforced: false,
+            // Icon appearance only — avoid deprecated bar color APIs.
             statusBarIconBrightness:
                 lightBars ? Brightness.dark : Brightness.light,
             statusBarBrightness:
                 lightBars ? Brightness.light : Brightness.dark,
             systemNavigationBarIconBrightness:
                 lightBars ? Brightness.dark : Brightness.light,
+            systemNavigationBarContrastEnforced: false,
           ),
           child: MediaQuery(
             data: mq.copyWith(textScaler: scaler),

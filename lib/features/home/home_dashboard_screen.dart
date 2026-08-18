@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/services/convert_outputs_service.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/library_models.dart';
 import '../../shared/models/scanned_document.dart';
@@ -12,6 +15,7 @@ import '../../shared/widgets/tag_sheets.dart';
 import '../converters/convert_catalog.dart';
 import '../converters/convert_tool_screen.dart';
 import '../converters/image_formats_hub_screen.dart';
+import '../file_viewer/file_viewer_screen.dart';
 import '../qr/qr_reader_screen.dart';
 import '../viewer/viewer_screen.dart';
 import 'dashboard_tools.dart';
@@ -46,6 +50,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive && !widget.isActive) {
       _searchFocus.unfocus();
+    }
+    if (!oldWidget.isActive && widget.isActive) {
+      ref.read(convertOutputsProvider.notifier).refresh();
     }
   }
 
@@ -207,6 +214,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final docsAsync = ref.watch(documentsProvider);
+    final convertsAsync = ref.watch(convertOutputsProvider);
     final tagsAsync = ref.watch(tagsProvider);
     final search = ref.watch(libraryQueryProvider).search;
     final scheme = Theme.of(context).colorScheme;
@@ -353,7 +361,8 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   for (final t in tagCatalog) t.id: t.name,
                 };
                 final searching = search.trim().isNotEmpty;
-                final recents = filterAndSortDocuments(
+                final q = search.trim().toLowerCase();
+                final docs = filterAndSortDocuments(
                   all,
                   LibraryQuery(
                     search: search,
@@ -361,7 +370,23 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     favoritesFirst: false,
                   ),
                   tagNamesById: tagNamesById,
-                ).take(searching ? 20 : 8).toList();
+                );
+                final converts = (convertsAsync.valueOrNull ?? const [])
+                    .where(
+                      (c) =>
+                          !searching ||
+                          c.name.toLowerCase().contains(q) ||
+                          (c.kindLabel?.toLowerCase().contains(q) ?? false),
+                    )
+                    .toList();
+
+                final entries = <_ContinueEntry>[
+                  for (final d in docs) _ContinueDoc(d),
+                  for (final c in converts) _ContinueConvert(c),
+                ]..sort((a, b) => b.sortAt.compareTo(a.sortAt));
+
+                final recents =
+                    entries.take(searching ? 20 : 8).toList();
                 if (recents.isEmpty) {
                   return SliverFillRemaining(
                     hasScrollBody: false,
@@ -380,7 +405,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                                 const EdgeInsets.fromLTRB(24, 8, 24, 100),
                             title: 'Nothing here yet',
                             subtitle:
-                                'Scans and imports will show up under Continue.',
+                                'Scans, imports, and converts show up under Continue.',
                           ),
                   );
                 }
@@ -391,17 +416,31 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     itemCount: recents.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 6),
                     itemBuilder: (context, index) {
-                      final doc = recents[index];
+                      final entry = recents[index];
                       return FadeRiseIn(
-                        child: DocumentCard(
-                          doc: doc,
-                          tagDefs: tagDefs,
-                          onOpen: () => AppPageRoute.push(
-                            context,
-                            ViewerScreen(documentId: doc.id),
-                          ),
-                          onMore: () => _showQuickActions(context, doc),
-                        ),
+                        child: switch (entry) {
+                          _ContinueDoc(:final doc) => DocumentCard(
+                              doc: doc,
+                              tagDefs: tagDefs,
+                              onOpen: () => AppPageRoute.push(
+                                context,
+                                ViewerScreen(documentId: doc.id),
+                              ),
+                              onMore: () =>
+                                  _showQuickActions(context, doc),
+                            ),
+                          _ContinueConvert(:final output) =>
+                            _ConvertContinueCard(
+                              output: output,
+                              onOpen: () => FileViewerScreen.open(
+                                context,
+                                output.path,
+                                title: output.name,
+                              ),
+                              onMore: () =>
+                                  _showConvertActions(context, output),
+                            ),
+                        },
                       );
                     },
                   ),
@@ -410,6 +449,42 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Future<void> _showConvertActions(
+    BuildContext context,
+    ConvertOutput output,
+  ) async {
+    await showAppBottomSheet<void>(
+      context: context,
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.description_outlined),
+            title: const Text('Open'),
+            onTap: () {
+              Navigator.pop(ctx);
+              FileViewerScreen.open(
+                context,
+                output.path,
+                title: output.name,
+              );
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.delete_outline),
+            title: const Text('Remove from converts'),
+            onTap: () async {
+              Navigator.pop(ctx);
+              await ConvertOutputsService.delete(output.path);
+              if (!mounted) return;
+              await ref.read(convertOutputsProvider.notifier).refresh();
+            },
+          ),
+        ],
       ),
     );
   }
@@ -457,6 +532,138 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
         ],
       ),
     );
+  }
+}
+
+sealed class _ContinueEntry {
+  DateTime get sortAt;
+}
+
+class _ContinueDoc extends _ContinueEntry {
+  _ContinueDoc(this.doc);
+  final ScannedDocument doc;
+  @override
+  DateTime get sortAt => doc.updatedAt;
+}
+
+class _ContinueConvert extends _ContinueEntry {
+  _ContinueConvert(this.output);
+  final ConvertOutput output;
+  @override
+  DateTime get sortAt => output.modifiedAt;
+}
+
+class _ConvertContinueCard extends StatelessWidget {
+  const _ConvertContinueCard({
+    required this.output,
+    required this.onOpen,
+    required this.onMore,
+  });
+
+  final ConvertOutput output;
+  final VoidCallback onOpen;
+  final VoidCallback onMore;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final text = Theme.of(context).textTheme;
+    final date = _friendlyDate(output.modifiedAt);
+    final meta = [output.meta, date].join(' · ');
+    final isImage = _isImage(output.name);
+
+    return Semantics(
+      button: true,
+      label: '${output.name}, $meta',
+      child: AppCard(
+        onTap: onOpen,
+        elevated: false,
+        padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 56,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest,
+                  border: Border.all(color: scheme.outlineVariant),
+                ),
+                child: isImage
+                    ? Image.file(
+                        File(output.path),
+                        fit: BoxFit.cover,
+                        cacheWidth: 160,
+                        filterQuality: FilterQuality.medium,
+                        errorBuilder: (_, _, _) => Icon(
+                          Icons.swap_horiz_rounded,
+                          color: scheme.onSurfaceVariant,
+                          size: 26,
+                        ),
+                      )
+                    : Icon(
+                        Icons.swap_horiz_rounded,
+                        color: scheme.primary,
+                        size: 26,
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    output.name,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    meta,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: text.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AppCircleIconButton(
+              icon: Icons.more_horiz,
+              tooltip: 'More actions',
+              size: AppTheme.tapMin,
+              onPressed: onMore,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static bool _isImage(String name) {
+    final lower = name.toLowerCase();
+    return lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.gif');
+  }
+
+  static String _friendlyDate(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(d.year, d.month, d.day);
+    if (day == today) return 'Updated today';
+    if (day == today.subtract(const Duration(days: 1))) {
+      return 'Updated yesterday';
+    }
+    return 'Updated ${d.month}/${d.day}';
   }
 }
 

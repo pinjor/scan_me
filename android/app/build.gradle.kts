@@ -25,7 +25,7 @@ fun resolveStoreFile(raw: String): File {
 
 android {
     namespace = "app.atl.scanme"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 35)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -36,7 +36,8 @@ android {
     defaultConfig {
         applicationId = "app.atl.scanme"
         minSdk = maxOf(flutter.minSdkVersion, 21)
-        targetSdk = flutter.targetSdkVersion
+        // Play: edge-to-edge enforced when targeting 35+; keep explicit.
+        targetSdk = maxOf(flutter.targetSdkVersion, 35)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
@@ -76,8 +77,9 @@ kotlin {
 }
 
 dependencies {
-    // enableEdgeToEdge() for Android 15 Play guidance (backward compatible).
-    implementation("androidx.activity:activity-ktx:1.9.3")
+    // EdgeToEdge.enable() lives on androidx.activity (not ktx).
+    implementation("androidx.activity:activity:1.10.1")
+    implementation("androidx.activity:activity-ktx:1.10.1")
 }
 
 flutter {

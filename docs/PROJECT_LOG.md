@@ -2,8 +2,8 @@
 
 **Package:** `app.atl.scanme` · **Brand:** ScanMe / Apptriangle  
 **Stack:** Flutter · Riverpod · ML Kit (Android) / VisionKit (iOS) · local storage  
-**Version:** `1.0.0+2` (versionCode **2**)  
-**Last updated:** 2026-08-17
+**Version:** `1.0.2+7` (versionCode **7**)  
+**Last updated:** 2026-08-18
 
 > **Agent rule:** After every user task, update this file (Current status · Task log · relevant sections).  
 > Deep UI screen detail: [`UI_PAGES.md`](UI_PAGES.md) (single file — all screens).  
@@ -27,7 +27,7 @@
 | Area | State |
 |------|--------|
 | Core flows | Scan → Review → Export → Library → Viewer (architecturally complete) |
-| Home UI | Compact: search · Shortcuts tiles · Continue · Scan via FAB |
+| Home UI | Compact: search · Shortcuts tiles · Continue (scans **+** converts) |
 | Motion | Modern M3-style shared `AppMotion` (routes, lists, press, sheets, nav) |
 | CamScan B&W | **Fixed 2026-08-16** — async path no longer full-white; SLI spec on every page |
 | Document tags | Colored `TagDef` catalog; Settings CRUD; assign Home ⋯ / Viewer; filter chips |
@@ -36,13 +36,13 @@
 | UX redesign | Complete transformation pass 2026-08-16 — shared kit + screen polish; prior phases 1–8 retained |
 | UI docs | Single [`UI_PAGES.md`](UI_PAGES.md) · features [`FEATURES.md`](FEATURES.md) |
 | File viewers | Convert · View PDF · **Open with** tool aliases from file manager |
-| Open with OS | Android aliases for all convert/edit tools (+ icons); iOS PDF/TXT/image/PPTX/DOCX/XLSX/HEIC/WebP/GIF |
+| Open with OS | Android aliases (ScanMe **launcher icon** + tool labels); iOS PDF/TXT/image/PPTX/DOCX/XLSX/HEIC/WebP/GIF |
 | Folders | Data model kept; **UI paused** (no chips / move / Unfiled) |
 | PDF watermark | Apptriangle corner on **every PDF page** (PDF draw + image bake on exports) |
 | Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
 | Automated tests | Converters **135 PASS · 1 SKIP** (`all_converters` + matrices); full suite may OOM |
 | Device smoke | User self-testing (paused agent device runs until asked) |
-| Play release | Ready to build AAB **+2**; Play Console 4 recommendations addressed in code |
+| Play release | Ready to build AAB **+7**; edge-to-edge Play flags reworked |
 | Open device gaps | Full capture→Save PDF; Viewer/print/share E2E; PDF/PPTX convert E2E |
 | Audit (2026-08-12) | Historical; verify C1/C2/H* before treating as fixed |
 
@@ -51,7 +51,7 @@
 ```bash
 flutter clean && flutter pub get
 flutter build appbundle --release
-# Upload AAB versionCode 2
+# Upload AAB versionCode 7
 ```
 
 ### Open / watch
@@ -59,9 +59,9 @@ flutter build appbundle --release
 - [ ] Device: back on pushed stacks (Scan · Review · Export · Viewer · Convert · QR · Settings)
 - [ ] Device: UI transform — light/dark · large text · Home search · Export progress · QR Open link
 - [ ] Device: QR reader — camera permission · torch · copy/share · open URL · scan from photo
-- [ ] Device: Open with shows **tool aliases** (icons + labels) after reinstall
+- [ ] Device: Open with shows **tool aliases** (ScanMe icon + labels) after reinstall
 - [ ] User confirm B&W ink survives on device (hot restart / reinstall)
-- [ ] Re-check Play Console after AAB+2 (edge-to-edge, orientation, R8 %, bitmap)
+- [ ] Re-check Play Console after AAB+7 (edge-to-edge enable + deprecated bar stacks)
 - [ ] Device: ML Kit still opens after `screenOrientation=unspecified` override
 - [ ] Device: full scan → Review → Save PDF
 - [ ] Device: colored tags — Settings CRUD + assign on Home/Viewer + filter chips
@@ -71,6 +71,72 @@ flutter build appbundle --release
 ---
 
 ## Task log
+
+### 2026-08-18 — Ignore markdown in git
+- **Request:** Add md files in gitignore.
+- **Done:** `*.md` in `.gitignore`.
+- **Files:** `.gitignore` · `PROJECT_LOG.md`
+- **Leftover:** Already-tracked `.md` still in git until `git rm --cached '*.md'` (not run).
+
+### 2026-08-18 — Fix EdgeToEdge Kotlin compile
+- **Request:** `flutter run` fail — Unresolved reference `EdgeToEdge`.
+- **Done:** Kotlin cannot import Java file-facade `EdgeToEdge`. Added `PlayEdgeToEdge.java` → `EdgeToEdge.enable()`. Explicit `androidx.activity:activity:1.10.1`.
+- **Files:** `PlayEdgeToEdge.java` · `MainActivity.kt` · `build.gradle.kts` · `proguard-rules.pro` · `PROJECT_LOG.md`
+- **Leftover:** Re-run `flutter run`.
+
+### 2026-08-18 — Play edge-to-edge still flagged on +6
+- **Request:** Do the 3 Play-visible edge-to-edge steps (enable name, keep R8, cutout ALWAYS).
+- **Done:** `EdgeToEdge.enable(this)` (Java name Play looks for); re-apply cutout `ALWAYS` after Flutter `onCreate`/`onPostResume`; R8 `-keep` `androidx.activity.EdgeToEdge` + `MainActivity`; version `1.0.2+7`.
+- **Files:** `MainActivity.kt` · `proguard-rules.pro` · `pubspec.yaml` · `PROJECT_LOG.md`
+- **Leftover:** Flutter engine still contains guarded `setStatusBarColor` — Play may still list it. Rebuild AAB+7.
+
+### 2026-08-17 — Play Console 3 recommendations
+- **Request:** Fix edge-to-edge, deprecated bar/cutout APIs, BitmapFactory downsample (release 1.0.2).
+- **Done:** Dropped theme `statusBarColor`/`navigationBarColor`; cutout `always`; Flutter bar colors removed (icons only); HEIC `BitmapFactory` uses `inSampleSize`; `compileSdk`/`targetSdk` ≥ 35; activity-ktx 1.10.1; version `1.0.2+6`.
+- **Files:** `styles.xml` (+night) · `main.dart` · `MainActivity.kt` · `build.gradle.kts` · `pubspec.yaml` · `PROJECT_LOG.md`
+- **Leftover:** Rebuild AAB+6 · upload · re-check Play (engine may still show some deprecated stacks).
+
+### 2026-08-17 — Continue shows converter outputs
+- **Request:** Dashboard Continue should list converter outputs with scanned PDFs.
+- **Done:** List `converts/` via `ConvertOutputsService` + provider; merge with library docs by date (cap 8). Tap → FileViewer. More → Open / delete. Refresh after ConvertResultPanel + when Home tab active.
+- **Files:** `convert_outputs_service.dart` · `home_dashboard_screen.dart` · `convert_result_panel.dart` · docs
+- **Leftover:** Converts not yet in Files tab “View all”.
+
+### 2026-08-17 — Open-with icons = app icon
+- **Request:** File-manager Open-with picker icons don’t match ScanMe app icon.
+- **Done:** All `activity-alias` icons → `@mipmap/ic_launcher` / round. Removed custom `ic_alias_*.xml`. Labels still name each tool.
+- **Files:** `AndroidManifest.xml` · deleted `res/drawable/ic_alias_*.xml` · docs
+- **Leftover:** Reinstall/update APK so launcher cache refreshes Open-with icons.
+
+### 2026-08-17 — Fix misleading post-save popup
+- **Request:** After PDF saved via file manager, popup still misleading.
+- **Done:** Export SnackBar no longer says “pick a folder” after Save as already ran. Tracks `deviceSavedCount` → “saved to device” / “device copy skipped”. Viewer no longer shows raw `content://` URI.
+- **Files:** `editor_controller.dart` · `export_screen.dart` · `viewer_screen.dart` · `UI_PAGES.md` · `PROJECT_LOG.md`
+- **Leftover:** Device confirm export + viewer Save.
+
+### 2026-08-17 — Play versionCode bump
+- **Request:** Play Console: “Version code 1 has already been used.”
+- **Done:** `pubspec` was `1.0.2` (no `+N` → Android versionCode **1**). Set `1.0.2+2` so versionCode = **2**.
+- **Files:** `pubspec.yaml` · `PROJECT_LOG.md`
+- **Leftover:** Rebuild AAB + re-upload.
+
+### 2026-08-17 — Convert result Open/Save/Share UI
+- **Request:** After successful conversion, Open/Save/Share look basic — use different UI for all converters.
+- **Done:** Redesigned shared `ConvertResultPanel`: file chip + 3 equal action tiles (Open primary navy / Save / Share). Hits every convert + image tool path.
+- **Files:** `convert_result_panel.dart` · `UI_PAGES.md` · `PROJECT_LOG.md`
+- **Leftover:** Device glance light/dark.
+
+### 2026-08-17 — Play Store listing copy
+- **Request:** Play Store description with updated features.
+- **Done:** Short (78) + full + What’s new in `docs/PLAY_LISTING.md`.
+- **Files:** `docs/PLAY_LISTING.md` · `PROJECT_LOG.md`
+- **Leftover:** Paste into Play Console; screenshots.
+
+### 2026-08-17 — Soft Play Store update reminder
+- **Request:** Caution when Play has update; Update now → store; Remind later → snooze.
+- **Done:** `StoreUpdateReminder` + dialog on MainShell; Play Core check; snooze 3d prefs; open market/https. Not forced. Sideload silent.
+- **Files:** `store_update_reminder.dart` · `store_update_dialog.dart` · `main_shell_screen.dart` · `store_update_reminder_test.dart` · pubspec · docs
+- **Leftover:** Device smoke with Play-installed build when update exists.
 
 ### 2026-08-17 — All converters (docs + images) via dispatch
 - **Request:** Not only images — all converters.
@@ -601,7 +667,30 @@ Full per-screen layout/copy/motion → [`UI_PAGES.md`](UI_PAGES.md).
 
 ---
 
-## Play Console recommendations (code response · 1.0.0+2)
+## Play Console recommendations (code response · 1.0.2+7)
+
+| # | Flag | Status | What we did |
+|---|------|--------|-------------|
+| 1 | Edge-to-edge (SDK 35) | Done | Java `EdgeToEdge.enable(this)` before `super.onCreate`; R8 keep so Play sees the name; `WindowCompat.setDecorFitsSystemWindows(false)` |
+| 2 | Deprecated bar/cutout APIs | App path done | Theme has no bar colors; cutout **ALWAYS** re-applied after Flutter `onCreate`/`onPostResume`. Flutter engine still has guarded `setStatusBarColor` in dex |
+| 3 | BitmapFactory downsample | Done (+6) | HEIC `inSampleSize` |
+
+> Play may still list Flutter-engine stacks. That is engine bytecode, not ScanMe theme.
+
+## Play Console recommendations (code response · 1.0.2+6)
+
+| # | Flag | Status | What we did |
+|---|------|--------|-------------|
+| 1 | Edge-to-edge (SDK 35) | Done | `enableEdgeToEdge()`; `SystemUiMode.edgeToEdge`; `targetSdk`/`compileSdk` ≥ 35; SafeArea on Home/Files; Scaffold nav inset |
+| 2 | Deprecated bar/cutout APIs | Done | Removed theme `statusBarColor` / `navigationBarColor`; cutout `always` (not `shortEdges`); Flutter no longer sets bar colors (icons only) |
+| 3 | BitmapFactory downsample | Done | HEIC path: `inJustDecodeBounds` + `inSampleSize` (max long edge 4096). Dart thumbs still use `cacheWidth` / `decodeDownsampled` |
+| — | activity-ktx | Bumped | `1.10.1` |
+
+> Play may still mention obfuscated stacks inside Flutter engine / GMS until those libs stop calling deprecated APIs; our app code no longer sets them.
+
+---
+
+## Play Console recommendations (historical · 1.0.0+2)
 
 | # | Flag | Status | What we did |
 |---|------|--------|-------------|
@@ -687,6 +776,7 @@ Medium/Low (export re-encode, rename vs filenames, Google Fonts network, GMS che
 | **`PROJECT_LOG.md`** | **Canonical living log** (this file) |
 | [`PROPOSAL_FORM_BW_CAMSCAN_SPEC.md`](PROPOSAL_FORM_BW_CAMSCAN_SPEC.md) | CamScan B&W constants/pipeline (every page) |
 | [`UI_PAGES.md`](UI_PAGES.md) | All screens UI detail (single file) |
+| [`PLAY_LISTING.md`](PLAY_LISTING.md) | Short/full Play Store description + What’s new |
 | [`PLAY_STORE.md`](PLAY_STORE.md) | Stub → Play section above |
 | [`PLAY_CONSOLE_FIXES.md`](PLAY_CONSOLE_FIXES.md) | Stub → Play Console section above |
 | [`TEST_REPORT.md`](TEST_REPORT.md) | Stub → Test section above |

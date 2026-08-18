@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/store_update_reminder.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../converters/converters_hub_screen.dart';
@@ -20,6 +21,15 @@ class MainShellScreen extends ConsumerStatefulWidget {
 class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   var _index = 0;
   late final PageController _pageController = PageController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      StoreUpdateReminder.maybeShow(context);
+    });
+  }
 
   @override
   void dispose() {

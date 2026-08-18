@@ -396,8 +396,8 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
         SnackBar(
           content: Text(
             saved.length == 1
-                ? 'Saved: ${saved.first}'
-                : 'Saved ${saved.length} files',
+                ? 'Saved to device'
+                : 'Saved ${saved.length} files to device',
           ),
         ),
       );

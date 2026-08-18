@@ -3,7 +3,7 @@
 > What the app **does** (capabilities), not screen layouts.  
 > UI detail: [`UI_PAGES.md`](UI_PAGES.md) · Status / history: [`PROJECT_LOG.md`](PROJECT_LOG.md)  
 > **Package:** `app.atl.scanme` · **Offline-first** · No account · Data stays on device  
-> Aligned: **2026-08-17** · Version `1.0.0+2`
+> Aligned: **2026-08-17** · Version `1.0.2+2`
 
 ---
 
@@ -17,6 +17,7 @@
 | Open with | OS file manager opens ScanMe tools directly |
 | QR | Live + photo decode · copy · share · open links |
 | Privacy | Local storage · Apptriangle watermark on PDF exports · no cloud account |
+| Updates | Soft Play Store reminder (optional · Remind later 3d · Update now) |
 
 ---
 
@@ -120,7 +121,7 @@
   Defaults: **Import · QR reader · Favorites · Edit photo** (+ Add)  
   Long-press remove · Customize sheet · Reset  
   *Not* on shortcuts: Scan (FAB) · Convert (Convert tab)
-- **Continue** — recent documents → open viewer
+- **Continue** — recent scans **and** converter outputs → viewer / file viewer
 - Quick actions on cards (Open · Tags · View all files)
 
 ### Shortcut catalog (optional pins)
@@ -170,7 +171,7 @@ From the device file manager, open a file **with ScanMe** into the matching tool
 
 - View PDF · View text · View image · View PPTX (and related types per platform)
 
-### Convert / edit aliases (Android icons + labels)
+### Convert / edit aliases (Android · ScanMe app icon + labels)
 
 PDF→txt · PDF→DOCX · txt→PDF · PPTX→PDF · DOCX→PDF · XLSX→CSV · XLSX→PDF · to JPG/PNG/WebP/GIF · HEIC→JPG · Crop · Resize · Compress · legacy PNG↔JPG aliases
 
@@ -229,6 +230,11 @@ Preview converted / opened files with Save + Share:
 
 - ScanMe / Apptriangle · version
 - Privacy badge: stored privately on device · no account
+
+### Store updates (Android)
+
+- Optional reminder when Play has a newer build (not blocking)
+- **Update now** → Play Store app page · **Remind later** → snooze 3 days
 
 ---
 
