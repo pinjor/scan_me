@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:scanme/core/onboarding.dart';
 import 'package:scanme/core/providers.dart';
+import 'package:scanme/core/services/access_permission.dart';
 import 'package:scanme/core/storage/document_storage_service.dart';
 import 'package:scanme/core/theme/app_theme.dart';
 import 'package:scanme/features/document_editor/editor_controller.dart';
@@ -192,6 +193,7 @@ ScannedDocument _sampleDoc(String imagePath) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   SharedPreferences.setMockInitialValues({});
+  AccessPermission.bypassInTests = true;
 
   Future<void> tallSurface(WidgetTester tester) async {
     await tester.binding.setSurfaceSize(const Size(400, 900));
@@ -233,7 +235,8 @@ void main() {
       expect(find.text('Files'), findsNothing);
       expect(find.widgetWithText(FilterChip, 'All'), findsOneWidget);
       expect(find.widgetWithText(FilterChip, 'Deleted'), findsOneWidget);
-      expect(find.text('Photo'), findsOneWidget);
+      expect(find.text('Photo'), findsNothing);
+      expect(find.text('Convert'), findsNothing);
     });
 
     testWidgets('Settings button opens Settings', (tester) async {
@@ -249,18 +252,16 @@ void main() {
       expect(find.text('ABOUT'), findsOneWidget);
     });
 
-    testWidgets('Photo tab opens Edit photo', (tester) async {
+    testWidgets('Photo and Convert tabs stay hidden', (tester) async {
       await tallSurface(tester);
       await tester.pumpWidget(
         ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Photo'));
-      await tester.pumpAndSettle();
-      expect(
-        find.text('Choose a photo first, then set edits and Apply.'),
-        findsOneWidget,
-      );
+      expect(find.text('Photo'), findsNothing);
+      expect(find.text('Convert'), findsNothing);
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.byTooltip('Scan Document'), findsOneWidget);
     });
 
     testWidgets('center FAB starts a scan', (tester) async {
@@ -277,7 +278,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Scan Document'));
+      await tester.tap(find.byKey(const Key('scan-fab')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
@@ -301,10 +302,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.byTooltip('Scan Document'));
-      await tester.pump(); // start route
+      await tester.tap(find.byKey(const Key('scan-fab')));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      // Auto-start scan cancels → pop back to home
       await tester.pumpAndSettle();
       expect(scanner.calls, greaterThan(0));
       expect(find.text('SHORTCUTS'), findsOneWidget);
@@ -406,8 +406,8 @@ void main() {
 
       expect(find.text('ScanMe'), findsWidgets);
       expect(find.text('Themes'), findsOneWidget);
-      expect(find.text('Left of Scan'), findsOneWidget);
-      expect(find.text('Right of Scan'), findsOneWidget);
+      expect(find.text('Left of Scan'), findsNothing);
+      expect(find.text('Right of Scan'), findsNothing);
       await scrollMeTo(tester, find.textContaining('Apptriangle'));
       expect(find.textContaining('Apptriangle'), findsOneWidget);
     });
@@ -900,7 +900,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      for (var i = 0; i < 7; i++) {
+      while (find.text('Next').evaluate().isNotEmpty) {
         await tester.tap(find.text('Next'));
         await tester.pumpAndSettle();
       }

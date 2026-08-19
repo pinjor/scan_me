@@ -3,7 +3,8 @@
 > What the app **does** (capabilities), not screen layouts.  
 > UI detail: [`UI_PAGES.md`](UI_PAGES.md) · Status / history: [`PROJECT_LOG.md`](PROJECT_LOG.md)  
 > **Package:** `app.atl.scanme` · **Offline-first** · No account · Data stays on device  
-> Aligned: **2026-08-18** · Version `1.0.2+7`
+> Aligned: **2026-08-19** · Version `1.0.2+9`  
+> **Chrome now:** scan-only surface (`kScanOnlySurface` in `lib/core/product_surface.dart`). Convert / QR / PDF Tools / Edit photo / inner nav **stay in code**, hidden from shell. Flip flag `false` to show full toolkit.
 
 ---
 
@@ -13,23 +14,23 @@
 |------|----------------|
 | Scan | Native document camera → multi-page draft → enhance → save PDF/images |
 | Library | Search, filter, sort, favorites, tags, trash + restore |
-| Convert | PDF / Office / text · **Edit photo** (convert/crop/resize/compress) |
-| Open with | OS file manager opens ScanMe tools directly |
-| QR | Live + photo decode · copy · share · open links |
+| Convert | **Hidden in UI** — still in codebase (hub, Office/PDF tools, Edit photo) |
+| Open with | Viewer only while scan-only; convert aliases remain in OS but open viewer |
+| QR | **Hidden in UI** — `QrReaderScreen` still in tree |
 | Privacy | Local storage · Apptriangle watermark on PDF exports · no cloud account |
-| First run | 8-page feature tour (once); access page for camera/photos; replay from Me → About |
+| First run | Scan-focused walkthrough (toolkit page skipped); replay from Me → About |
 | Updates | Soft Play Store reminder (optional · Remind later 3d · Update now) |
 
 ---
 
 ## 1. Navigation shell
 
-- **Home** — search, shortcut tiles, full library
-- **Inner slots** — default **Edit photo** + **Convert** (Me → Navigation; also Favorites, PDF Tools)
+- **Home** — search, shortcut tiles (Import · Favorites · Tags · Trash), full scan library
+- **Inner slots** — code + prefs remain; **not shown** while `kScanOnlySurface`
 - **Scan** — center FAB, docked in a notch on one nav bar
-- **Me** — appearance (M3 color presets) · nav slots · trash retention, tags, about
+- **Me** — appearance · trash retention, tags, about (nav-slot picker hidden)
 - **Back** — on every *pushed* screen when the stack can pop (tab roots have no back)
-- **First launch** — full-screen walkthrough before Home (prefs `onboarding_done_v1`). Access page can Allow camera/photos; Scan/QR/import still ask at use (Guideline 5.1.1).
+- **First launch** — walkthrough before Home (prefs `onboarding_done_v1`). Access page can Allow camera/photos; Scan/import still ask at use (Guideline 5.1.1).
 
 ---
 
@@ -120,11 +121,11 @@
 - Brand header + **light/dark theme toggle** (quick)
 - Dense **search** — filters the list in place (hidden in Deleted)
 - **Shortcuts** — customizable 4-col tile grid  
-  Defaults: **Import · PDF Tools · QR reader · Favorites · Edit photo** (+ Add)  
+  **Scan-only chrome:** Import · Favorites · Tags · Trash (+ Add). Convert / QR / Edit photo tiles hidden.  
   Long-press remove · Customize sheet · Reset  
   Tags / Favorites / Trash shortcuts apply Home filters (no tab jump)  
   *Not* on shortcuts: Scan (FAB) · Files (removed)
-- **Library list** — full un-capped list; scans + converts; bookmark + tags on both
+- **Library list** — scan documents only (convert outputs hidden); bookmark + tags
 - Card ⋯: Open · Favorite · Tags · Rename · Share · Move to Trash (Deleted: Restore / Delete forever)
 
 ### Shortcut catalog (optional pins)
@@ -134,6 +135,8 @@ Import · Tags · Favorites · Trash · QR reader · PDF Tools · PDF→txt · P
 ---
 
 ## 6. Convert & image tools
+
+**Not reachable from chrome** while `kScanOnlySurface`. Screens + converters remain; tests still pump hubs directly.
 
 All offline. Pick file → convert → **Save** (system Save-as) and/or **Share** · open result in File viewer when useful.
 
@@ -184,7 +187,7 @@ Offline. Original files never overwritten.
 
 ## 7. Open with (OS integration)
 
-From the device file manager, open a file **with ScanMe** into the matching tool or viewer.
+From the device file manager, open a file **with ScanMe**. While scan-only, every action routes to **File viewer** (convert screens unused).
 
 ### View
 
@@ -219,6 +222,8 @@ Preview converted / opened files with Save + Share:
 
 ## 9. QR / barcode reader
 
+**Hidden from chrome** while `kScanOnlySurface`. `QrReaderScreen` remains.
+
 - Live camera scan + **scan from photo**
 - Torch toggle
 - Formats: QR · Aztec · Data Matrix · PDF417 · Code 128/39 · EAN-8/13 · UPC-A/E
@@ -239,6 +244,7 @@ Preview converted / opened files with Save + Share:
 
 ### Navigation
 
+- Hidden while scan-only. Prefs `nav_inner_left` / `nav_inner_right` still stored.
 - Home / Scan / Me fixed
 - Inner slots: Edit photo · Convert · Favorites · PDF Tools (defaults: Photo + Convert)
 
@@ -315,9 +321,9 @@ Preview converted / opened files with Save + Share:
 | Find a scan | Home search / All · Favorites · Tags |
 | Mark important | Favorite · Tags |
 | Share or print | Viewer Share / Print |
-| Crop/resize/shrink a photo | Edit photo → Crop / Resize / Compress |
-| Convert a photo format | Edit photo → Convert |
-| Open file from Files app | Open with ScanMe alias |
-| Read a QR / barcode | QR reader shortcut |
+| Crop/resize/shrink a photo | Hidden while scan-only (Edit photo still in code) |
+| Convert a photo format | Hidden while scan-only |
+| Open file from Files app | Open with → viewer (convert aliases gated) |
+| Read a QR / barcode | Hidden while scan-only |
 | Undo a delete | Home → Deleted → Restore |
 | Switch dark mode | Home toggle or Me → Appearance |

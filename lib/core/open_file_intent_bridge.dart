@@ -5,13 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
+import 'product_surface.dart';
 import '../../features/converters/image_formats_hub_screen.dart';
 import '../../features/converters/intent_convert_screen.dart';
 import '../../features/file_viewer/file_viewer_screen.dart';
 import '../../shared/widgets/app_transitions.dart';
 
 /// Root navigator for intent / open-with routes (no BuildContext yet).
-final GlobalKey<NavigatorState> scanMeNavigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<NavigatorState> scanMeNavigatorKey =
+    GlobalKey<NavigatorState>();
 
 /// Handles Android / iOS “Open with ScanMe” file intents (view or convert).
 abstract final class OpenFileIntentBridge {
@@ -84,13 +86,15 @@ abstract final class OpenFileIntentBridge {
       return;
     }
 
+    if (kScanOnlySurface && action != 'view') {
+      await openPath(path, action: 'view');
+      return;
+    }
+
     if (action == 'view') {
       await nav.push(
         AppPageRoute<void>(
-          builder: (_) => FileViewerScreen(
-            path: path,
-            title: p.basename(path),
-          ),
+          builder: (_) => FileViewerScreen(path: path, title: p.basename(path)),
         ),
       );
       return;
@@ -111,8 +115,7 @@ abstract final class OpenFileIntentBridge {
       'toPng' ||
       'toWebp' ||
       'toGif' ||
-      'heicToJpg' =>
-        null, // image format → unified dropdown screen
+      'heicToJpg' => null, // image format → unified dropdown screen
       _ => null,
     };
 
@@ -140,10 +143,8 @@ abstract final class OpenFileIntentBridge {
     if (action == 'crop' || action == 'resize' || action == 'compress') {
       await nav.push(
         AppPageRoute<void>(
-          builder: (_) => ImageFormatsHubScreen(
-            initialPath: path,
-            initialAction: action,
-          ),
+          builder: (_) =>
+              ImageFormatsHubScreen(initialPath: path, initialAction: action),
         ),
       );
       return;
@@ -160,6 +161,7 @@ abstract final class OpenFileIntentBridge {
       ),
     );
   }
+
   static void _flushWhenReady() {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final path = _pendingPath;

@@ -3,10 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/onboarding.dart';
+import '../../core/product_surface.dart';
 import '../../core/services/access_permission.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/app_ui.dart';
+
+enum _HeroKind { welcome, scan, review, library, tools, theme, access, ready }
 
 class _Page {
   const _Page({
@@ -14,12 +17,27 @@ class _Page {
     required this.title,
     required this.body,
     required this.chips,
+    required this.hero,
+    this.hideWhenScanOnly = false,
+    this.scanBody,
+    this.scanChips,
+    this.accessAsk = false,
   });
 
   final String eyebrow;
   final String title;
   final String body;
   final List<String> chips;
+  final _HeroKind hero;
+  final bool hideWhenScanOnly;
+  final String? scanBody;
+  final List<String>? scanChips;
+  final bool accessAsk;
+
+  String get copy => kScanOnlySurface && scanBody != null ? scanBody! : body;
+
+  List<String> get labels =>
+      kScanOnlySurface && scanChips != null ? scanChips! : chips;
 }
 
 const _pages = <_Page>[
@@ -29,6 +47,7 @@ const _pages = <_Page>[
     body:
         'Offline document scanner by Apptriangle. Files stay on this phone — no account, no cloud.',
     chips: ['Scan to PDF', 'Works offline'],
+    hero: _HeroKind.welcome,
   ),
   _Page(
     eyebrow: 'Capture',
@@ -36,6 +55,7 @@ const _pages = <_Page>[
     body:
         'The raised Scan button opens the system camera. Capture a page, add more, then continue.',
     chips: ['CamScan B&W', 'Multi-page drafts'],
+    hero: _HeroKind.scan,
   ),
   _Page(
     eyebrow: 'Edit & export',
@@ -43,6 +63,7 @@ const _pages = <_Page>[
     body:
         'Enhance, rotate, or retake pages. Save as PDF, images, or both. Pick a folder with Save as…',
     chips: ['B&W · vivid', 'Save as…'],
+    hero: _HeroKind.review,
   ),
   _Page(
     eyebrow: 'Library',
@@ -50,6 +71,7 @@ const _pages = <_Page>[
     body:
         'Search, shortcut tiles, and every file in one list. Filter All, Favorites, Tags, or Deleted.',
     chips: ['Favorites', 'Tags'],
+    hero: _HeroKind.library,
   ),
   _Page(
     eyebrow: 'Toolkit',
@@ -57,6 +79,8 @@ const _pages = <_Page>[
     body:
         'Convert tab handles PDF, Word, Excel, and more. Edit photo crops, resizes, and compresses. PDF Tools merge, split, and shrink files.',
     chips: ['QR reader', 'Open with'],
+    hero: _HeroKind.tools,
+    hideWhenScanOnly: true,
   ),
   _Page(
     eyebrow: 'Personalize',
@@ -64,6 +88,10 @@ const _pages = <_Page>[
     body:
         'Me holds themes (single, dual, triple, or your own), light/dark, and the two nav slots beside Scan.',
     chips: ['40+ themes', 'Nav slots'],
+    hero: _HeroKind.theme,
+    scanBody:
+        'Me holds themes (single, dual, triple, or your own) and light/dark.',
+    scanChips: ['40+ themes', 'Light / dark'],
   ),
   _Page(
     eyebrow: 'Access',
@@ -71,6 +99,10 @@ const _pages = <_Page>[
     body:
         'When you tap a feature, ScanMe explains why, then the system asks. Camera for scan and QR. Photos you choose. Files through the system picker — not your whole phone.',
     chips: ['Camera', 'Photos', 'Files'],
+    hero: _HeroKind.access,
+    accessAsk: true,
+    scanBody:
+        'When you tap a feature, ScanMe explains why, then the system asks. Camera for scan. Photos you choose. Files through the system picker — not your whole phone.',
   ),
   _Page(
     eyebrow: 'All set',
@@ -78,8 +110,15 @@ const _pages = <_Page>[
     body:
         'Tap Scan for the first page. Convert or Edit photo when you already have a file.',
     chips: ['On this device', 'Replay in Me'],
+    hero: _HeroKind.ready,
+    scanBody:
+        'Tap Scan for the first page. Import photos into a scan from Home shortcuts.',
   ),
 ];
+
+List<_Page> get _visiblePages => kScanOnlySurface
+    ? _pages.where((p) => !p.hideWhenScanOnly).toList()
+    : _pages;
 
 /// First-run feature tour. [replay] pops on finish instead of swapping the app root.
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -117,7 +156,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   void _next() {
-    if (_index >= _pages.length - 1) {
+    if (_index >= _visiblePages.length - 1) {
       HapticFeedback.mediumImpact();
       _finish();
       return;
@@ -134,7 +173,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final last = _index == _pages.length - 1;
+    final last = _index == _visiblePages.length - 1;
 
     return Scaffold(
       body: Stack(
@@ -159,7 +198,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          '${_index + 1} of ${_pages.length}',
+                          '${_index + 1} of ${_visiblePages.length}',
                           textAlign: TextAlign.center,
                           style: text.labelMedium?.copyWith(
                             color: scheme.onSurfaceVariant,
@@ -184,7 +223,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
                   child: _ProgressBar(
-                    value: (_index + 1) / _pages.length,
+                    value: (_index + 1) / _visiblePages.length,
                     color: scheme.primary,
                     track: scheme.outlineVariant.withValues(alpha: 0.45),
                   ),
@@ -192,13 +231,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 Expanded(
                   child: PageView.builder(
                     controller: _controller,
-                    itemCount: _pages.length,
+                    itemCount: _visiblePages.length,
                     onPageChanged: (i) {
                       HapticFeedback.selectionClick();
                       setState(() => _index = i);
                     },
                     itemBuilder: (context, i) {
-                      final p = _pages[i];
+                      final p = _visiblePages[i];
                       return Padding(
                         padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
                         child: Column(
@@ -210,7 +249,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                 child: Center(
                                   child: FittedBox(
                                     fit: BoxFit.contain,
-                                    child: _OnboardingHero(index: i),
+                                    child: _OnboardingHero(kind: p.hero),
                                   ),
                                 ),
                               ),
@@ -242,7 +281,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                       ),
                                       const SizedBox(height: 10),
                                       Text(
-                                        p.body,
+                                        p.copy,
                                         textAlign: TextAlign.center,
                                         style: text.bodyLarge?.copyWith(
                                           color: scheme.onSurfaceVariant,
@@ -260,17 +299,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                               label: 'No account · on device',
                                               compact: true,
                                             ),
-                                          for (final chip in p.chips)
+                                          for (final chip in p.labels)
                                             _SoftChip(label: chip),
                                         ],
                                       ),
-                                      if (i == 6) ...[
+                                      if (p.accessAsk) ...[
                                         const SizedBox(height: 16),
                                         OutlinedButton.icon(
                                           onPressed: () =>
                                               AccessPermission.ensureCamera(
-                                            context,
-                                          ),
+                                                context,
+                                              ),
                                           icon: const Icon(
                                             Icons.photo_camera_outlined,
                                           ),
@@ -280,8 +319,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                         OutlinedButton.icon(
                                           onPressed: () =>
                                               AccessPermission.ensurePhotos(
-                                            context,
-                                          ),
+                                                context,
+                                              ),
                                           icon: const Icon(
                                             Icons.photo_library_outlined,
                                           ),
@@ -447,21 +486,21 @@ class _SoftChip extends StatelessWidget {
 }
 
 class _OnboardingHero extends StatelessWidget {
-  const _OnboardingHero({required this.index});
+  const _OnboardingHero({required this.kind});
 
-  final int index;
+  final _HeroKind kind;
 
   @override
   Widget build(BuildContext context) {
-    final child = switch (index) {
-      0 => const _HeroWelcome(),
-      1 => const _HeroScan(),
-      2 => const _HeroReview(),
-      3 => const _HeroLibrary(),
-      4 => const _HeroTools(),
-      5 => const _HeroTheme(),
-      6 => const _HeroAccess(),
-      _ => const _HeroReady(),
+    final child = switch (kind) {
+      _HeroKind.welcome => const _HeroWelcome(),
+      _HeroKind.scan => const _HeroScan(),
+      _HeroKind.review => const _HeroReview(),
+      _HeroKind.library => const _HeroLibrary(),
+      _HeroKind.tools => const _HeroTools(),
+      _HeroKind.theme => const _HeroTheme(),
+      _HeroKind.access => const _HeroAccess(),
+      _HeroKind.ready => const _HeroReady(),
     };
     return ExcludeSemantics(
       child: SizedBox(width: 340, height: 236, child: child),
@@ -757,11 +796,7 @@ class _HeroScan extends StatelessWidget {
 }
 
 class _NavGlyph extends StatelessWidget {
-  const _NavGlyph({
-    required this.icon,
-    required this.label,
-    this.dim = false,
-  });
+  const _NavGlyph({required this.icon, required this.label, this.dim = false});
 
   final IconData icon;
   final String label;
@@ -826,9 +861,9 @@ class _HeroReview extends StatelessWidget {
               children: [
                 Text(
                   'Enhance',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 const _FilterPill(label: 'Original'),
@@ -873,7 +908,9 @@ class _FilterPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: selected ? scheme.primary.withValues(alpha: 0.12) : scheme.surface,
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.12)
+            : scheme.surface,
         borderRadius: BorderRadius.circular(99),
         border: Border.all(
           color: selected ? scheme.primary : scheme.outlineVariant,
@@ -1119,9 +1156,9 @@ class _HeroTheme extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Single · dual · triple · yours',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
           const Spacer(),
           Row(
@@ -1146,9 +1183,7 @@ class _HeroTheme extends StatelessWidget {
           const Spacer(),
           Row(
             children: [
-              Expanded(
-                child: _ModeChip(label: 'Light', selected: true),
-              ),
+              Expanded(child: _ModeChip(label: 'Light', selected: true)),
               const SizedBox(width: 8),
               const Expanded(child: _ModeChip(label: 'Dark')),
               const SizedBox(width: 8),
@@ -1242,11 +1277,7 @@ class _HeroReady extends StatelessWidget {
               shape: BoxShape.circle,
               color: scheme.primary.withValues(alpha: 0.14),
             ),
-            child: Icon(
-              Icons.check_rounded,
-              size: 44,
-              color: scheme.primary,
-            ),
+            child: Icon(Icons.check_rounded, size: 44, color: scheme.primary),
           ),
           const SizedBox(height: 16),
           Text(
@@ -1258,9 +1289,9 @@ class _HeroReady extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Tap Scan when you are',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -1298,7 +1329,10 @@ class OnboardingSplash extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Text('ScanMe', style: Theme.of(context).textTheme.headlineSmall),
+                Text(
+                  'ScanMe',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
                 const SizedBox(height: 6),
                 Text(
                   'Private document scanner',

@@ -2,6 +2,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/product_surface.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/models/library_models.dart';
@@ -127,47 +128,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     AppPageRoute.push(context, const ThemeStudioScreen()),
               ),
             ),
-            const SizedBox(height: 16),
-            const SectionHeader(
-              title: 'Navigation',
-              padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
-            ),
-            AppCard(
-              elevated: true,
-              bordered: false,
-              padding: EdgeInsets.zero,
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Icon(
-                      Icons.view_week_outlined,
-                      color: scheme.primary,
-                    ),
-                    title: const Text('Left of Scan'),
-                    subtitle: Text(ref.watch(navSlotsProvider).innerLeft.label),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _pickNavSlot(left: true),
-                  ),
-                  Divider(height: 1, color: scheme.outlineVariant),
-                  ListTile(
-                    leading: Icon(Icons.view_week, color: scheme.primary),
-                    title: const Text('Right of Scan'),
-                    subtitle: Text(
-                      ref.watch(navSlotsProvider).innerRight.label,
-                    ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => _pickNavSlot(left: false),
-                  ),
-                ],
+            if (!kScanOnlySurface) ...[
+              const SizedBox(height: 16),
+              const SectionHeader(
+                title: 'Navigation',
+                padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: Text(
-                'Home, Scan, and Me stay put. Pick tools for the two inner slots.',
-                style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              AppCard(
+                elevated: true,
+                bordered: false,
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: Icon(
+                        Icons.view_week_outlined,
+                        color: scheme.primary,
+                      ),
+                      title: const Text('Left of Scan'),
+                      subtitle: Text(
+                        ref.watch(navSlotsProvider).innerLeft.label,
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _pickNavSlot(left: true),
+                    ),
+                    Divider(height: 1, color: scheme.outlineVariant),
+                    ListTile(
+                      leading: Icon(Icons.view_week, color: scheme.primary),
+                      title: const Text('Right of Scan'),
+                      subtitle: Text(
+                        ref.watch(navSlotsProvider).innerRight.label,
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => _pickNavSlot(left: false),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: Text(
+                  'Home, Scan, and Me stay put. Pick tools for the two inner slots.',
+                  style: text.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             const SectionHeader(
               title: 'Storage',
@@ -282,12 +289,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   const SizedBox(height: 8),
                   ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(
-                      Icons.school_outlined,
-                      color: scheme.primary,
-                    ),
+                    leading: Icon(Icons.school_outlined, color: scheme.primary),
                     title: const Text('Replay tutorial'),
-                    subtitle: const Text('Feature walkthrough from first launch'),
+                    subtitle: const Text(
+                      'Feature walkthrough from first launch',
+                    ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => AppPageRoute.push(
                       context,

@@ -10,18 +10,17 @@
 ## Navigation map
 
 ```
-First launch → Onboarding (8 pages) → MainShell
+First launch → Onboarding (scan pages; toolkit skipped) → MainShell
 Replay: Me → About → Replay tutorial
 
-MainShell (bottom nav)
-├── Home — brand · search · Shortcuts · library
-├── Photo (default inner) — Edit photo; slot customizable
+MainShell while kScanOnlySurface (default)
+├── Home — brand · search · scan shortcuts · scan library
 ├── Scan FAB — elevated in the bar’s center notch → capture
-├── Convert (default inner) — Documents · Photo → Edit photo · PDF Tools
-└── Me — Appearance · Navigation · Storage · Tags · About (Replay tutorial)
+└── Me — Appearance · Storage · Tags · About (Replay tutorial)
+    (Photo / Convert inner slots + nav picker hidden; widgets still in IndexedStack)
 
-Open-with (OS) → Intent convert | Crop / Resize / Compress | File viewer
-Home Shortcuts → Import · QR · Favorites · Edit photo · PDF Tools
+Open-with (OS) → File viewer (convert actions gated)
+Home Shortcuts → Import · Favorites · Tags · Trash
 ```
 
 ## Contents
@@ -97,7 +96,7 @@ One-time feature tour before the shell. Skip or finish writes the prefs flag. Do
 
 ### Chrome
 
-Warm paper wash · step `n of 8` + back · Skip/Close · thin progress bar · per-page UI preview (nav FAB, library, tools, themes, access) · chips · **Next** / **Get started**
+Warm paper wash · step `n of 7` (scan-only; toolkit page stays in `_pages` but skipped) + back · Skip/Close · thin progress bar · per-page UI preview · chips · **Next** / **Get started**
 
 ### Pages
 
@@ -105,8 +104,8 @@ Warm paper wash · step `n of 8` + back · Skip/Close · thin progress bar · pe
 2. Scan FAB
 3. Review & save (enhance, PDF/images, watermark)
 4. Home library (search, shortcuts, filters)
-5. Convert · Edit photo · PDF Tools · QR · Open with
-6. Me (themes, nav slots)
+5. Convert · Edit photo · PDF Tools · QR · Open with — **hidden** when `kScanOnlySurface`
+6. Me (themes; nav-slot copy dropped in scan-only)
 7. Access — Camera / Photos / Files (Allow camera · Allow photos; files asked at picker)
 8. Ready
 
@@ -122,21 +121,20 @@ Replay pushes over Me; Close / Get started pops.
 
 ### Purpose
 
-App chrome: one notched bar + Scan FAB. Hosts Home, inner slots, Convert, Me, Edit photo, PDF Tools.
+App chrome: one notched bar + Scan FAB. Hosts Home, Me; Convert / Edit photo / PDF Tools stay in `IndexedStack` but inner nav hidden (`kScanOnlySurface`).
 
 ### Layout
 
 - **AppBar:** none (tabs own headers)
 - **Body:** `IndexedStack` (tabs stay mounted):
   1. Home dashboard (also used if a slot is Favorites)
-  2. Convert hub (`ConvertersHubScreen` embedded)
+  2. Convert hub (`ConvertersHubScreen` embedded) — not selected while scan-only
   3. Me (`SettingsScreen` embedded)
-  4. Edit photo (`ImageFormatsHubScreen` embedded)
-  5. PDF Tools (`PdfToolsHubScreen` embedded)
+  4. Edit photo (`ImageFormatsHubScreen` embedded) — not selected
+  5. PDF Tools (`PdfToolsHubScreen` embedded) — not selected
 - **Nav:** one full-width `BottomAppBar` with a circular notch  
-  **Home · [inner] · [Scan FAB] · [inner] · Me**
-  - Defaults: **Home · Photo · Scan · Convert · Me**
-  - Inner slots: Edit photo · Convert · Favorites · PDF Tools (Me → Navigation)
+  **Scan-only:** **Home · [Scan FAB] · Me**  
+  Full toolkit (flag off): **Home · [inner] · [Scan FAB] · [inner] · Me**
   - Scan is a 64px elevated circle docked in the notch
   - Tooltip / semantics: **Scan Document**
   - Color: `ColorScheme.primary` (follows theme preset)
@@ -158,15 +156,15 @@ App chrome: one notched bar + Scan FAB. Hosts Home, inner slots, Convert, Me, Ed
 
 ### Purpose
 
-Compact home: find docs fast · shortcuts · full library. Scan = FAB · Convert = Convert tab.
+Compact home: find docs fast · shortcuts · scan library. Scan = FAB. Convert list hidden while scan-only.
 
 ### Layout (top → bottom)
 
 1. **Header** — greeting · **ScanMe** (display) · **light/dark toggle**
 2. **Search** — pill · soft shadow · filters list in place (hidden in Deleted)
-3. **Shortcuts** — 4-col wrap, equal-height tiles (two-line labels). Defaults: Import · PDF Tools · QR · Favorites · Edit photo · Add.
+3. **Shortcuts** — 4-col wrap. Scan-only visible: Import · Favorites · Tags · Trash · Add. Convert / QR / Edit photo catalog still in `dashboard_tools.dart`.
 4. **Filter bar** — segmented All · Favorites · Tags · Deleted + sort. Tags wrap opens immediately.
-5. **Library list** — file tiles: thumb · title · meta. Bookmark on thumb. Quiet ⋮. Converts included.
+5. **Library list** — scan tiles: thumb · title · meta. Bookmark on thumb. Quiet ⋮. Convert outputs omitted.
 
 Prefs key `dashboard_tool_ids_v7`.
 
@@ -250,7 +248,7 @@ Filter: All · Single · Dual · Triple · Mine. **Create theme** row under filt
 
 #### Navigation
 
-Home / Scan / Me are fixed. Inner slots:
+**Hidden** while `kScanOnlySurface`. Prefs still exist. Flag off: Home / Scan / Me fixed. Inner slots:
 
 - **Left of Scan** (default Edit photo)
 - **Right of Scan** (default Convert)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/product_surface.dart';
 import '../../core/providers.dart';
 import '../../core/services/store_update_reminder.dart';
 import '../../shared/widgets/app_transitions.dart';
@@ -33,6 +34,9 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   };
 
   int _stackIndex(NavSlots slots) {
+    if (kScanOnlySurface) {
+      return _tab == _ShellTab.me ? 2 : 0;
+    }
     if (_tab == _ShellTab.home) return 0;
     if (_tab == _ShellTab.me) return 2;
     final dest = _destFor(_tab, slots);
@@ -54,6 +58,10 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   }
 
   void _go(_ShellTab tab, NavSlots slots) {
+    if (kScanOnlySurface &&
+        (tab == _ShellTab.innerLeft || tab == _ShellTab.innerRight)) {
+      return;
+    }
     FocusManager.instance.primaryFocus?.unfocus();
     final q = ref.read(libraryQueryProvider.notifier);
     if (tab == _ShellTab.home) q.showAll();
@@ -68,6 +76,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
   }
 
   void _openConvert(NavSlots slots) {
+    if (kScanOnlySurface) return;
     if (slots.innerLeft == NavDest.convert) {
       _go(_ShellTab.innerLeft, slots);
       return;
@@ -104,10 +113,16 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
               isActive: homeActive,
               onOpenTools: () => _openConvert(slots),
             ),
-            const ConvertersHubScreen(embedded: true),
+            kScanOnlySurface
+                ? const SizedBox.shrink()
+                : const ConvertersHubScreen(embedded: true),
             const SettingsScreen(embedded: true),
-            const ImageFormatsHubScreen(embedded: true),
-            const PdfToolsHubScreen(embedded: true),
+            kScanOnlySurface
+                ? const SizedBox.shrink()
+                : const ImageFormatsHubScreen(embedded: true),
+            kScanOnlySurface
+                ? const SizedBox.shrink()
+                : const PdfToolsHubScreen(embedded: true),
           ],
         ),
       ),
@@ -138,25 +153,27 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
                 onTap: () => _go(_ShellTab.home, slots),
               ),
             ),
-            Expanded(
-              child: _NavItem(
-                icon: slots.innerLeft.icon,
-                selectedIcon: slots.innerLeft.selectedIcon,
-                label: slots.innerLeft.navLabel,
-                selected: _tab == _ShellTab.innerLeft,
-                onTap: () => _go(_ShellTab.innerLeft, slots),
+            if (!kScanOnlySurface)
+              Expanded(
+                child: _NavItem(
+                  icon: slots.innerLeft.icon,
+                  selectedIcon: slots.innerLeft.selectedIcon,
+                  label: slots.innerLeft.navLabel,
+                  selected: _tab == _ShellTab.innerLeft,
+                  onTap: () => _go(_ShellTab.innerLeft, slots),
+                ),
               ),
-            ),
             const SizedBox(width: 72),
-            Expanded(
-              child: _NavItem(
-                icon: slots.innerRight.icon,
-                selectedIcon: slots.innerRight.selectedIcon,
-                label: slots.innerRight.navLabel,
-                selected: _tab == _ShellTab.innerRight,
-                onTap: () => _go(_ShellTab.innerRight, slots),
+            if (!kScanOnlySurface)
+              Expanded(
+                child: _NavItem(
+                  icon: slots.innerRight.icon,
+                  selectedIcon: slots.innerRight.selectedIcon,
+                  label: slots.innerRight.navLabel,
+                  selected: _tab == _ShellTab.innerRight,
+                  onTap: () => _go(_ShellTab.innerRight, slots),
+                ),
               ),
-            ),
             Expanded(
               child: _NavItem(
                 icon: Icons.manage_accounts_outlined,
@@ -192,6 +209,7 @@ class _ScanFab extends StatelessWidget {
       child: Tooltip(
         message: 'Scan Document',
         child: PressableScale(
+          key: const Key('scan-fab'),
           onTap: onPressed,
           scale: 0.94,
           child: Container(

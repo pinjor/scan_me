@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/product_surface.dart';
 import '../../core/providers.dart';
 import '../../core/services/convert_outputs_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -16,7 +17,9 @@ class LibraryFilterBar extends ConsumerWidget {
     final query = ref.watch(libraryQueryProvider);
     final tagsAsync = ref.watch(tagsProvider);
     final docs = ref.watch(documentsProvider).valueOrNull ?? const [];
-    final converts = ref.watch(convertOutputsProvider).valueOrNull ?? const [];
+    final converts = kScanOnlySurface
+        ? const <ConvertOutput>[]
+        : (ref.watch(convertOutputsProvider).valueOrNull ?? const []);
     final catalog = tagsAsync.valueOrNull ?? const <TagDef>[];
     final usedIds = {
       ...collectAllTags(docs),

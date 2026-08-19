@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../core/product_surface.dart';
 import '../../core/theme/app_theme.dart';
 import '../converters/convert_catalog.dart';
 
@@ -195,6 +196,28 @@ List<DashboardToolId> sanitizeDashboardTools(Iterable<DashboardToolId> ids) {
   if (out.isEmpty) return List.of(kDefaultDashboardTools);
   return out;
 }
+
+/// Shortcuts that belong to scan / library (not convert / QR / photo tools).
+const kScanSurfaceShortcutIds = <DashboardToolId>{
+  DashboardToolId.importImages,
+  DashboardToolId.tags,
+  DashboardToolId.favorites,
+  DashboardToolId.trash,
+};
+
+List<DashboardToolId> visibleDashboardTools(Iterable<DashboardToolId> ids) {
+  final clean = sanitizeDashboardTools(ids);
+  if (!kScanOnlySurface) return clean;
+  final vis = clean.where(kScanSurfaceShortcutIds.contains).toList();
+  if (vis.isEmpty) {
+    return const [DashboardToolId.importImages, DashboardToolId.favorites];
+  }
+  return vis;
+}
+
+Iterable<DashboardToolMeta> get visibleDashboardCatalog => kScanOnlySurface
+    ? kDashboardToolCatalog.where((m) => kScanSurfaceShortcutIds.contains(m.id))
+    : kDashboardToolCatalog;
 
 final dashboardToolsProvider =
     StateNotifierProvider<DashboardToolsController, List<DashboardToolId>>(

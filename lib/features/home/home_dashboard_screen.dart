@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/product_surface.dart';
 import '../../core/providers.dart';
 import '../../core/services/convert_outputs_service.dart';
 import '../../core/theme/app_theme.dart';
@@ -77,6 +78,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
 
   void _runTool(DashboardToolId id) {
     final q = ref.read(libraryQueryProvider.notifier);
+    if (kScanOnlySurface && !kScanSurfaceShortcutIds.contains(id)) return;
     switch (id) {
       case DashboardToolId.smartScan:
         HomeFlows.startScan(context);
@@ -159,7 +161,9 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
                     child: Text(
-                      'Scan uses the camera button. Convert tab still has every tool.',
+                      kScanOnlySurface
+                          ? 'Scan uses the camera button. Import photos into a scan from here.'
+                          : 'Scan uses the camera button. Convert tab still has every tool.',
                       textAlign: TextAlign.center,
                       style: text.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
@@ -170,7 +174,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                   Expanded(
                     child: ListView(
                       children: [
-                        for (final meta in kDashboardToolCatalog)
+                        for (final meta in visibleDashboardCatalog)
                           ListTile(
                             leading: CircleAvatar(
                               backgroundColor: scheme.primary.withValues(
@@ -317,7 +321,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                   child: _ShortcutGrid(
-                    selected: sanitizeDashboardTools(
+                    selected: visibleDashboardTools(
                       ref.watch(dashboardToolsProvider),
                     ),
                     onTool: _runTool,
@@ -357,7 +361,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
                     query.copyWith(favoritesFirst: false),
                     tagNamesById: tagNamesById,
                   );
-                  final converts = query.showTrash
+                  final converts = kScanOnlySurface || query.showTrash
                       ? const <ConvertOutput>[]
                       : filterConvertOutputs(
                           convertsAsync.valueOrNull ?? const [],
@@ -489,7 +493,7 @@ class _HomeDashboardScreenState extends ConsumerState<HomeDashboardScreen> {
       padding: pad,
       centered: false,
       title: 'Nothing here yet',
-      subtitle: 'Scan, import, or convert — files show up here.',
+      subtitle: 'Scan or import — files show up here.',
     );
   }
 }

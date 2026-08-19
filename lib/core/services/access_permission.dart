@@ -9,30 +9,34 @@ import '../../shared/widgets/app_ui.dart';
 abstract final class AccessPermission {
   AccessPermission._();
 
+  /// Widget tests: skip OS permission + rationale (no camera plugin).
+  static var bypassInTests = false;
+
   static Future<bool> ensureCamera(BuildContext context) => _ensure(
-        context,
-        permission: Permission.camera,
-        title: 'Camera',
-        message:
-            'ScanMe uses the camera to capture document pages and read QR codes. '
-            'Photos stay on this phone and are not uploaded.',
-        icon: Icons.photo_camera_outlined,
-      );
+    context,
+    permission: Permission.camera,
+    title: 'Camera',
+    message:
+        'ScanMe uses the camera to capture document pages and read QR codes. '
+        'Photos stay on this phone and are not uploaded.',
+    icon: Icons.photo_camera_outlined,
+  );
 
   static Future<bool> ensurePhotos(BuildContext context) => _ensure(
-        context,
-        permission: Permission.photos,
-        title: 'Photos',
-        message:
-            'ScanMe uses photos you pick to import pages, edit an image, or read a QR code. '
-            'We only see files you select.',
-        icon: Icons.photo_library_outlined,
-      );
+    context,
+    permission: Permission.photos,
+    title: 'Photos',
+    message:
+        'ScanMe uses photos you pick to import pages, edit an image, or read a QR code. '
+        'We only see files you select.',
+    icon: Icons.photo_library_outlined,
+  );
 
   static const _filesExplainedKey = 'access_files_explained_v1';
 
   /// iOS/Android file pickers are the grant (no always-on Files access).
   static Future<bool> ensureFiles(BuildContext context) async {
+    if (bypassInTests) return true;
     if (!context.mounted) return false;
     final prefs = await SharedPreferences.getInstance();
     if (prefs.getBool(_filesExplainedKey) ?? false) return true;
@@ -57,6 +61,7 @@ abstract final class AccessPermission {
     required String message,
     required IconData icon,
   }) async {
+    if (bypassInTests) return true;
     if (!context.mounted) return false;
 
     PermissionStatus status;

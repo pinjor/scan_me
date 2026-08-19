@@ -40,7 +40,9 @@
 | Open with OS | Android aliases (ScanMe **launcher icon** + tool labels); iOS PDF/TXT/image/PPTX/DOCX/XLSX/HEIC/WebP/GIF |
 | Folders | Data model kept; **UI paused** (no chips / move / Unfiled) |
 | PDF watermark | Apptriangle corner on **every PDF page** (PDF draw + image bake on exports) |
-| First-run tour | Polished 8-page walkthrough (incl. access asks); prefs `onboarding_done_v1`; replay from Me |
+| First-run tour | Scan-focused walkthrough; toolkit page skipped (`kScanOnlySurface`) |
+| Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
+| Product chrome | **Scan-only** — Convert / QR / PDF Tools / Edit photo / inner nav hidden; code kept (`lib/core/product_surface.dart`) |
 | Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
 | Automated tests | Targeted QA suite PASS (`pdf_tools` + UI + library). Full `all_converters` may OOM |
 | Device smoke | **Still required** before Play — see [`QA_REPORT.md`](QA_REPORT.md) |
@@ -76,11 +78,29 @@ flutter build appbundle --release
 - [ ] Device: Save as dialog (file manager) for Tools / Viewer / Export
 - [ ] Device: iOS scan channel (audit C1 — UIScene / MethodChannel)
 
-Converts still omitted from Deleted. Folders UI paused.
+Converts still omitted from Deleted. Folders UI paused. **Scan-only chrome on** (`kScanOnlySurface`).
 
 ---
 
 ## Task log
+
+### 2026-08-19 — Unskip shell Scan tests
+- **Request:** Do leftover (skipped FAB scan tests).
+- **Done:** `AccessPermission.bypassInTests` in widget tests. Scan FAB `Key('scan-fab')`. Two shell-scan tests unskipped — PASS.
+- **Files:** `access_permission.dart` · `main_shell_screen.dart` · `ui_functionality_test.dart` · this log
+- **Leftover:** Device Scan→Save smoke. Flip `kScanOnlySurface` to restore toolkit.
+
+### 2026-08-19 — Status: hide non-scan finished?
+- **Request:** Did previous hide-non-scan task finish.
+- **Done:** Yes. `kScanOnlySurface = true`. Chrome is Home · Scan · Me. Convert/QR/PDF Tools/Edit photo still in repo, gated off. Two shell-scan widget tests skipped (camera sheet).
+- **Files:** none this turn
+- **Leftover:** `kScanOnlySurface = false` restores toolkit. Device Scan→Save smoke.
+
+### 2026-08-19 — Hide non-scan chrome
+- **Request:** Hide everything except scan / scan-related; keep code.
+- **Done:** Flag `kScanOnlySurface`. Shell **Home · Scan · Me**. Shortcuts Import/Favorites/Tags/Trash. Library scans only. Me nav picker hidden. Onboarding skips toolkit. Open-with convert → viewer. Convert/QR/PDF/Edit photo files unchanged.
+- **Files:** `product_surface.dart` · main_shell · home_dashboard · dashboard_tools · settings · onboarding · open_file_intent_bridge · library_filter_bar · tests · FEATURES · UI_PAGES · this log
+- **Leftover:** Flip flag `false` to restore toolkit. Device smoke Scan→Save still required.
 
 ### 2026-08-19 — Ask camera / photos / files (store)
 - **Request:** Ask users which things to access (files, camera, etc.) for App Store.
