@@ -47,7 +47,7 @@
 | Automated tests | Targeted QA suite PASS (`pdf_tools` + UI + library). Full `all_converters` may OOM |
 | Device smoke | **Still required** before Play — see [`QA_REPORT.md`](QA_REPORT.md) |
 | Play release | **NOT READY** until device Scan→Save + PDF Tools + Open With smoke |
-| App Store (iOS) | **iOS 15.5** · VisionKit · privacy manifest · 1024 icon RGB no alpha · Connect checklist [`IOS_APP_STORE.md`](IOS_APP_STORE.md). Simulator **release-path compile PASS**. Device/IPA needs Xcode Team. |
+| App Store (iOS) | **iOS 15.5** on Runner **target** + Flutter xcconfig so SPM `file-picker-darwin` matches (was still 13). VisionKit · privacy · 1024 RGB · [`IOS_APP_STORE.md`](IOS_APP_STORE.md). |
 | Open device gaps | Full capture→Save PDF; Viewer/print/share E2E; PDF/PPTX convert E2E |
 | Audit (2026-08-12) | Code-rechecked 2026-08-19: C1 UIScene channel **fixed**; C2 no `autoDispose`; H3 PageController in State; H4 retake-all reuses id. H1/H2 still verify on device |
 | Docs drift | Log was stale at +7; missing `IOS_APP_STORE.md` / `QA_REPORT.md` / `PLAY_LISTING.md` on disk (`*.md` gitignored) |
@@ -89,6 +89,12 @@ Converts still omitted from Deleted. Folders UI paused. **Scan-only chrome on** 
 - **Done:** **Do not fill “all photos” justification** — ScanMe only picks images via picker, does not qualify. Removed `READ_MEDIA_IMAGES` (`tools:node="remove"`). Android import: in-app picker explain, no `Permission.photos`. Kept `READ_EXTERNAL_STORAGE` maxSdk 32. Version **1.0.2+12**.
 - **Files:** `AndroidManifest.xml` · `access_permission.dart` · `pubspec.yaml` · FEATURES · this log
 - **Leftover:** Build+upload AAB **12**. In Console, drop the Photos/Videos declaration or resubmit after new AAB so the permission is gone. Device: Import images still opens picker.
+
+### 2026-08-19 — file-picker-darwin iOS 13 vs 14
+- **Request:** Fix Xcode: `file-picker-darwin` needs iOS 14, target supports 13 (`FlutterGeneratedPluginSwiftPackage`).
+- **Done:** Set `IPHONEOS_DEPLOYMENT_TARGET = 15.5` on Runner Debug/Release/Profile (not only project). Same in `Debug.xcconfig` / `Release.xcconfig` after Generated. `AppFrameworkInfo.plist` MinimumOSVersion 15.5. `flutter build ios --config-only` regenerated SPM `Package.swift` to `.iOS("15.5")`.
+- **Files:** `project.pbxproj` · `ios/Flutter/Debug.xcconfig` · `Release.xcconfig` · `AppFrameworkInfo.plist` · this log
+- **Leftover:** In Xcode: Clean Build Folder, then build for Ahmed’s iPhone. Do not disable SwiftPM.
 
 ### 2026-08-19 — Unskip shell Scan tests
 - **Request:** Do leftover (skipped FAB scan tests).
