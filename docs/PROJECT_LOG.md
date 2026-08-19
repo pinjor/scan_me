@@ -47,7 +47,7 @@
 | Automated tests | Targeted QA suite PASS (`pdf_tools` + UI + library). Full `all_converters` may OOM |
 | Device smoke | **Still required** before Play — see [`QA_REPORT.md`](QA_REPORT.md) |
 | Play release | **NOT READY** until device Scan→Save + PDF Tools + Open With smoke |
-| App Store (iOS) | **iOS 15.5** on Runner **target** + Flutter xcconfig so SPM `file-picker-darwin` matches (was still 13). VisionKit · privacy · 1024 RGB · [`IOS_APP_STORE.md`](IOS_APP_STORE.md). |
+| App Store (iOS) | **iOS 15.5** · **SwiftPM off** in pubspec (ML Kit pod needs Flutter as a CocoaPod). VisionKit scan. Privacy · 1024 RGB · [`IOS_APP_STORE.md`](IOS_APP_STORE.md). Simulator debug **PASS**. |
 | Open device gaps | Full capture→Save PDF; Viewer/print/share E2E; PDF/PPTX convert E2E |
 | Audit (2026-08-12) | Code-rechecked 2026-08-19: C1 UIScene channel **fixed**; C2 no `autoDispose`; H3 PageController in State; H4 retake-all reuses id. H1/H2 still verify on device |
 | Docs drift | Log was stale at +7; missing `IOS_APP_STORE.md` / `QA_REPORT.md` / `PLAY_LISTING.md` on disk (`*.md` gitignored) |
@@ -83,6 +83,24 @@ Converts still omitted from Deleted. Folders UI paused. **Scan-only chrome on** 
 ---
 
 ## Task log
+
+### 2026-08-19 — App Store promotional text + description
+- **Request:** Promotional text and description for App Store.
+- **Done:** Connect-ready name, subtitle (30), promo (169/170), keywords, full description, What’s New. Scan-only (no Convert/QR claims). Watermark + on-device privacy disclosed. Filed under [`IOS_APP_STORE.md`](IOS_APP_STORE.md).
+- **Files:** `docs/IOS_APP_STORE.md` · this log
+- **Leftover:** Paste into Connect; screenshots must match scan-only UI.
+
+### 2026-08-19 — Xcode plugin warnings (mobile_scanner / file_picker / deprecations)
+- **Request:** Clear Issue Navigator: `objc_ownership` on `CVPixelBufferRef`; file_picker PrivacyInfo “no rule to process”; plugin deprecations (image_picker, printing, share_plus, permission_handler, mobile_scanner).
+- **Done:** Removed SPM-era copy of `PrivacyInfo.xcprivacy` into `Sources/` (podspec already resources it; glob was compiling XML). Deleted the extra file. Pods: inhibit warnings. Runner: `-Wno-ignored-attributes` for generated `mobile_scanner-Swift.h`. Did **not** patch pub-cache plugin source.
+- **Files:** `ios/Podfile` · `Debug.xcconfig` · `Release.xcconfig` · this log
+- **Leftover:** Clean Build Folder in Xcode, rebuild Runner. Deprecations live in plugins; upgrades later if needed. Fedora unchanged.
+
+### 2026-08-19 — module Flutter not found (ML Kit pod)
+- **Request:** Fix Xcode: `google_mlkit_document_scanner` → module `Flutter` not found (then Test/mlkit cascade).
+- **Done:** Hybrid SwiftPM + CocoaPods-only ML Kit. Disabled SPM in `pubspec.yaml` (`enable-swift-package-manager: false`). Static CocoaPods linkage. Flutter is a pod again. `flutter build ios --simulator --debug` **PASS**. iOS scan still VisionKit; ML Kit stays for Android.
+- **Files:** `pubspec.yaml` · `ios/Podfile` · this log
+- **Leftover:** Xcode: open **`ios/Runner.xcworkspace`**, Clean Build Folder, build **Runner** (not Pods). Fedora Android unchanged.
 
 ### 2026-08-19 — Play `READ_MEDIA_IMAGES` declaration
 - **Request:** Play Console photo/video policy form for `READ_MEDIA_IMAGES` on newest upload.

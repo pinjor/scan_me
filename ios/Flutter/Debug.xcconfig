@@ -1,3 +1,6 @@
 #include? "Pods/Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"
 #include "Generated.xcconfig"
 IPHONEOS_DEPLOYMENT_TARGET=15.5
+# mobile_scanner-Swift.h: Clang objc_ownership on CVPixelBufferRef (plugin-generated).
+WARNING_CFLAGS=$(inherited) -Wno-ignored-attributes
+OTHER_CFLAGS=$(inherited) -Wno-ignored-attributes

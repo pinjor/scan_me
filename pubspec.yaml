@@ -52,6 +52,10 @@ flutter_launcher_icons:
   min_sdk_android: 21
 
 flutter:
+  # google_mlkit_document_scanner is CocoaPods-only. Hybrid SPM + that pod
+  # fails with "module 'Flutter' not found". iOS scan is VisionKit anyway.
+  config:
+    enable-swift-package-manager: false
   uses-material-design: true
   fonts:
     - family: PlusJakartaSans
