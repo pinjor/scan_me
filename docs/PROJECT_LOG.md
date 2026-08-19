@@ -84,6 +84,12 @@ Converts still omitted from Deleted. Folders UI paused. **Scan-only chrome on** 
 
 ## Task log
 
+### 2026-08-19 — IPA: unsupported preprocessor in Release.xcconfig
+- **Request:** Fix `flutter build ipa` — `unsupported preprocessor directive ‘mobile_scanner-Swift.h:’` at `Release.xcconfig:3`.
+- **Done:** `.xcconfig` treats `#` as a directive, not a comment. Removed those `# …` lines from Debug/Release. Kept `WARNING_CFLAGS` / `OTHER_CFLAGS`.
+- **Files:** `ios/Flutter/Debug.xcconfig` · `Release.xcconfig` · this log
+- **Leftover:** Re-run `flutter build ipa`.
+
 ### 2026-08-19 — Divergent `git pull` origin main
 - **Request:** Fix `fatal: Need to specify how to reconcile divergent branches` (no git config change).
 - **Done:** `git pull --rebase --tags origin main`. Local `issues` + `issues2` on top of remote `perm`. Kept both task-log sides. Did **not** push.
