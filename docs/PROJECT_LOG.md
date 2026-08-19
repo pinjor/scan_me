@@ -2,7 +2,7 @@
 
 **Package:** `app.atl.scanme` · **Brand:** ScanMe / Apptriangle  
 **Stack:** Flutter · Riverpod · ML Kit (Android) / VisionKit (iOS) · local storage  
-**Version:** `1.0.2+12` (versionCode **12**)  
+**Version:** `1.0.2+13` (versionCode **13**; Play AAB leftover was **12**)  
 **Last updated:** 2026-08-19
 
 > **Agent rule:** After every user task, update this file (Current status · Task log · relevant sections).  
@@ -83,6 +83,12 @@ Converts still omitted from Deleted. Folders UI paused. **Scan-only chrome on** 
 ---
 
 ## Task log
+
+### 2026-08-19 — Divergent `git pull` origin main
+- **Request:** Fix `fatal: Need to specify how to reconcile divergent branches` (no git config change).
+- **Done:** `git pull --rebase --tags origin main`. Local `issues` + `issues2` on top of remote `perm`. Kept both task-log sides. Did **not** push.
+- **Files:** this log (conflicts resolved in rebase)
+- **Leftover:** `main` is **2 commits ahead** of origin. Push when you want. `pubspec` is `1.0.2+13`. If `flutter build ipa` was still running, rerun it on this tree.
 
 ### 2026-08-19 — App Store promotional text + description
 - **Request:** Promotional text and description for App Store.
