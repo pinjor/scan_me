@@ -2,7 +2,7 @@
 
 **Package:** `app.atl.scanme` · **Brand:** ScanMe / Apptriangle  
 **Stack:** Flutter · Riverpod · ML Kit (Android) / VisionKit (iOS) · local storage  
-**Version:** `1.0.2+9` (versionCode **9**)  
+**Version:** `1.0.2+12` (versionCode **12**)  
 **Last updated:** 2026-08-19
 
 > **Agent rule:** After every user task, update this file (Current status · Task log · relevant sections).  
@@ -58,7 +58,7 @@
 ```bash
 flutter clean && flutter pub get
 flutter build appbundle --release
-# Upload AAB versionCode 7
+# Upload AAB versionCode 12 (no READ_MEDIA_IMAGES)
 ```
 
 ### Open / watch
@@ -83,6 +83,12 @@ Converts still omitted from Deleted. Folders UI paused. **Scan-only chrome on** 
 ---
 
 ## Task log
+
+### 2026-08-19 — Play `READ_MEDIA_IMAGES` declaration
+- **Request:** Play Console photo/video policy form for `READ_MEDIA_IMAGES` on newest upload.
+- **Done:** **Do not fill “all photos” justification** — ScanMe only picks images via picker, does not qualify. Removed `READ_MEDIA_IMAGES` (`tools:node="remove"`). Android import: in-app picker explain, no `Permission.photos`. Kept `READ_EXTERNAL_STORAGE` maxSdk 32. Version **1.0.2+12**.
+- **Files:** `AndroidManifest.xml` · `access_permission.dart` · `pubspec.yaml` · FEATURES · this log
+- **Leftover:** Build+upload AAB **12**. In Console, drop the Photos/Videos declaration or resubmit after new AAB so the permission is gone. Device: Import images still opens picker.
 
 ### 2026-08-19 — Unskip shell Scan tests
 - **Request:** Do leftover (skipped FAB scan tests).

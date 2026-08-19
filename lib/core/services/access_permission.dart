@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -22,35 +24,68 @@ abstract final class AccessPermission {
     icon: Icons.photo_camera_outlined,
   );
 
-  static Future<bool> ensurePhotos(BuildContext context) => _ensure(
-    context,
-    permission: Permission.photos,
-    title: 'Photos',
-    message:
-        'ScanMe uses photos you pick to import pages, edit an image, or read a QR code. '
-        'We only see files you select.',
-    icon: Icons.photo_library_outlined,
-  );
+  static Future<bool> ensurePhotos(BuildContext context) async {
+    if (bypassInTests) return true;
+    // Android 13+: system photo picker. No READ_MEDIA_IMAGES (Play policy).
+    if (Platform.isAndroid) {
+      return _explainPickerOnce(
+        context,
+        prefsKey: _photosExplainedKey,
+        title: 'Photos',
+        message:
+            'ScanMe will open the system photo picker. You choose the images. '
+            'The app does not get access to your whole gallery.',
+        icon: Icons.photo_library_outlined,
+        confirmLabel: 'Choose photos',
+      );
+    }
+    return _ensure(
+      context,
+      permission: Permission.photos,
+      title: 'Photos',
+      message:
+          'ScanMe uses photos you pick to import pages, edit an image, or read a QR code. '
+          'We only see files you select.',
+      icon: Icons.photo_library_outlined,
+    );
+  }
 
   static const _filesExplainedKey = 'access_files_explained_v1';
+  static const _photosExplainedKey = 'access_photos_picker_explained_v1';
 
   /// iOS/Android file pickers are the grant (no always-on Files access).
-  static Future<bool> ensureFiles(BuildContext context) async {
+  static Future<bool> ensureFiles(BuildContext context) => _explainPickerOnce(
+        context,
+        prefsKey: _filesExplainedKey,
+        title: 'Files',
+        message:
+            'ScanMe will open the system file picker. You choose the document. '
+            'The app does not get access to your whole storage.',
+        icon: Icons.folder_open_outlined,
+        confirmLabel: 'Choose file',
+      );
+
+  static Future<bool> _explainPickerOnce(
+    BuildContext context, {
+    required String prefsKey,
+    required String title,
+    required String message,
+    required IconData icon,
+    required String confirmLabel,
+  }) async {
     if (bypassInTests) return true;
     if (!context.mounted) return false;
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.getBool(_filesExplainedKey) ?? false) return true;
+    if (prefs.getBool(prefsKey) ?? false) return true;
     if (!context.mounted) return false;
     final go = await _showRationale(
       context,
-      title: 'Files',
-      message:
-          'ScanMe will open the system file picker. You choose the document. '
-          'The app does not get access to your whole storage.',
-      icon: Icons.folder_open_outlined,
-      confirmLabel: 'Choose file',
+      title: title,
+      message: message,
+      icon: icon,
+      confirmLabel: confirmLabel,
     );
-    if (go) await prefs.setBool(_filesExplainedKey, true);
+    if (go) await prefs.setBool(prefsKey, true);
     return go;
   }
 

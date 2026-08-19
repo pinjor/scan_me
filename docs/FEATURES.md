@@ -287,7 +287,7 @@ Preview converted / opened files with Save + Share:
 - **No account** required
 - Documents / tags / prefs in **local app storage**
 - PDF exports include **Apptriangle** corner watermark
-- Camera / photos only for scan, import, QR, convert picks
+- Camera for scan. Photos: **system picker only** (no `READ_MEDIA_IMAGES` on Android). Files: system picker.
 
 ---
 
