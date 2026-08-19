@@ -298,9 +298,10 @@ class EditorController extends StateNotifier<EditorSession?> {
           }
           continue;
         }
+        final existingProcessed = page.processedImagePath;
         if (page.selectedFilter == filter &&
-            page.processedImagePath != null &&
-            await File(page.processedImagePath!).exists()) {
+            existingProcessed != null &&
+            await File(existingProcessed).exists()) {
           pages[i] = page.copyWith(selectedFilter: filter);
           continue;
         }

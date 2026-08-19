@@ -11,13 +11,37 @@ Offline CamScanner-style document scanner by **Apptriangle**.
 
 - **[Project log (living)](docs/PROJECT_LOG.md)** — status, task history, Play / test / audit (agents update after every task)
 - **[UI pages (deep)](docs/UI_PAGES.md)** — every screen, sheet, flow, motion  
+- **[iOS App Store](docs/IOS_APP_STORE.md)** — VisionKit, privacy, review notes, upload
 
 ## Run
 
+### Fedora (unchanged)
+
+Your existing Flutter, JDK, Android SDK, and gitignored `android/local.properties` stay on that machine. After `git pull`:
+
 ```bash
-flutter pub get
 flutter run
 ```
+
+Do **not** edit Gradle, do **not** run `tool/bootstrap.sh`, do **not** commit `local.properties`.
+
+### Mac (first time)
+
+Flutter must be on PATH (`~/Projects/flutter/bin` is already in `~/.zshrc` — open a new terminal or `source ~/.zshrc`). Then:
+
+```bash
+bash tool/bootstrap.sh
+flutter run                 # Android
+flutter run -d ios          # Xcode
+```
+
+`local.properties` is gitignored so Mac paths never overwrite Fedora.
+
+| | Fedora | Mac |
+|--|--------|-----|
+| What you run | `flutter run` as before | bootstrap once, then `flutter run` |
+| Android SDK | whatever you already use | `$HOME/Library/Android/sdk` |
+| iOS | skip | Xcode + CocoaPods |
 
 ## Release / Play Store
 

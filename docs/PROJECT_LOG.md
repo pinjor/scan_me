@@ -2,8 +2,8 @@
 
 **Package:** `app.atl.scanme` · **Brand:** ScanMe / Apptriangle  
 **Stack:** Flutter · Riverpod · ML Kit (Android) / VisionKit (iOS) · local storage  
-**Version:** `1.0.2+7` (versionCode **7**)  
-**Last updated:** 2026-08-18
+**Version:** `1.0.2+9` (versionCode **9**)  
+**Last updated:** 2026-08-19
 
 > **Agent rule:** After every user task, update this file (Current status · Task log · relevant sections).  
 > Deep UI screen detail: [`UI_PAGES.md`](UI_PAGES.md) (single file — all screens).  
@@ -45,9 +45,11 @@
 | Automated tests | Targeted QA suite PASS (`pdf_tools` + UI + library). Full `all_converters` may OOM |
 | Device smoke | **Still required** before Play — see [`QA_REPORT.md`](QA_REPORT.md) |
 | Play release | **NOT READY** until device Scan→Save + PDF Tools + Open With smoke |
-| App Store (iOS) | Config ready (privacy manifest, purpose strings, export). **IPA needs a Mac.** See [`IOS_APP_STORE.md`](IOS_APP_STORE.md) |
+| App Store (iOS) | **iOS 15.5** · VisionKit · privacy manifest · 1024 icon RGB no alpha · Connect checklist [`IOS_APP_STORE.md`](IOS_APP_STORE.md). Simulator **release-path compile PASS**. Device/IPA needs Xcode Team. |
 | Open device gaps | Full capture→Save PDF; Viewer/print/share E2E; PDF/PPTX convert E2E |
-| Audit (2026-08-12) | Historical; verify C1/C2/H* before treating as fixed |
+| Audit (2026-08-12) | Code-rechecked 2026-08-19: C1 UIScene channel **fixed**; C2 no `autoDispose`; H3 PageController in State; H4 retake-all reuses id. H1/H2 still verify on device |
+| Docs drift | Log was stale at +7; missing `IOS_APP_STORE.md` / `QA_REPORT.md` / `PLAY_LISTING.md` on disk (`*.md` gitignored) |
+| Dual OS (Mac + Fedora) | **Fedora: `flutter run` as before** (no bootstrap, no Gradle edits). Mac: PATH + bootstrap once. `local.properties` gitignored. Foojay/toolchain **not** added (would change Linux Gradle). |
 
 ### Next ship
 
@@ -79,6 +81,48 @@ Converts still omitted from Deleted. Folders UI paused.
 ---
 
 ## Task log
+
+### 2026-08-19 — Xcode issues (file_picker privacy + recommended settings)
+- **Request:** Fix Xcode Issue Navigator: file_picker_darwin missing `PrivacyInfo.xcprivacy`; Runner “Update to recommended settings.”
+- **Done:** SPM looks for `Sources/file_picker_darwin/Resources/PrivacyInfo.xcprivacy`; plugin ships it one folder up. Podfile copies the file on `pod install`. LastUpgradeCheck/scheme **2600** (Xcode 26). Signing (APPTRIANGLE LIMITED / `app.atl.scanme`) left as-is.
+- **Files:** `ios/Podfile` · `project.pbxproj` · `Runner.xcscheme` · this log
+- **Leftover:** Close/reopen Xcode (or Clean) so the two warnings clear. `flutter run --release` was already launching on Ahmed’s iPhone.
+
+### 2026-08-19 — iOS 15.5 + App Store prep + build verify
+- **Request:** Fix pod/VisionKit run, verify iOS build, prepare App Store per guidelines.
+- **Done:** Min iOS **15.5** (pbxproj + Podfile + post_install) so `google_mlkit_document_scanner` pod resolves; iOS scan remains VisionKit. Photo **Add** purpose string. [`IOS_APP_STORE.md`](IOS_APP_STORE.md) (privacy answers, review notes, 2.1/5.1.x). 1024 icon 1024² no alpha. Fixed `editor_controller` `String?` FileImage (blocked Xcode). **`flutter build ios --simulator` PASS** → `build/ios/iphonesimulator/Runner.app`. Device `--no-codesign` still asks for Development Team.
+- **Files:** `ios/Podfile` · `project.pbxproj` · `Info.plist` · `docs/IOS_APP_STORE.md` · `editor_controller.dart` · this log
+- **Leftover:** Xcode → Runner → Team; `flutter run` on Ahmed’s iPhone; smoke VisionKit; host privacy URL; screenshots; `bash tool/build_ios_release.sh` + Transporter. Fedora Android unchanged.
+
+### 2026-08-19 — VisionKit working?
+- **Request:** Confirm VisionKit works.
+- **Done:** iOS scan path is VisionKit (`DocumentScannerHandler` + channel `app.atl.scanme/document_scanner`); Dart uses it only when `Platform.isIOS`. ML Kit is Android-only. Not device-proven this session: `flutter run` died at pod install (`google_mlkit_document_scanner` wants iOS ≥ 15.5, app is 13.0).
+- **Files:** none
+- **Leftover:** Raise iOS min to 15.5 (or stub ML Kit on iOS) so the app can launch, then smoke Scan on iPhone.
+
+### 2026-08-19 — Fedora must run as before (no edits)
+- **Request:** Going to Fedora, everything runs as before without editing anything.
+- **Done:** Removed Foojay + Java toolchain (Fedora Gradle stays compileOptions 17 as before). Bootstrap **does not rewrite** a valid existing `local.properties` and **exits immediately on Linux** in that case. README: Fedora = `flutter run` only. `local.properties` still gitignored (Mac paths never land on Fedora via git).
+- **Files:** `android/settings.gradle.kts` · `android/app/build.gradle.kts` · `android/gradle.properties` · `tool/bootstrap.sh` · `README.md` · this log
+- **Leftover:** On Fedora after pull: `flutter run`. Wrapper/Podfile in git are unused extra files on Linux, not a setup change.
+
+### 2026-08-19 — Mac `flutter` not on PATH
+- **Request:** `flutter run` → `zsh: command not found: flutter`
+- **Done:** SDK already at `~/Projects/flutter` (3.44.8). Added that `bin` + `ANDROID_HOME` to `~/.zshrc` (Mac only; Fedora PATH unchanged).
+- **Files:** `~/.zshrc` (machine, not the repo)
+- **Leftover:** New terminal or `source ~/.zshrc`, then `bash tool/bootstrap.sh` and `flutter run`. JDK 17 still missing on this Mac if Android Gradle starts.
+
+### 2026-08-19 — Dual Mac + Fedora run setup
+- **Request:** Run on Mac and Fedora without changing project setup each switch; Fedora already works.
+- **Done:** `tool/bootstrap.sh` resolves Flutter + Android SDK per machine and writes gitignored `android/local.properties`. Foojay + Java 17 toolchain (no `JAVA_HOME` in repo). Stopped ignoring Gradle wrapper; added `gradlew` / `gradlew.bat` / `gradle-wrapper.jar` (9.1.0). Committed-ready `ios/Podfile` (`platform :ios, 13.0`); Pods/Generated.xcconfig stay ignored. README run table. Fedora: re-run bootstrap only after clone/SDK move.
+- **Files:** `tool/bootstrap.sh` · `android/settings.gradle.kts` · `android/app/build.gradle.kts` · `android/.gitignore` · `android/gradle.properties` · `android/gradlew*` · `android/gradle/wrapper/` · `android/local.properties.example` · `ios/Podfile` · `README.md` · this log
+- **Leftover:** This Mac still needs Flutter on PATH + JDK 17 (`brew install --cask temurin@17`) then `bash tool/bootstrap.sh`. Do not commit `local.properties`.
+
+### 2026-08-19 — Full project analysis + standing log rule
+- **Request:** Full project analysis + report; find PROJECT_LOG; after every task append to it; remember without being told.
+- **Done:** Read log, FEATURES, UI_PAGES, lib layout, Android/iOS native, pubspec, tests. Workspace alwaysApply rule `.cursor/rules/project-log.mdc` (+ existing `scan_me/.cursor/rules/project-log.mdc`). Synced version here to `1.0.2+9`. Report in chat.
+- **Files:** `.cursor/rules/project-log.mdc` · `scan_me/.cursor/rules/project-log.mdc` · this log
+- **Leftover:** Device smoke still blocks stores; iOS IPA needs Apple team in Xcode (`DEVELOPMENT_TEAM` unset); recreate missing store/QA md if needed.
 
 ### 2026-08-18 — iOS App Store prep
 - **Request:** Full iOS build covering everything; keep App Store publishability.
@@ -914,12 +958,12 @@ Original audit: 24 findings (2 Critical · 4 High · 11 Medium · 7 Low). Full n
 
 | ID | Issue | Impact | Status |
 |----|-------|--------|--------|
-| C1 | iOS scanner MethodChannel may not register (UIScene / nil window) | iOS scan broken | **Verify** |
-| C2 | `editorSessionProvider.autoDispose` mid-scan wipe | Flaky empty Review | **Verify** |
-| H1 | Cancel leaves orphan `documents/<id>/` | Disk leak | **Verify** |
+| C1 | iOS scanner MethodChannel may not register (UIScene / nil window) | iOS scan broken | **Code-fixed** (`FlutterImplicitEngineDelegate` + Scene-safe `topViewController`) — device smoke still due |
+| C2 | `editorSessionProvider.autoDispose` mid-scan wipe | Flaky empty Review | **Code-fixed** (plain `StateNotifierProvider`, no autoDispose) |
+| H1 | Cancel leaves orphan `documents/<id>/` | Disk leak | **Verify** (draft delete exists; cancel path on device) |
 | H2 | Import errors uncaught after scan | Crash / stuck | **Verify** |
-| H3 | Viewer `PageController` recreated in `build` | Leak / jump | **Verify** |
-| H4 | Retake-all new id abandons old files | Disk leak | **Verify** |
+| H3 | Viewer `PageController` recreated in `build` | Leak / jump | **Code-fixed** (created in `_load`, disposed) |
+| H4 | Retake-all new id abandons old files | Disk leak | **Code-fixed** (`replaceAllFromScanPaths` reuses id) |
 
 Medium/Low (export re-encode, rename vs filenames, Google Fonts network, GMS check, etc.) — re-open from git history / prior audit if needed.
 
@@ -936,6 +980,7 @@ Medium/Low (export re-encode, rename vs filenames, Google Fonts network, GMS che
 | Manifest | `android/app/src/main/AndroidManifest.xml` |
 | ProGuard | `android/app/proguard-rules.pro` |
 | Privacy HTML | `privacy_policy.html` |
+| Dual-OS bootstrap | `tool/bootstrap.sh` |
 
 ---
 

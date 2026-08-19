@@ -1,0 +1,22 @@
+PODS:
+  - Flutter (1.0.0)
+  - google_mlkit_document_scanner (0.5.0):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - google_mlkit_document_scanner (from `.symlinks/plugins/google_mlkit_document_scanner/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  google_mlkit_document_scanner:
+    :path: ".symlinks/plugins/google_mlkit_document_scanner/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  google_mlkit_document_scanner: baffd57d91ee74fd3a3679333fa654e79f8dc71f
+
+PODFILE CHECKSUM: 744b29040bd40d01726392811a04b042b9358d52
+
+COCOAPODS: 1.17.0

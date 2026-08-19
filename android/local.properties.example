@@ -1,0 +1,5 @@
+# Copy to local.properties is NOT needed — run: bash tool/bootstrap.sh
+# That file is gitignored (Mac vs Fedora SDK paths). Never commit it.
+#
+# sdk.dir=    Mac: $HOME/Library/Android/sdk    Fedora: $HOME/Android/Sdk
+# flutter.sdk=  directory that contains bin/flutter (from PATH or $HOME/Projects/flutter)

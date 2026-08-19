@@ -11,7 +11,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>ScanMe uses the camera to capture document pages and read QR codes. Images are processed on this device and are not uploaded.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>ScanMe uses photos you select to import pages or decode a QR code. Images stay on this device.</string>
+	<string>ScanMe uses photos you select to import document pages, edit a photo, or decode a QR code. Images stay on this device and are not uploaded.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>ScanMe can save a copy of a document or photo you choose to export. Files stay under your control and are not uploaded.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UIRequiresFullScreen</key>
