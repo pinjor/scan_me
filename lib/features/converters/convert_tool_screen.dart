@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/services/access_permission.dart';
 import '../../shared/widgets/app_ui.dart';
 import 'convert_catalog.dart';
 import 'convert_result_panel.dart';
@@ -38,6 +39,8 @@ class _ConvertToolScreenState extends State<ConvertToolScreen> {
   }
 
   Future<void> _pickAndRun() async {
+    if (!await AccessPermission.ensureFiles(context)) return;
+    if (!mounted) return;
     final (exts, title) = pickHintsFor(widget.tool.id);
     final file = await FilePicker.pickFile(
       type: FileType.custom,

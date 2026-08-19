@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/onboarding.dart';
+import '../../core/services/access_permission.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/app_ui.dart';
@@ -63,6 +64,13 @@ const _pages = <_Page>[
     body:
         'Me holds themes (single, dual, triple, or your own), light/dark, and the two nav slots beside Scan.',
     chips: ['40+ themes', 'Nav slots'],
+  ),
+  _Page(
+    eyebrow: 'Access',
+    title: 'We ask before we look',
+    body:
+        'When you tap a feature, ScanMe explains why, then the system asks. Camera for scan and QR. Photos you choose. Files through the system picker — not your whole phone.',
+    chips: ['Camera', 'Photos', 'Files'],
   ),
   _Page(
     eyebrow: 'All set',
@@ -256,6 +264,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                                             _SoftChip(label: chip),
                                         ],
                                       ),
+                                      if (i == 6) ...[
+                                        const SizedBox(height: 16),
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              AccessPermission.ensureCamera(
+                                            context,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.photo_camera_outlined,
+                                          ),
+                                          label: const Text('Allow camera'),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              AccessPermission.ensurePhotos(
+                                            context,
+                                          ),
+                                          icon: const Icon(
+                                            Icons.photo_library_outlined,
+                                          ),
+                                          label: const Text('Allow photos'),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -428,6 +460,7 @@ class _OnboardingHero extends StatelessWidget {
       3 => const _HeroLibrary(),
       4 => const _HeroTools(),
       5 => const _HeroTheme(),
+      6 => const _HeroAccess(),
       _ => const _HeroReady(),
     };
     return ExcludeSemantics(
@@ -1153,6 +1186,40 @@ class _ModeChip extends StatelessWidget {
           color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+class _HeroAccess extends StatelessWidget {
+  const _HeroAccess();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    Widget bubble(IconData icon, String label) {
+      return Column(
+        children: [
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: scheme.primaryContainer,
+            foregroundColor: scheme.onPrimaryContainer,
+            child: Icon(icon),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: Theme.of(context).textTheme.labelMedium),
+        ],
+      );
+    }
+
+    return _Stage(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          bubble(Icons.photo_camera_outlined, 'Camera'),
+          bubble(Icons.photo_library_outlined, 'Photos'),
+          bubble(Icons.folder_open_outlined, 'Files'),
+        ],
       ),
     );
   }

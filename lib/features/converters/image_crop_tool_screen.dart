@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 
+import '../../core/services/access_permission.dart';
 import '../../shared/widgets/app_ui.dart';
 import 'convert_catalog.dart';
 import 'convert_result_panel.dart';
@@ -55,6 +56,8 @@ class _ImageCropToolScreenState extends State<ImageCropToolScreen> {
   }
 
   Future<void> _pick() async {
+    if (!await AccessPermission.ensureFiles(context)) return;
+    if (!mounted) return;
     final file = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: const [

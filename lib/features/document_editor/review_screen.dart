@@ -8,6 +8,7 @@ import '../../shared/models/scanned_document.dart';
 import '../../core/theme/app_theme.dart';
 import '../export/export_screen.dart';
 import '../scanner/document_scanner_service.dart';
+import '../../core/services/access_permission.dart';
 import '../../core/providers.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
@@ -299,6 +300,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   }
 
   Future<void> _addPages(BuildContext context) async {
+    if (!await AccessPermission.ensureCamera(context)) return;
+    if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final outcome = await ref.read(documentScannerProvider).scan();
     if (!mounted) return;
@@ -323,6 +326,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
   Future<void> _retakePage(BuildContext context) async {
     final session = ref.read(editorSessionProvider);
     if (session == null) return;
+    if (!await AccessPermission.ensureCamera(context)) return;
+    if (!context.mounted) return;
     final index = session.selectedIndex;
     final messenger = ScaffoldMessenger.of(context);
 
@@ -363,6 +368,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+    if (!await AccessPermission.ensureCamera(context)) return;
+    if (!mounted) return;
 
     final outcome = await ref.read(documentScannerProvider).scan(pageLimit: 50);
     if (!mounted) return;

@@ -900,7 +900,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      for (var i = 0; i < 6; i++) {
+      for (var i = 0; i < 7; i++) {
         await tester.tap(find.text('Next'));
         await tester.pumpAndSettle();
       }

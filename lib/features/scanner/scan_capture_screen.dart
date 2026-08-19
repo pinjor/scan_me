@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/services/access_permission.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
@@ -46,6 +47,11 @@ class _ScanCaptureScreenState extends ConsumerState<ScanCaptureScreen> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
+      if (!await AccessPermission.ensureCamera(context)) {
+        if (isFirst && mounted) Navigator.of(context).pop();
+        return;
+      }
+      if (!mounted) return;
       final outcome =
           await ref.read(documentScannerProvider).scan(pageLimit: 1);
       if (!mounted) return;

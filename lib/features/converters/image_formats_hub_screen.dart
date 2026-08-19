@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../../core/services/access_permission.dart';
 import '../../core/services/image_codec_bridge.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_ui.dart';
@@ -255,6 +256,8 @@ class _ImageFormatsHubScreenState extends State<ImageFormatsHubScreen> {
   }
 
   Future<void> _pick() async {
+    if (!await AccessPermission.ensureFiles(context)) return;
+    if (!mounted) return;
     final file = await FilePicker.pickFile(
       type: FileType.custom,
       allowedExtensions: const [

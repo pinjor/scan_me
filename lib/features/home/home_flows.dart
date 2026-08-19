@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/services/access_permission.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../document_editor/editor_controller.dart';
@@ -13,10 +14,14 @@ abstract final class HomeFlows {
   HomeFlows._();
 
   static Future<void> startScan(BuildContext context) async {
+    if (!await AccessPermission.ensureCamera(context)) return;
+    if (!context.mounted) return;
     await AppPageRoute.push(context, const ScanCaptureScreen());
   }
 
   static Future<void> imagesToPdf(BuildContext context, WidgetRef ref) async {
+    if (!await AccessPermission.ensurePhotos(context)) return;
+    if (!context.mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 

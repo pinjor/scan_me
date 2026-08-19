@@ -40,7 +40,7 @@
 | Open with OS | Android aliases (ScanMe **launcher icon** + tool labels); iOS PDF/TXT/image/PPTX/DOCX/XLSX/HEIC/WebP/GIF |
 | Folders | Data model kept; **UI paused** (no chips / move / Unfiled) |
 | PDF watermark | Apptriangle corner on **every PDF page** (PDF draw + image bake on exports) |
-| First-run tour | Polished 7-page walkthrough (previews + progress); prefs `onboarding_done_v1`; replay from Me |
+| First-run tour | Polished 8-page walkthrough (incl. access asks); prefs `onboarding_done_v1`; replay from Me |
 | Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
 | Automated tests | Targeted QA suite PASS (`pdf_tools` + UI + library). Full `all_converters` may OOM |
 | Device smoke | **Still required** before Play — see [`QA_REPORT.md`](QA_REPORT.md) |
@@ -81,6 +81,12 @@ Converts still omitted from Deleted. Folders UI paused.
 ---
 
 ## Task log
+
+### 2026-08-19 — Ask camera / photos / files (store)
+- **Request:** Ask users which things to access (files, camera, etc.) for App Store.
+- **Done:** In-app rationale then OS dialog, **only when the feature is used** (5.1.1 — not at launch). Camera: Scan / Review retake / QR. Photos: import, gallery QR, images→PDF. Files: system picker after a one-time explanation (no blanket storage). Onboarding page 7 Allow camera/photos. `permission_handler` + Android READ_MEDIA_IMAGES.
+- **Files:** `access_permission.dart` · home_flows · scan/review/QR · convert/PDF pick · onboarding · Podfile · AndroidManifest · tests · docs
+- **Leftover:** Device: deny/allow/Settings path; `pod install` after pub get on Mac.
 
 ### 2026-08-19 — Xcode issues (file_picker privacy + recommended settings)
 - **Request:** Fix Xcode Issue Navigator: file_picker_darwin missing `PrivacyInfo.xcprivacy`; Runner “Update to recommended settings.”

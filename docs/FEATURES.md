@@ -17,7 +17,7 @@
 | Open with | OS file manager opens ScanMe tools directly |
 | QR | Live + photo decode · copy · share · open links |
 | Privacy | Local storage · Apptriangle watermark on PDF exports · no cloud account |
-| First run | 7-page feature tour (once); replay from Me → About |
+| First run | 8-page feature tour (once); access page for camera/photos; replay from Me → About |
 | Updates | Soft Play Store reminder (optional · Remind later 3d · Update now) |
 
 ---
@@ -29,7 +29,7 @@
 - **Scan** — center FAB, docked in a notch on one nav bar
 - **Me** — appearance (M3 color presets) · nav slots · trash retention, tags, about
 - **Back** — on every *pushed* screen when the stack can pop (tab roots have no back)
-- **First launch** — full-screen walkthrough before Home (prefs `onboarding_done_v1`)
+- **First launch** — full-screen walkthrough before Home (prefs `onboarding_done_v1`). Access page can Allow camera/photos; Scan/QR/import still ask at use (Guideline 5.1.1).
 
 ---
 

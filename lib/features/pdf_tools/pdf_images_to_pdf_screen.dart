@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/services/access_permission.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../converters/convert_catalog.dart';
 import '../converters/convert_tool_chrome.dart';
@@ -30,6 +31,8 @@ class _PdfImagesToPdfScreenState extends State<PdfImagesToPdfScreen> {
   ConvertResult? _result;
 
   Future<void> _pick() async {
+    if (!await AccessPermission.ensurePhotos(context)) return;
+    if (!mounted) return;
     final picked = await ImagePicker().pickMultiImage(imageQuality: 95);
     if (picked.isEmpty || !mounted) return;
     setState(() {

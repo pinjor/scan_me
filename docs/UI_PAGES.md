@@ -10,7 +10,7 @@
 ## Navigation map
 
 ```
-First launch → Onboarding (7 pages) → MainShell
+First launch → Onboarding (8 pages) → MainShell
 Replay: Me → About → Replay tutorial
 
 MainShell (bottom nav)
@@ -97,7 +97,7 @@ One-time feature tour before the shell. Skip or finish writes the prefs flag. Do
 
 ### Chrome
 
-Warm paper wash · step `n of 7` + back · Skip/Close · thin progress bar · per-page UI preview (nav FAB, library, tools, themes) · chips · **Next** / **Get started**
+Warm paper wash · step `n of 8` + back · Skip/Close · thin progress bar · per-page UI preview (nav FAB, library, tools, themes, access) · chips · **Next** / **Get started**
 
 ### Pages
 
@@ -107,7 +107,8 @@ Warm paper wash · step `n of 7` + back · Skip/Close · thin progress bar · pe
 4. Home library (search, shortcuts, filters)
 5. Convert · Edit photo · PDF Tools · QR · Open with
 6. Me (themes, nav slots)
-7. Ready
+7. Access — Camera / Photos / Files (Allow camera · Allow photos; files asked at picker)
+8. Ready
 
 Replay pushes over Me; Close / Get started pops.
 

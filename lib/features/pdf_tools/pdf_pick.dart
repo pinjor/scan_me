@@ -1,8 +1,12 @@
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 
+import '../../core/services/access_permission.dart';
 import '../converters/document_converter_service.dart';
 
-Future<String?> pickSinglePdf() async {
+Future<String?> pickSinglePdf(BuildContext context) async {
+  if (!await AccessPermission.ensureFiles(context)) return null;
+  if (!context.mounted) return null;
   final file = await FilePicker.pickFile(
     type: FileType.custom,
     allowedExtensions: const ['pdf'],
@@ -12,7 +16,9 @@ Future<String?> pickSinglePdf() async {
   return _materialize(file);
 }
 
-Future<List<String>> pickManyPdfs() async {
+Future<List<String>> pickManyPdfs(BuildContext context) async {
+  if (!await AccessPermission.ensureFiles(context)) return const [];
+  if (!context.mounted) return const [];
   final files = await FilePicker.pickFiles(
     type: FileType.custom,
     allowedExtensions: const ['pdf'],

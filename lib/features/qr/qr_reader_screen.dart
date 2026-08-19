@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/services/access_permission.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_ui.dart';
 
@@ -18,6 +19,7 @@ class QrReaderScreen extends StatefulWidget {
 
 class _QrReaderScreenState extends State<QrReaderScreen> {
   final _controller = MobileScannerController(
+    autoStart: false,
     detectionSpeed: DetectionSpeed.normal,
     formats: const [
       BarcodeFormat.qrCode,
@@ -35,6 +37,17 @@ class _QrReaderScreenState extends State<QrReaderScreen> {
 
   var _handling = false;
   String? _lastRaw;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final ok = await AccessPermission.ensureCamera(context);
+      if (!mounted) return;
+      if (ok) await _controller.start();
+    });
+  }
 
   @override
   void dispose() {
@@ -63,6 +76,8 @@ class _QrReaderScreenState extends State<QrReaderScreen> {
 
   Future<void> _scanFromGallery() async {
     if (_handling) return;
+    if (!await AccessPermission.ensurePhotos(context)) return;
+    if (!mounted) return;
     final file = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (file == null || !mounted) return;
 

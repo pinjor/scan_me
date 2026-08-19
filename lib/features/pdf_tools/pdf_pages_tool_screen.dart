@@ -50,7 +50,7 @@ class _PdfPagesToolScreenState extends State<PdfPagesToolScreen> {
   PdfToolId get _id => widget.tool.id;
 
   Future<void> _pick() async {
-    final path = await pickSinglePdf();
+    final path = await pickSinglePdf(context);
     if (path == null || !mounted) return;
     await _load(path);
   }

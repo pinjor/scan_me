@@ -31,7 +31,7 @@ class _PdfCompressScreenState extends State<PdfCompressScreen> {
   PdfCompressOutcome? _outcome;
 
   Future<void> _pick() async {
-    final path = await pickSinglePdf();
+    final path = await pickSinglePdf(context);
     if (path == null || !mounted) return;
     try {
       final bytes = await File(path).length();

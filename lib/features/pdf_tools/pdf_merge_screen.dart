@@ -30,7 +30,7 @@ class _PdfMergeScreenState extends State<PdfMergeScreen> {
   ConvertResult? _result;
 
   Future<void> _pick() async {
-    final picked = await pickManyPdfs();
+    final picked = await pickManyPdfs(context);
     if (picked.isEmpty || !mounted) return;
     setState(() {
       _files
