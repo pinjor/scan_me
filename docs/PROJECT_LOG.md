@@ -2,8 +2,8 @@
 
 **Package:** `app.atl.scanme` · **Brand:** ScanMe / Apptriangle  
 **Stack:** Flutter · Riverpod · ML Kit (Android) / VisionKit (iOS) · local storage  
-**Version:** `1.0.2+13` (versionCode **13**; Play AAB leftover was **12**)  
-**Last updated:** 2026-08-19
+**Version:** `1.0.2+15` (versionCode **15**)  
+**Last updated:** 2026-08-23
 
 > **Agent rule:** After every user task, update this file (Current status · Task log · relevant sections).  
 > Deep UI screen detail: [`UI_PAGES.md`](UI_PAGES.md) (single file — all screens).  
@@ -27,27 +27,14 @@
 
 | Area | State |
 |------|--------|
-| Core flows | Scan → Review → Export → Library → Viewer (architecturally complete) |
-| Home UI | Premium: warm paper · greeting · pill search · shortcut strip · segmented filters · elevated cards |
-| Motion | Modern M3-style shared `AppMotion` (routes, lists, press, sheets, nav) |
-| CamScan B&W | **Fixed 2026-08-16** — async path no longer full-white; SLI spec on every page |
-| Document tags | Colored `TagDef` catalog; Settings CRUD; assign Home ⋯ / Viewer; filter chips |
-| Tools / converters | Hub: Documents · **Edit photo** · **PDF Tools** (merge/split/pages/compress) |
-| QR reader | Camera + photo · URL → Open link primary · Copy / Share · Quick tools default |
-| UX redesign | Complete transformation pass 2026-08-16 — shared kit + screen polish; prior phases 1–8 retained |
-| UI docs | Single [`UI_PAGES.md`](UI_PAGES.md) · features [`FEATURES.md`](FEATURES.md) |
-| File viewers | Convert · View PDF · **Open with** tool aliases from file manager |
-| Open with OS | Android aliases (ScanMe **launcher icon** + tool labels); iOS PDF/TXT/image/PPTX/DOCX/XLSX/HEIC/WebP/GIF |
-| Folders | Data model kept; **UI paused** (no chips / move / Unfiled) |
-| PDF watermark | Apptriangle corner on **every PDF page** (PDF draw + image bake on exports) |
-| First-run tour | Scan-focused walkthrough; toolkit page skipped (`kScanOnlySurface`) |
-| Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
-| Product chrome | **Scan-only** — Convert / QR / PDF Tools / Edit photo / inner nav hidden; code kept (`lib/core/product_surface.dart`) |
-| Save to device | System **Save as** dialog (user picks folder/name) — not silent Downloads |
-| Automated tests | Targeted QA suite PASS (`pdf_tools` + UI + library). Full `all_converters` may OOM |
-| Device smoke | **Still required** before Play — see [`QA_REPORT.md`](QA_REPORT.md) |
-| Play release | **NOT READY** until device Scan→Save + PDF Tools + Open With smoke |
-| App Store (iOS) | **iOS 15.5** · **SwiftPM off** in pubspec (ML Kit pod needs Flutter as a CocoaPod). VisionKit scan. Privacy · 1024 RGB · [`IOS_APP_STORE.md`](IOS_APP_STORE.md). Simulator debug **PASS**. |
+| Core flows | **Scan-only ship:** ML Kit multi-page → Review (Done tick) → Export (PDF/image dots) → PDF viewer Share/Download · or save images → Library |
+| Home UI | Greeting · search · **Tagged** filters · scan library (no Shortcuts) |
+| Product chrome | **`kScanOnlySurface = true`** — Home · Scan · Me. Convert / QR / PDF Tools / Edit photo / Shortcuts / Replay **hidden** (code kept) |
+| Tools / converters | **Not in UI** — hub + tools remain under `lib/features/converters` / `pdf_tools` / `qr` |
+| QR reader | **Hidden** |
+| First-run tour | 3 pages · brand paper/navy/teal light · motion |
+| Play release | P0 = device Scan → Save PDF → reopen. Converter/Open-with tool smoke **not** blocking while scan-only |
+| App Store (iOS) | **iOS 15.5** · VisionKit · privacy manifest · 1024 icon RGB no alpha · Connect checklist [`IOS_APP_STORE.md`](IOS_APP_STORE.md). Simulator **release-path compile PASS**. Device/IPA needs Xcode Team. |
 | Open device gaps | Full capture→Save PDF; Viewer/print/share E2E; PDF/PPTX convert E2E |
 | Audit (2026-08-12) | Code-rechecked 2026-08-19: C1 UIScene channel **fixed**; C2 no `autoDispose`; H3 PageController in State; H4 retake-all reuses id. H1/H2 still verify on device |
 | Docs drift | Log was stale at +7; missing `IOS_APP_STORE.md` / `QA_REPORT.md` / `PLAY_LISTING.md` on disk (`*.md` gitignored) |
@@ -63,27 +50,354 @@ flutter build appbundle --release
 
 ### Open / watch
 
-- [ ] **Release:** device Scan → Save PDF → reopen (P0 smoke)
-- [ ] **Release:** PDF Tools merge/split/delete/compress → open in external viewer
-- [ ] **Release:** Open With from file manager (single destination)
-- [ ] Device: back on pushed stacks (Scan · Review · Export · Viewer · Convert · QR · Settings)
-- [ ] Device: UI transform — light/dark · large text · Home search · Export progress · QR Open link
-- [ ] Device: QR reader — camera permission · torch · copy/share · open URL · scan from photo
-- [ ] Device: Open with shows **tool aliases** (ScanMe icon + labels) after reinstall
-- [ ] User confirm B&W ink survives on device (hot restart / reinstall)
-- [ ] Re-check Play Console after AAB+7 (edge-to-edge enable + deprecated bar stacks)
-- [ ] Device: ML Kit still opens after `screenOrientation=unspecified` override
-- [ ] Device: full scan → Review → Save PDF
-- [ ] Device: colored tags — Settings CRUD + assign on Home/Viewer + filter chips
-- [ ] Device: Save as dialog (file manager) for Tools / Viewer / Export
-- [ ] Device: iOS scan channel (audit C1 — UIScene / MethodChannel)
+- [ ] **Release P0:** device Scan → Save PDF → reopen
+- [ ] Device: Review / enhance / share / print
+- [ ] Device: Tags · Favorites · Trash · Save as
+- [ ] Device: light/dark · themes
+- [ ] (Later / flag off) PDF Tools · Convert · QR · Open-with tool aliases
 
-Converts still omitted from Deleted. Folders UI paused. **Scan-only chrome on** (`kScanOnlySurface`).
+**Scan-only chrome on.** Converter code kept. Folders UI paused.
 
 ---
 
 ## Task log
 
+### 2026-08-23 — Divergent git pull (rebase)
+- **Request:** Fix `fatal: Need to specify how to reconcile divergent branches`.
+- **Done:** `git pull --rebase origin main` (no git config). Resolved `PROJECT_LOG.md` — kept scan-only Current status + Aug 23 migration task log, then remote Aug 19 iOS/IPA entries. Version header → `1.0.2+15`.
+- **Files:** this log
+- **Leftover:** Push when ready. `pubspec.lock` may need `flutter pub get`.
+
+### 2026-08-23 — Play / App Store listing copy
+- **Request:** Short + full descriptions for Play Store and App Store.
+- **Done:** Drafted scan-only listing text (short/full for Google Play; subtitle + description for App Store) — delivered in chat.
+- **Files:** this log
+- **Leftover:** Paste into Play Console / App Store Connect; tune keywords per locale.
+
+### 2026-08-23 — App icon (vertical gradient glass)
+- **Request:** Use provided glass scanner icon.
+- **Done:** `assets/branding/app_icon.png` 1024²; `flutter_launcher_icons` Android/iOS; adaptive bg `#000235`.
+- **Files:** `assets/branding/app_icon.png` · platform icon assets · this log
+- **Leftover:** Reinstall / clear launcher cache on device.
+
+### 2026-08-23 — App icon refresh (glass scanner)
+- **Request:** Use provided glassmorphism scanner icon as app icon.
+- **Done:** Updated `assets/branding/app_icon.png` (1024²). Ran `dart run flutter_launcher_icons` — Android + iOS; adaptive bg `#000235`.
+- **Files:** `assets/branding/app_icon.png` · `android/app/src/main/res/**` · `ios/Runner/Assets.xcassets/AppIcon.appiconset/**` · this log
+- **Leftover:** Uninstall/reinstall or clear launcher cache to see new icon on device.
+
+### 2026-08-23 — Export image page grid previews
+- **Request:** Export as image — show full page previews in 2-column grid, not just page numbers.
+- **Done:** Replaced `FilterChip` row with 2-col `GridView` tiles — full page thumb (`BoxFit.contain`), rotation, tap select, check overlay, page label.
+- **Files:** `export_image_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-23 — Watermark glued to page pixels (all viewers)
+- **Request:** Stamp still stuck to viewer not page — Review, dashboard, export PDF.
+- **Done:** New `PageImageWithWatermark` — decodes image size, computes `BoxFit` rect, places stamp **inside** page bitmap bounds. Review uses `containInParent`; scroll lists use `fitWidth`. Removed broken `onPage` viewport stack.
+- **Files:** `page_image_with_watermark.dart` · `text_watermark.dart` · `review_screen.dart` · this log
+- **Leftover:** Hot restart; pinch-zoom on Review moves whole page+stamp together.
+
+### 2026-08-23 — Watermark faded for readability
+- **Request:** Watermark bit faded so original page text not overpowered.
+- **Done:** `stampOpacity` 0.84 → **0.45**; font w600; lighter shadows. Applies to Review, library viewer, export preview, baked PDF/image.
+- **Files:** `text_watermark.dart` · this log
+- **Leftover:** Re-export for baked stamp on old PDFs.
+
+### 2026-08-23 — Dashboard viewer vertical + page-bound watermark
+- **Request:** Dashboard PDF viewer watermark not on pages; horizontal scroll — fix.
+- **Done:** `ViewerScreen` (dashboard tap) → vertical `WatermarkedPagesScroll` (no PhotoView pager). `TextWatermark.pageImageFile` + `fitWidth` stacks stamp to page pixels; `onPage(expand: true)` kept for Review zoom only.
+- **Files:** `viewer_screen.dart` · `text_watermark.dart` · `watermarked_pages_scroll.dart` · `review_screen.dart` · this log
+- **Leftover:** Re-export for `preview_*.jpg`; pinch-zoom only on Review now.
+
+### 2026-08-23 — Dashboard / library PDF viewer watermark
+- **Request:** PDF viewer from dashboard should match Review watermark overlay.
+- **Done:** Shared `WatermarkedPagesScroll` (Review-style `TextWatermark.onPage`). `FileViewerScreen` PDF uses export `preview_###.jpg` pages + overlay; fallback `PdfPreview` if none. Library **View PDF** → `ExportPdfReadyScreen` with preview or page images. `listPdfPreviewPages()` on storage.
+- **Files:** `watermarked_pages_scroll.dart` · `file_viewer_screen.dart` · `viewer_screen.dart` · `export_pdf_ready_screen.dart` · `document_storage_service.dart` · this log
+- **Leftover:** Re-export for `preview_*.jpg` cache; old docs without previews fall back to scan page paths or `PdfPreview`.
+
+### 2026-08-23 — Review / PDF viewer watermark match
+- **Request:** Watermark not same on Review vs PDF viewer; Review is correct.
+- **Done:** `ExportPdfReadyScreen` uses same `TextWatermark.onPage` overlay as Review (preview JPEGs saved without baked stamp). Export bake sizes scaled from preview ref (12/5.5px @ 360pt width) so shared PDF stamp matches too.
+- **Files:** `text_watermark.dart` · `watermark_service.dart` · `editor_controller.dart` · `export_pdf_ready_screen.dart` · this log
+- **Leftover:** Re-export to refresh preview files + PDF; old cached pdf-preview JPEGs may still show baked stamp until new export.
+
+### 2026-08-23 — Watermark left-align + bigger ScanMe
+- **Request:** Watermark text left-aligned; ScanMe bigger font.
+- **Done:** `TextWatermark` — `CrossAxisAlignment.start`, left text align, preview title 12px (was 9.5), export title ratio 0.44 (was 0.34). Raster + PDF block paint left edge. Still bottom-right on page.
+- **Files:** `text_watermark.dart` · this log
+- **Leftover:** none
+
+### 2026-08-23 — New 3D glass scanner app icon
+- **Request:** Use provided glassmorphism scanner icon as app icon.
+- **Done:** Replaced `assets/branding/app_icon.png` (1024² PNG from user image). Ran `dart run flutter_launcher_icons` — Android mipmaps + adaptive foreground, iOS AppIcon set; adaptive bg `#000235`.
+- **Files:** `assets/branding/app_icon.png` · `android/app/src/main/res/**` · `ios/Runner/Assets.xcassets/AppIcon.appiconset/**` · this log
+- **Leftover:** Uninstall/reinstall or clear launcher cache on device to see new icon.
+
+### 2026-08-23 — Review watermark on page layer
+- **Request:** Review watermark stuck to screen; smaller bolder font; ScanMe + Powered by… each one line; bottom-right on page.
+- **Done:** Watermark inside each `PhotoView` page (`TextWatermark.onPage`) — moves with zoom/swipe. Smaller type (9.5/5.5 preview, 9.5% export width), bolder (w700 + 84% opacity). Right-aligned two lines. Removed screen overlay widget.
+- **Files:** `text_watermark.dart` · `review_screen.dart` · `viewer_screen.dart` · `watermark_service.dart` · deleted `scanme_watermark_overlay.dart` · this log
+- **Leftover:** none
+
+### 2026-08-23 — PDF viewer vertical scroll
+- **Request:** PDF viewer should scroll pages downward (normal PDF), not left-right image swipe.
+- **Done:** `ExportPdfReadyScreen` → vertical `ListView` of baked page images, stacked with gap; subtitle shows page count.
+- **Files:** `export_pdf_ready_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-23 — PDF preview pages + text watermark fix
+- **Request:** Watermark must stick to pages not PDF viewer; match reference image — smaller, bottom-right, left-aligned text (Lobster + Playfair).
+- **Done:** Baked text stamp on export JPEGs; `ExportPdfReadyScreen` uses `PhotoViewGallery` on preview JPEGs (not `PdfPreview` overlay). Left-aligned block, 14% width, 62% opacity. PDF pages = exact image dimensions.
+- **Files:** `text_watermark.dart` · `export_pdf_ready_screen.dart` · `editor_controller.dart` · `pdf_export_service.dart` · `document_storage_service.dart` · tests · this log
+- **Leftover:** Re-export PDF to verify; library PDF open still uses `PdfPreview` (baked in file).
+
+### 2026-08-23 — Text watermark (Lobster + Playfair)
+- **Request:** Smaller, bolder watermark; no faded PNG — render text directly: ScanMe (Lobster) + Powered by Apptriangle Limited (Playfair); bottom-right.
+- **Done:** `TextWatermark` rasterizes/bakes text; preview widget no opacity fade; bundled `Lobster-Regular.ttf` + `PlayfairDisplay.ttf`; removed PNG asset; toolkit PDF footers updated.
+- **Files:** `text_watermark.dart` · `watermark_service.dart` · `scanme_watermark_overlay.dart` · fonts · `pubspec.yaml` · `pdf_export_service.dart` · `document_converter_service.dart` · this log
+- **Leftover:** Hot restart; re-export for baked stamp.
+
+### 2026-08-23 — Watermark update (bottom-right, smaller)
+- **Request:** New ScanMe wordmark; smaller; bottom-right (not bottom-left).
+- **Done:** Replaced `scanme_watermark.png`; widthFraction 0.34→0.22; preview overlay 150→100px; position stays bottom-right.
+- **Files:** `scanme_watermark.png` · `watermark_service.dart` · `scanme_watermark_overlay.dart` · this log
+- **Leftover:** Re-export PDF / re-apply to see baked stamp on old docs.
+
+### 2026-08-23 — New app icon
+- **Request:** Use provided scan/document 3D icon as app icon.
+- **Done:** Replaced `assets/branding/app_icon.png` (1024²); ran `flutter_launcher_icons` for Android adaptive + iOS; adaptive bg `#000235` (icon navy).
+- **Files:** `app_icon.png` · `pubspec.yaml` · Android/iOS generated mipsets · this log
+- **Leftover:** Uninstall/reinstall or `flutter run` to see launcher icon on device.
+
+### 2026-08-23 — PDF watermark on page pixels
+- **Request:** PDF viewer watermark stuck to screen corner — should move with pages.
+- **Done:** Bake watermark into export JPEGs (`applyWatermark: true`); disable PDF overlay layer (`drawCornerWatermark: false`). Page image `BoxFit.fill` on matched page size. Full-res PDF uses q95 stamp.
+- **Files:** `editor_controller.dart` · `pdf_export_service.dart` · `watermark_service.dart` · `pdf_tools_service.dart` · this log
+- **Leftover:** Re-export PDF to see fix; old PDFs unchanged.
+
+### 2026-08-23 — ScanMe watermark asset
+- **Request:** Replace previous watermark with ScanMe / Powered by Apptriangle image.
+- **Done:** `assets/branding/scanme_watermark.png`; `WatermarkService` + `ScanMeWatermarkOverlay` (Review/Viewer); wider widthFraction 0.34; removed `apptriangle_logo` from pubspec.
+- **Files:** `scanme_watermark.png` · `watermark_service.dart` · `scanme_watermark_overlay.dart` · `review_screen.dart` · `viewer_screen.dart` · `pubspec.yaml` · this log
+- **Leftover:** Device check export PDF/Review corner mark.
+
+### 2026-08-20 — Export image own page
+- **Request:** Export as image should open a separate page.
+- **Done:** New `ExportImageScreen` (page pick + Save images). Hub tap pushes it (chevron). PDF / Back to Home unchanged on Export hub.
+- **Files:** `export_image_screen.dart` · `export_screen.dart` · tests · this log
+- **Leftover:** none
+
+### 2026-08-20 — Faster prepare / B&W
+- **Request:** Preparing pages taking too long.
+- **Done:** Import-only on Preparing (parallel copies); B&W deferred via `unawaited` → Review overlay. B&W maxEdge 2200, linear resize, q92, always isolate.
+- **Files:** `editor_controller.dart` · `cam_scan_bw_filter.dart` · `home_flows.dart` · this log
+- **Leftover:** Multi-page filter still sequential on Review (by design).
+
+### 2026-08-20 — Review Done highlight
+- **Request:** Done button should be highlighted on Review.
+- **Done:** Done uses primary color + check_circle + bolder label; still equal slot in toolbar row.
+- **Files:** `review_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — B&W pixelation fix
+- **Request:** B&W after filter looks pixelated / quality degraded.
+- **Why:** Pipeline crushed to 1600 + JPEG q82 after near-binary threshold → DCT blocks when zoomed.
+- **Done:** B&W keep long edge ≤2800, JPEG q95, cubic resize, softBand 48. Same filter steps.
+- **Files:** `cam_scan_bw_filter.dart` · this log
+- **Leftover:** Re-apply B&W on old drafts to see new quality (cached processed files stay old).
+
+### 2026-08-20 — Export PDF tap + Back Home caution
+- **Request:** Export as PDF tap → PDF viewer; bottom = Back to Home discard all + caution ensure sheet.
+- **Done:** PDF option runs export → `ExportPdfReadyScreen`. Bottom Outlined **Back to Home** → `showConfirmSheet` (“Leave without saving?”) → `discardUnsaved` → Home. Image save stays inline under page chips.
+- **Files:** `export_screen.dart` · `ui_functionality_test.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Review Done not isolated
+- **Request:** Review bottom bar Done looks isolated — shouldn’t.
+- **Done:** All 6 tools equal `Expanded` in one row; dropped scroll+pinned Done + primary emphasize. Same weight as Enhance/Rotate/etc.
+- **Files:** `review_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Preparing pages no Home bleed
+- **Request:** Preparing pages shows dashboard behind — want blank or Review bg.
+- **Done:** Drop translucent dialog. Push opaque Review-shell `_PreparingPagesScreen`, then `pushReplacement` → Review (scan + images→PDF).
+- **Files:** `home_flows.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Soften B&W filter
+- **Request:** B&W too aggressive / quality loss — keep filter, scale down a bit.
+- **Done:** Same CamScan pipeline; dialed wash/threshold (~25%): subtract 12→8, softBand 30→40, wash/midLift/chroma/bg lifts down; clearFloor 115→140.
+- **Files:** `cam_scan_bw_filter.dart` · `PROPOSAL_FORM_BW_CAMSCAN_SPEC.md` note · this log
+- **Leftover:** Device eye-check on real docs; nudge again if still harsh.
+
+### 2026-08-20 — Review swipe between pages
+- **Request:** Review page — add scroll to next page.
+- **Done:** Horizontal `PhotoViewGallery` + `PageController`; swipe changes selected page; thumbnails animate to page; sync on delete/reorder.
+- **Files:** `review_screen.dart` · `ui_functionality_test.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Review Done + Export dots / PDF viewer
+- **Request:** Review: tick last-right → next. Export: no radio/switch — dots “Export as PDF” / “Export as image”; image = pick pages; PDF → viewer with Share + Download.
+- **Done:** AppBar Finish removed; toolbar **Done** (check) pinned right. Export `_DotOption` modes; image page chips; PDF → `ExportPdfReadyScreen` (PdfPreview + Share/Download). Toolbar scroll so no overflow. Tests updated.
+- **Files:** `review_screen.dart` · `export_screen.dart` · `export_pdf_ready_screen.dart` · `ui_functionality_test.dart` · this log
+- **Leftover:** Device smoke PDF viewer Share/Download + multi-page image save.
+
+### 2026-08-20 — No hub + full-res PDF
+- **Request:** Remove intermediary page; ML Kit Add page back. (Also: no PDF compression.)
+- **Done:** Deleted capture hub. FAB → ML Kit `pageLimit: 50` → Review. PDF export `compress: false` (no 1600/q82). Removed Export “PDF quality” chips.
+- **Files:** `home_flows.dart` · deleted `scan_capture_screen.dart` · `pdf_export_service.dart` · `editor_controller.dart` · `export_screen.dart` · tests · this log
+- **Leftover:** Device smoke multi-page scan → Save PDF quality check.
+
+### 2026-08-20 — Capture hub button order
+- **Request:** Add page right, Save left.
+- **Done:** Swapped row — Save (left) · Add page (right).
+- **Files:** `scan_capture_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Capture hub + ML Kit per page
+- **Request:** Do custom Add page/Save; take help of ML Kit.
+- **Done:** Restored hub (no “Scanning” title — shows “N page(s)”). Each capture = ML Kit `pageLimit: 1` (detect/crop). **Add page** / **Save (N)** are ours. FAB → hub again.
+- **Files:** `scan_capture_screen.dart` · `home_flows.dart` · tests · this log
+- **Leftover:** Device: Add page → Save → Review. ML Kit chrome during capture still Google-owned.
+
+### 2026-08-20 — Try rename ML Kit scanner buttons
+- **Request:** Try change ML Kit button names (Next/Discard → Add page/Save).
+- **Done:** Inspected `GmsDocumentScannerOptions.Builder` (16.0.0): only `setGalleryImportAllowed` · `setPageLimit` · `setResultFormats` · `setScannerMode`. No label/string setters (public or private). UI runs in Play services — not overridable from app. **Cannot rename.**
+- **Files:** this log
+- **Leftover:** Custom camera UI if labels must change.
+
+### 2026-08-20 — Drop Scanning hub; native multi-page
+- **Request:** Change scanner page (not Flutter hub); remove “Scanning” titled page.
+- **Done:** Deleted `ScanCaptureScreen`. FAB → platform scanner (`pageLimit: 50`) → Review. Multi-page add/save lives in native ML Kit / VisionKit. ML Kit button labels not API-customizable.
+- **Files:** `home_flows.dart` · `main_shell_screen.dart` · `document_scanner_service.dart` · deleted `scan_capture_screen.dart` · tests · this log
+- **Leftover:** Device smoke Scan → multi-page → Review.
+
+### 2026-08-20 — Compact sort popup
+- **Request:** Meant dashboard sort button popup options (not Review / not tabs).
+- **Done:** Dense 34px menu rows + check. Shorter labels: Modified · Created · Name A–Z · Name Z–A · Pages · Size.
+- **Files:** `library_filter_bar.dart` · `library_models.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Remove © 2026 footer
+- **Request:** Remove “2026 app…”.
+- **Done:** Dropped `© 2026 Apptriangle Limited` from Me → About.
+- **Files:** `settings_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Empty state centered
+- **Request:** “Nothing here yet” whole block should sit middle.
+- **Done:** Empty library uses `SliverFillRemaining` + default centered `AppEmptyState` (all empty variants).
+- **Files:** `home_dashboard_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Review filter options smaller
+- **Request:** Filter button options too big — meant Review B&W/chips, not Home tabs.
+- **Done:** Compact `_PageFilterBar` ChoiceChips (11px, shrinkWrap, horizontal scroll). Smaller Enhance sheet rows. Restored Home segment bar (mistaken pill change reverted).
+- **Files:** `review_screen.dart` · `library_filter_bar.dart` · this log
+- **Leftover:** Device look-check on Review.
+
+### 2026-08-20 — Filter options compact pills
+- **Request:** Filter options still look too big (not just track height).
+- **Done:** Dropped full-width segment stretch. Content-sized pill chips + horizontal scroll. Tag chips also tighter.
+- **Files:** `library_filter_bar.dart` · this log
+- **Leftover:** Device look-check.
+
+### 2026-08-20 — Filter toggle smaller
+- **Request:** Filter toggle still too big; fix for real.
+- **Done:** Track height **30**, radius 8/6, label **10**, tighter padding, sort icon 18 in 32×30.
+- **Files:** `library_filter_bar.dart` · this log
+- **Leftover:** Device look-check.
+
+### 2026-08-20 — Page 2 personalize copy
+- **Request:** 2nd page should say about personalize.
+- **Done:** Eyebrow Personalize · title Make it yours · body tags + look.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Page 2: drop Tags/Themes chips
+- **Request:** 2nd page Tags & Themes button chips look odd; remove.
+- **Done:** Page 2 `chips: []` — hero still shows tags/themes demo.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Welcome chip: drop No account
+- **Request:** Opening page — don’t say No account.
+- **Done:** Welcome chips → only **100% offline**.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Drop “private” copy
+- **Request:** Remove private everywhere; replace.
+- **Done:** Onboarding: no “private”; page1/3 + hero use on-phone / 100% offline. `PrivacyBadge` default → “On this device”.
+- **Files:** `onboarding_screen.dart` · `app_ui.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Onboarding page-3 copy v2
+- **Request:** Last page text still not good.
+- **Done:** Ready / You’re good to go / “Capture pages, save PDFs, keep them here — private and offline.” Hero label → Private · Offline.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Onboarding color full redo
+- **Request:** Bad onboarding colors; fix fully / redo.
+- **Done:** Dropped lilac/mint/peach wash. Brand lock: warm paper · navy primary · teal accent. Soft navy/teal mist wash, white cards, teal chips, brand tag/theme dots, teal progress + navy CTA/heroes.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** Device look-check.
+
+### 2026-08-20 — Onboarding page-3 copy
+- **Request:** Page 3 “Tap Scan…” bad/misleading; change.
+- **Done:** Body → “Your library is empty — time for a first scan.”
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Onboarding pastel light tone
+- **Request:** Onboarding tone should be pastel, light.
+- **Done:** Forced soft light pastel theme (even if app dark). Sky/lilac/mint/peach wash + soft orbs. Milky hero cards, pastel chips/pills/swatches, softer CTA shadows.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** Device look-check.
+
+### 2026-08-20 — Onboarding welcome copy
+- **Request:** “Scan anything” redundant; say something else.
+- **Done:** Welcome body → “Fast, private document scans — all on this phone.” Chips → No account · 100% offline.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Re-run UI/theme tests
+- **Request:** Notify aborted UI+theme test run; follow up if needed.
+- **Done:** Prior run aborted mid-edit (compile). Re-ran `ui_functionality_test` + `theme_apply_test` — **31 passed**.
+- **Files:** this log
+- **Leftover:** none
+
+### 2026-08-20 — Onboarding more eye-catchy
+- **Request:** Onboarding needs more eye-catchy animations.
+- **Done:** Floating orbs + page-tied wash, peek PageView scale, staggered copy, bobbing heroes, pulsing ready ring, spring CTA. Loop motion skipped in widget tests. Fixed page-dot spring shadow crash + tags Wrap overflow. Onboarding tests green.
+- **Files:** `onboarding_screen.dart` · this log
+- **Leftover:** Device look-check.
+
+### 2026-08-20 — Keep search on Deleted
+- **Request:** Deleted tab hid search box; fix.
+- **Done:** Search bar always shown (works on trash list too).
+- **Files:** `home_dashboard_screen.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Tagged tab = tagged docs only
+- **Request:** Only tagged documents in Tagged top-bar section.
+- **Done:** `tagsPickerOpen` filters `tags.isNotEmpty`. Chip still narrows to one tag. Empty: “No tagged scans”.
+- **Files:** `providers.dart` · `home_dashboard_screen.dart` · `library_query_test.dart` · this log
+- **Leftover:** none
+
+### 2026-08-20 — Remember scan-only (no converters in UI)
+- **Request:** Work remembering current app state — without converters.
+- **Done:** Always-apply rule `.cursor/rules/scan-only-surface.mdc`. PROJECT_LOG + FEATURES status = scanner ship. Permission copy drops QR/edit when `kScanOnlySurface`. Release P0 = Scan→Save only.
+- **Files:** `scan-only-surface.mdc` · `access_permission.dart` · FEATURES · PROJECT_LOG
+- **Leftover:** Flip flag when toolkit returns.
+
+### 2026-08-20 — UX feedback: onboarding · Home · Me · filters
+- **Request:** 12-item feedback (drop replay + tutorial pages 2/3/4/6; rewrite 1/5/7; short copy; anim; no Shortcuts; Tagged; smaller filters; Me trash/About).
+- **Done:** Onboarding = 3 pages (Welcome / Tags&themes / Ready) with pulse + dots. Home Shortcuts gone. Filter **Tagged** + denser chips. Me: no Replay; trash subtitle short; About = 100% offline · ScanMe · Apptriangle Limited · version · © 2026.
+- **Files:** onboarding_screen · home_dashboard · library_filter_bar · settings_screen · ui_functionality_test · this log
+- **Leftover:** Device smoke. Docs FEATURES/UI_PAGES may still say Shortcuts in places.
 ### 2026-08-19 — IPA: unsupported preprocessor in Release.xcconfig
 - **Request:** Fix `flutter build ipa` — `unsupported preprocessor directive ‘mobile_scanner-Swift.h:’` at `Release.xcconfig:3`.
 - **Done:** `.xcconfig` treats `#` as a directive, not a comment. Removed those `# …` lines from Debug/Release. Kept `WARNING_CFLAGS` / `OTHER_CFLAGS`.

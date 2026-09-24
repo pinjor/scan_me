@@ -1,0 +1,28 @@
+---
+description: Product chrome is scan-only — no converters in UI
+alwaysApply: true
+---
+
+# Scan-only product surface (current ship)
+
+`lib/core/product_surface.dart` → **`kScanOnlySurface = true`**.
+
+## What users see
+
+- Shell: **Home · Scan FAB · Me** only
+- Flows: Scan → Review → Export → Library → Viewer
+- Home: search · All / Favorites / **Tagged** / Deleted · scan docs
+- Me: appearance · themes · trash · tags · About (100% offline footer)
+- Onboarding: 3 short pages (Welcome · Tags&themes · Ready)
+
+## Hidden (code stays — do not re-surface unless flag flipped)
+
+Convert hub · Edit photo · PDF Tools · QR · Shortcuts strip · inner nav slots · Replay tutorial · convert Open-with actions (gated to viewer)
+
+## Agent rules
+
+1. Design, copy, tests, Play/App Store answers, and “what’s left” assume **scanner app**, not toolkit.
+2. Do **not** add UI entry points to converters/QR/PDF Tools while flag is true.
+3. User-facing strings: no Convert / QR / Edit photo / Shortcuts / Replay unless restoring full toolkit.
+4. Release smoke P0 = Scan → Save PDF → reopen. Converter/Open-with tool E2E is **not** ship-blocking while scan-only.
+5. Flip `kScanOnlySurface` to `false` only when user asks to bring toolkit back.

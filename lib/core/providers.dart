@@ -121,6 +121,7 @@ class LibraryQueryController extends StateNotifier<LibraryQuery> {
     showTrash: false,
     favoritesOnly: false,
     tagsPickerOpen: true,
+    clearTag: true,
   );
 
   void setShowTrash(bool v) => state = v
@@ -342,6 +343,8 @@ List<ScannedDocument> filterAndSortDocuments(
   if (query.tag != null && query.tag!.isNotEmpty) {
     final needle = query.tag!;
     list = list.where((d) => d.tags.contains(needle));
+  } else if (query.tagsPickerOpen) {
+    list = list.where((d) => d.tags.isNotEmpty);
   }
   final q = query.search.trim().toLowerCase();
   if (q.isNotEmpty) {
@@ -396,6 +399,8 @@ List<ConvertOutput> filterConvertOutputs(
   if (query.tag != null && query.tag!.isNotEmpty) {
     final needle = query.tag!;
     list = list.where((c) => c.tags.contains(needle));
+  } else if (query.tagsPickerOpen) {
+    list = list.where((c) => c.tags.isNotEmpty);
   }
   final q = query.search.trim().toLowerCase();
   if (q.isNotEmpty) {

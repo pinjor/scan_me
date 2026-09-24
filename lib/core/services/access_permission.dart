@@ -5,9 +5,10 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../shared/widgets/app_ui.dart';
+import '../product_surface.dart';
 
 /// Store-safe access asks (Guideline 5.1.1): explain in-app, then the OS dialog,
-/// only when the user taps Scan / QR / import / pick a file. Never at cold start.
+/// only when the user taps Scan / import / pick a file. Never at cold start.
 abstract final class AccessPermission {
   AccessPermission._();
 
@@ -18,9 +19,11 @@ abstract final class AccessPermission {
     context,
     permission: Permission.camera,
     title: 'Camera',
-    message:
-        'ScanMe uses the camera to capture document pages and read QR codes. '
-        'Photos stay on this phone and are not uploaded.',
+    message: kScanOnlySurface
+        ? 'ScanMe uses the camera to capture document pages. '
+              'Photos stay on this phone and are not uploaded.'
+        : 'ScanMe uses the camera to capture document pages and read QR codes. '
+              'Photos stay on this phone and are not uploaded.',
     icon: Icons.photo_camera_outlined,
   );
 
@@ -43,9 +46,11 @@ abstract final class AccessPermission {
       context,
       permission: Permission.photos,
       title: 'Photos',
-      message:
-          'ScanMe uses photos you pick to import pages, edit an image, or read a QR code. '
-          'We only see files you select.',
+      message: kScanOnlySurface
+          ? 'ScanMe uses photos you pick to import pages into a scan. '
+                'We only see files you select.'
+          : 'ScanMe uses photos you pick to import pages, edit an image, or read a QR code. '
+                'We only see files you select.',
       icon: Icons.photo_library_outlined,
     );
   }
@@ -55,15 +60,15 @@ abstract final class AccessPermission {
 
   /// iOS/Android file pickers are the grant (no always-on Files access).
   static Future<bool> ensureFiles(BuildContext context) => _explainPickerOnce(
-        context,
-        prefsKey: _filesExplainedKey,
-        title: 'Files',
-        message:
-            'ScanMe will open the system file picker. You choose the document. '
-            'The app does not get access to your whole storage.',
-        icon: Icons.folder_open_outlined,
-        confirmLabel: 'Choose file',
-      );
+    context,
+    prefsKey: _filesExplainedKey,
+    title: 'Files',
+    message:
+        'ScanMe will open the system file picker. You choose the document. '
+        'The app does not get access to your whole storage.',
+    icon: Icons.folder_open_outlined,
+    confirmLabel: 'Choose file',
+  );
 
   static Future<bool> _explainPickerOnce(
     BuildContext context, {

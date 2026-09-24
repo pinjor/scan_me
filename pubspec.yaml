@@ -1,7 +1,7 @@
 name: scanme
 description: Offline CamScanner-style document scanner by Apptriangle.
 publish_to: 'none'
-version: 1.0.2+13
+version: 1.0.2+15
 
 environment:
   sdk: ^3.12.2
@@ -45,7 +45,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: assets/branding/app_icon.png
-  adaptive_icon_background: "#010C20"
+  adaptive_icon_background: "#000235"
   adaptive_icon_foreground: assets/branding/app_icon.png
   adaptive_icon_foreground_inset: 0
   remove_alpha_ios: true
@@ -61,6 +61,11 @@ flutter:
     - family: PlusJakartaSans
       fonts:
         - asset: fonts/PlusJakartaSans.ttf
+    - family: Lobster
+      fonts:
+        - asset: fonts/Lobster-Regular.ttf
+    - family: Playfair Display
+      fonts:
+        - asset: fonts/PlayfairDisplay.ttf
   assets:
-    - assets/branding/apptriangle_logo.png
     - assets/branding/app_icon.png

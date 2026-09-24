@@ -1,15 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/onboarding.dart';
-import '../../core/product_surface.dart';
-import '../../core/services/access_permission.dart';
 import '../../core/theme/app_theme.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/app_ui.dart';
 
-enum _HeroKind { welcome, scan, review, library, tools, theme, access, ready }
+enum _HeroKind { welcome, tags, ready }
 
 class _Page {
   const _Page({
@@ -18,10 +18,6 @@ class _Page {
     required this.body,
     required this.chips,
     required this.hero,
-    this.hideWhenScanOnly = false,
-    this.scanBody,
-    this.scanChips,
-    this.accessAsk = false,
   });
 
   final String eyebrow;
@@ -29,98 +25,80 @@ class _Page {
   final String body;
   final List<String> chips;
   final _HeroKind hero;
-  final bool hideWhenScanOnly;
-  final String? scanBody;
-  final List<String>? scanChips;
-  final bool accessAsk;
-
-  String get copy => kScanOnlySurface && scanBody != null ? scanBody! : body;
-
-  List<String> get labels =>
-      kScanOnlySurface && scanChips != null ? scanChips! : chips;
 }
 
 const _pages = <_Page>[
   _Page(
-    eyebrow: 'Private by default',
+    eyebrow: 'ScanMe',
     title: 'Welcome to ScanMe',
-    body:
-        'Offline document scanner by Apptriangle. Files stay on this phone — no account, no cloud.',
-    chips: ['Scan to PDF', 'Works offline'],
+    body: 'Fast document scans — all on this phone.',
+    chips: ['100% offline'],
     hero: _HeroKind.welcome,
-  ),
-  _Page(
-    eyebrow: 'Capture',
-    title: 'Scan from the middle button',
-    body:
-        'The raised Scan button opens the system camera. Capture a page, add more, then continue.',
-    chips: ['CamScan B&W', 'Multi-page drafts'],
-    hero: _HeroKind.scan,
-  ),
-  _Page(
-    eyebrow: 'Edit & export',
-    title: 'Review, then save',
-    body:
-        'Enhance, rotate, or retake pages. Save as PDF, images, or both. Pick a folder with Save as…',
-    chips: ['B&W · vivid', 'Save as…'],
-    hero: _HeroKind.review,
-  ),
-  _Page(
-    eyebrow: 'Library',
-    title: 'Home is your library',
-    body:
-        'Search, shortcut tiles, and every file in one list. Filter All, Favorites, Tags, or Deleted.',
-    chips: ['Favorites', 'Tags'],
-    hero: _HeroKind.library,
-  ),
-  _Page(
-    eyebrow: 'Toolkit',
-    title: 'Convert, photos, PDF tools',
-    body:
-        'Convert tab handles PDF, Word, Excel, and more. Edit photo crops, resizes, and compresses. PDF Tools merge, split, and shrink files.',
-    chips: ['QR reader', 'Open with'],
-    hero: _HeroKind.tools,
-    hideWhenScanOnly: true,
   ),
   _Page(
     eyebrow: 'Personalize',
     title: 'Make it yours',
-    body:
-        'Me holds themes (single, dual, triple, or your own), light/dark, and the two nav slots beside Scan.',
-    chips: ['40+ themes', 'Nav slots'],
-    hero: _HeroKind.theme,
-    scanBody:
-        'Me holds themes (single, dual, triple, or your own) and light/dark.',
-    scanChips: ['40+ themes', 'Light / dark'],
+    body: 'Tag scans your way. Pick a look that feels like home.',
+    chips: [],
+    hero: _HeroKind.tags,
   ),
   _Page(
-    eyebrow: 'Access',
-    title: 'We ask before we look',
-    body:
-        'When you tap a feature, ScanMe explains why, then the system asks. Camera for scan and QR. Photos you choose. Files through the system picker — not your whole phone.',
-    chips: ['Camera', 'Photos', 'Files'],
-    hero: _HeroKind.access,
-    accessAsk: true,
-    scanBody:
-        'When you tap a feature, ScanMe explains why, then the system asks. Camera for scan. Photos you choose. Files through the system picker — not your whole phone.',
-  ),
-  _Page(
-    eyebrow: 'All set',
-    title: "You're ready",
-    body:
-        'Tap Scan for the first page. Convert or Edit photo when you already have a file.',
-    chips: ['On this device', 'Replay in Me'],
+    eyebrow: 'Ready',
+    title: "You're good to go",
+    body: 'Capture pages, save PDFs, keep them here — 100% offline.',
+    chips: [],
     hero: _HeroKind.ready,
-    scanBody:
-        'Tap Scan for the first page. Import photos into a scan from Home shortcuts.',
   ),
 ];
 
-List<_Page> get _visiblePages => kScanOnlySurface
-    ? _pages.where((p) => !p.hideWhenScanOnly).toList()
-    : _pages;
+bool _isWidgetTestBinding() {
+  final name = WidgetsBinding.instance.runtimeType.toString();
+  return name.contains('Test');
+}
 
-/// First-run feature tour. [replay] pops on finish instead of swapping the app root.
+/// First-run light look — brand navy/teal on warm paper (not app dark mode).
+ThemeData _onboardingTheme(BuildContext context) {
+  final base = Theme.of(context);
+  const scheme = ColorScheme(
+    brightness: Brightness.light,
+    primary: AppTheme.navy,
+    onPrimary: Colors.white,
+    primaryContainer: Color(0xFFD5E4EC),
+    onPrimaryContainer: AppTheme.ink,
+    secondary: AppTheme.accent,
+    onSecondary: Colors.white,
+    secondaryContainer: Color(0xFFD2E8EB),
+    onSecondaryContainer: Color(0xFF0E3D44),
+    tertiary: Color(0xFF5A7A6A),
+    onTertiary: Colors.white,
+    tertiaryContainer: Color(0xFFDCE8E0),
+    onTertiaryContainer: Color(0xFF1E3328),
+    error: Color(0xFFB3261E),
+    onError: Colors.white,
+    surface: AppTheme.paper,
+    onSurface: AppTheme.ink,
+    onSurfaceVariant: Color(0xFF5A6670),
+    outline: Color(0xFFB8C0C6),
+    outlineVariant: Color(0xFFD9D2C8),
+    shadow: AppTheme.ink,
+    scrim: AppTheme.ink,
+    inverseSurface: AppTheme.ink,
+    onInverseSurface: AppTheme.paper,
+    inversePrimary: AppTheme.navyOnDark,
+    surfaceTint: AppTheme.navy,
+  );
+  return base.copyWith(
+    brightness: Brightness.light,
+    colorScheme: scheme,
+    scaffoldBackgroundColor: AppTheme.paper,
+    textTheme: base.textTheme.apply(
+      bodyColor: AppTheme.ink,
+      displayColor: AppTheme.ink,
+    ),
+  );
+}
+
+/// First-run tour. [replay] pops on finish instead of swapping the app root.
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key, this.replay = false});
 
@@ -130,12 +108,35 @@ class OnboardingScreen extends ConsumerStatefulWidget {
   ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  final _controller = PageController();
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen>
+    with TickerProviderStateMixin {
+  final _controller = PageController(viewportFraction: 0.92);
   var _index = 0;
+  late final AnimationController _float;
+  late final AnimationController _enter;
+
+  @override
+  void initState() {
+    super.initState();
+    _float = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2800),
+    );
+    _enter = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 720),
+    )..forward();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (AppMotion.reduce(context) || _isWidgetTestBinding()) return;
+      _float.repeat(reverse: true);
+    });
+  }
 
   @override
   void dispose() {
+    _float.dispose();
+    _enter.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -148,6 +149,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _go(int i) {
     HapticFeedback.selectionClick();
+    _enter
+      ..reset()
+      ..forward();
     _controller.animateToPage(
       i,
       duration: AppMotion.pageForward,
@@ -155,8 +159,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     );
   }
 
+  void _onPageChanged(int i) {
+    HapticFeedback.selectionClick();
+    setState(() => _index = i);
+    _enter
+      ..reset()
+      ..forward();
+  }
+
   void _next() {
-    if (_index >= _visiblePages.length - 1) {
+    if (_index >= _pages.length - 1) {
       HapticFeedback.mediumImpact();
       _finish();
       return;
@@ -171,14 +183,84 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final onboardingTheme = _onboardingTheme(context);
+    return Theme(
+      data: onboardingTheme,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: SystemUiOverlayStyle.dark.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: AppTheme.paper,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: _OnboardingBody(
+          replay: widget.replay,
+          index: _index,
+          last: _index == _pages.length - 1,
+          float: _float,
+          enter: _enter,
+          controller: _controller,
+          onBack: _back,
+          onGo: _go,
+          onPageChanged: _onPageChanged,
+          onNext: _next,
+          onFinish: _finish,
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingBody extends StatelessWidget {
+  const _OnboardingBody({
+    required this.replay,
+    required this.index,
+    required this.last,
+    required this.float,
+    required this.enter,
+    required this.controller,
+    required this.onBack,
+    required this.onGo,
+    required this.onPageChanged,
+    required this.onNext,
+    required this.onFinish,
+  });
+
+  final bool replay;
+  final int index;
+  final bool last;
+  final AnimationController float;
+  final AnimationController enter;
+  final PageController controller;
+  final VoidCallback onBack;
+  final ValueChanged<int> onGo;
+  final ValueChanged<int> onPageChanged;
+  final VoidCallback onNext;
+  final VoidCallback onFinish;
+
+  @override
+  Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
-    final last = _index == _visiblePages.length - 1;
+    final reduce = AppMotion.reduce(context);
 
     return Scaffold(
+      backgroundColor: scheme.surface,
       body: Stack(
         children: [
-          const Positioned.fill(child: _AmbientWash()),
+          Positioned.fill(
+            child: AnimatedBuilder(
+              animation: Listenable.merge([float, controller]),
+              builder: (context, _) {
+                final page = controller.hasClients
+                    ? (controller.page ?? index.toDouble())
+                    : index.toDouble();
+                return _AmbientWash(
+                  page: page,
+                  breathe: reduce ? 0 : float.value,
+                );
+              },
+            ),
+          ),
           SafeArea(
             child: Column(
               children: [
@@ -188,23 +270,54 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     children: [
                       SizedBox(
                         width: 48,
-                        child: _index > 0
-                            ? IconButton(
-                                tooltip: 'Back',
-                                onPressed: _back,
-                                icon: const Icon(Icons.arrow_back_rounded),
-                              )
-                            : const SizedBox.shrink(),
+                        child: AnimatedOpacity(
+                          opacity: index > 0 ? 1 : 0,
+                          duration: AppMotion.quick,
+                          child: IgnorePointer(
+                            ignoring: index == 0,
+                            child: IconButton(
+                              tooltip: 'Back',
+                              onPressed: onBack,
+                              icon: const Icon(Icons.arrow_back_rounded),
+                            ),
+                          ),
+                        ),
                       ),
                       Expanded(
-                        child: Text(
-                          '${_index + 1} of ${_visiblePages.length}',
-                          textAlign: TextAlign.center,
-                          style: text.labelMedium?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.4,
-                          ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (var i = 0; i < _pages.length; i++)
+                              GestureDetector(
+                                onTap: () => onGo(i),
+                                child: AnimatedContainer(
+                                  duration: AppMotion.medium,
+                                  // easeOut — softSpring overshoots and can
+                                  // lerp BoxShadow blur negative (test crash).
+                                  curve: Curves.easeOutCubic,
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  height: 8,
+                                  width: i == index ? 28 : 8,
+                                  decoration: BoxDecoration(
+                                    color: i == index
+                                        ? AppTheme.navy
+                                        : AppTheme.navy.withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(99),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppTheme.navy.withValues(
+                                          alpha: i == index ? 0.2 : 0,
+                                        ),
+                                        blurRadius: i == index ? 8 : 0,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       SizedBox(
@@ -212,8 +325,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         child: Align(
                           alignment: Alignment.centerRight,
                           child: TextButton(
-                            onPressed: _finish,
-                            child: Text(widget.replay ? 'Close' : 'Skip'),
+                            onPressed: onFinish,
+                            child: Text(replay ? 'Close' : 'Skip'),
                           ),
                         ),
                       ),
@@ -221,195 +334,209 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
+                  padding: const EdgeInsets.fromLTRB(28, 10, 28, 4),
                   child: _ProgressBar(
-                    value: (_index + 1) / _visiblePages.length,
-                    color: scheme.primary,
-                    track: scheme.outlineVariant.withValues(alpha: 0.45),
+                    value: (index + 1) / _pages.length,
+                    color: AppTheme.accent,
+                    track: AppTheme.navy.withValues(alpha: 0.1),
                   ),
                 ),
                 Expanded(
                   child: PageView.builder(
-                    controller: _controller,
-                    itemCount: _visiblePages.length,
-                    onPageChanged: (i) {
-                      HapticFeedback.selectionClick();
-                      setState(() => _index = i);
-                    },
+                    controller: controller,
+                    itemCount: _pages.length,
+                    onPageChanged: onPageChanged,
                     itemBuilder: (context, i) {
-                      final p = _visiblePages[i];
-                      return Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
-                        child: Column(
-                          children: [
-                            Expanded(
-                              flex: 5,
-                              child: FadeRiseIn(
-                                key: ValueKey('hero-$i'),
+                      final p = _pages[i];
+                      return AnimatedBuilder(
+                        animation: controller,
+                        builder: (context, child) {
+                          var scale = 1.0;
+                          var opacity = 1.0;
+                          if (controller.hasClients &&
+                              controller.position.haveDimensions) {
+                            final page = controller.page ?? index.toDouble();
+                            final delta = (page - i).abs().clamp(0.0, 1.0);
+                            scale = 1 - (delta * 0.06);
+                            opacity = 1 - (delta * 0.35);
+                          }
+                          return Opacity(
+                            opacity: opacity,
+                            child: Transform.scale(
+                              scale: scale,
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
+                          child: Column(
+                            children: [
+                              Expanded(
+                                flex: 5,
                                 child: Center(
-                                  child: FittedBox(
-                                    fit: BoxFit.contain,
-                                    child: _OnboardingHero(kind: p.hero),
+                                  child: AnimatedBuilder(
+                                    animation: float,
+                                    builder: (context, child) {
+                                      final t = reduce ? 0.0 : float.value;
+                                      final bob = math.sin(t * math.pi) * 6;
+                                      return Transform.translate(
+                                        offset: Offset(0, bob),
+                                        child: child,
+                                      );
+                                    },
+                                    child: FadeRiseIn(
+                                      key: ValueKey('hero-$i-$index'),
+                                      duration: AppMotion.slow,
+                                      offset: 22,
+                                      scaleFrom: 0.88,
+                                      child: FittedBox(
+                                        fit: BoxFit.contain,
+                                        child: _OnboardingHero(
+                                          kind: p.hero,
+                                          float: reduce ? 0 : float.value,
+                                          active: i == index,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Flexible(
-                              flex: 4,
-                              child: SingleChildScrollView(
-                                child: FadeRiseIn(
-                                  key: ValueKey('copy-$i'),
-                                  delay: const Duration(milliseconds: 40),
-                                  child: Column(
-                                    children: [
-                                      Text(
-                                        p.eyebrow.toUpperCase(),
-                                        style: text.labelSmall?.copyWith(
-                                          color: scheme.primary,
-                                          fontWeight: FontWeight.w700,
-                                          letterSpacing: 1.4,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Text(
-                                        p.title,
-                                        textAlign: TextAlign.center,
-                                        style: text.headlineSmall?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                          height: 1.2,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 10),
-                                      Text(
-                                        p.copy,
-                                        textAlign: TextAlign.center,
-                                        style: text.bodyLarge?.copyWith(
-                                          color: scheme.onSurfaceVariant,
-                                          height: 1.45,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Wrap(
-                                        alignment: WrapAlignment.center,
-                                        spacing: 8,
-                                        runSpacing: 8,
-                                        children: [
-                                          if (i == 0)
-                                            const PrivacyBadge(
-                                              label: 'No account · on device',
-                                              compact: true,
+                              Flexible(
+                                flex: 4,
+                                child: SingleChildScrollView(
+                                  child: AnimatedBuilder(
+                                    animation: enter,
+                                    builder: (context, _) {
+                                      final e = CurvedAnimation(
+                                        parent: enter,
+                                        curve: AppMotion.emphasizedDecelerate,
+                                      ).value;
+                                      Widget stagger(
+                                        int step,
+                                        Widget child,
+                                      ) {
+                                        final start = (step * 0.12).clamp(
+                                          0.0,
+                                          0.7,
+                                        );
+                                        final local =
+                                            ((e - start) / (1 - start)).clamp(
+                                              0.0,
+                                              1.0,
+                                            );
+                                        return Opacity(
+                                          opacity: local,
+                                          child: Transform.translate(
+                                            offset: Offset(
+                                              0,
+                                              18 * (1 - local),
                                             ),
-                                          for (final chip in p.labels)
-                                            _SoftChip(label: chip),
+                                            child: Transform.scale(
+                                              scale: 0.96 + (0.04 * local),
+                                              child: child,
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      return Column(
+                                        children: [
+                                          stagger(
+                                            0,
+                                            Text(
+                                              p.eyebrow.toUpperCase(),
+                                              style: text.labelSmall?.copyWith(
+                                                color: AppTheme.accent,
+                                                fontWeight: FontWeight.w800,
+                                                letterSpacing: 2,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          stagger(
+                                            1,
+                                            Text(
+                                              p.title,
+                                              textAlign: TextAlign.center,
+                                              style: text.headlineMedium
+                                                  ?.copyWith(
+                                                    fontWeight: FontWeight.w800,
+                                                    height: 1.12,
+                                                    color: scheme.onSurface,
+                                                  ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          stagger(
+                                            2,
+                                            Text(
+                                              p.body,
+                                              textAlign: TextAlign.center,
+                                              style: text.bodyLarge?.copyWith(
+                                                color: scheme.onSurfaceVariant,
+                                                height: 1.35,
+                                              ),
+                                            ),
+                                          ),
+                                          if (p.chips.isNotEmpty) ...[
+                                            const SizedBox(height: 20),
+                                            stagger(
+                                              3,
+                                              Wrap(
+                                                alignment:
+                                                    WrapAlignment.center,
+                                                spacing: 10,
+                                                runSpacing: 10,
+                                                children: [
+                                                  for (var c = 0;
+                                                      c < p.chips.length;
+                                                      c++)
+                                                    _SoftChip(
+                                                      label: p.chips[c],
+                                                      delayMs: 80 + (c * 70),
+                                                    ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
                                         ],
-                                      ),
-                                      if (p.accessAsk) ...[
-                                        const SizedBox(height: 16),
-                                        OutlinedButton.icon(
-                                          onPressed: () =>
-                                              AccessPermission.ensureCamera(
-                                                context,
-                                              ),
-                                          icon: const Icon(
-                                            Icons.photo_camera_outlined,
-                                          ),
-                                          label: const Text('Allow camera'),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        OutlinedButton.icon(
-                                          onPressed: () =>
-                                              AccessPermission.ensurePhotos(
-                                                context,
-                                              ),
-                                          icon: const Icon(
-                                            Icons.photo_library_outlined,
-                                          ),
-                                          label: const Text('Allow photos'),
-                                        ),
-                                      ],
-                                    ],
+                                      );
+                                    },
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                  child: AppButton.filled(
-                    label: last ? 'Get started' : 'Next',
-                    icon: last
-                        ? Icons.document_scanner_rounded
-                        : Icons.arrow_forward_rounded,
-                    expand: true,
-                    onPressed: _next,
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 18),
+                  child: TweenAnimationBuilder<double>(
+                    key: ValueKey('cta-$index'),
+                    tween: Tween(begin: 0.92, end: 1),
+                    duration: AppMotion.medium,
+                    curve: AppMotion.softSpring,
+                    builder: (context, scale, child) {
+                      return Transform.scale(scale: scale, child: child);
+                    },
+                    child: AppButton.filled(
+                      label: last ? 'Get started' : 'Next',
+                      icon: last
+                          ? Icons.document_scanner_rounded
+                          : Icons.arrow_forward_rounded,
+                      expand: true,
+                      onPressed: onNext,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AmbientWash extends StatelessWidget {
-  const _AmbientWash();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final light = Theme.of(context).brightness == Brightness.light;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [scheme.surfaceContainerLow, scheme.surface],
-        ),
-      ),
-      child: Stack(
-        children: [
-          Positioned(
-            top: -90,
-            right: -70,
-            child: _Blob(
-              size: 260,
-              color: scheme.primary.withValues(alpha: light ? 0.10 : 0.18),
-            ),
-          ),
-          Positioned(
-            bottom: 80,
-            left: -80,
-            child: _Blob(
-              size: 220,
-              color: scheme.tertiary.withValues(alpha: light ? 0.08 : 0.14),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Blob extends StatelessWidget {
-  const _Blob({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
     );
   }
@@ -428,107 +555,196 @@ class _ProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, c) {
-        return SizedBox(
-          height: 4,
-          child: Stack(
-            children: [
-              Container(
-                width: c.maxWidth,
-                decoration: BoxDecoration(
-                  color: track,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-              AnimatedContainer(
-                duration: AppMotion.medium,
-                curve: AppMotion.emphasized,
-                width: (c.maxWidth * value).clamp(4, c.maxWidth),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(99),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(99),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: 0, end: value.clamp(0.0, 1.0)),
+        duration: AppMotion.medium,
+        curve: AppMotion.emphasizedDecelerate,
+        builder: (context, v, _) {
+          return LinearProgressIndicator(
+            value: v,
+            minHeight: 5,
+            backgroundColor: track,
+            color: color,
+          );
+        },
+      ),
     );
   }
 }
 
 class _SoftChip extends StatelessWidget {
-  const _SoftChip({required this.label});
+  const _SoftChip({required this.label, this.delayMs = 0});
 
   final String label;
+  final int delayMs;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final text = Theme.of(context).textTheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: scheme.surface,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.8)),
-        boxShadow: Theme.of(context).brightness == Brightness.light
-            ? AppTheme.cardShadow(pressed: true)
-            : null,
+    return FadeRiseIn(
+      delay: Duration(milliseconds: delayMs),
+      offset: 10,
+      scaleFrom: 0.85,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: const Color(0xFFD2E8EB),
+          borderRadius: BorderRadius.circular(99),
+          border: Border.all(color: AppTheme.accent.withValues(alpha: 0.28)),
+        ),
+        child: Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: const Color(0xFF0E3D44),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
       ),
-      child: Text(
-        label,
-        style: text.labelMedium?.copyWith(fontWeight: FontWeight.w600),
+    );
+  }
+}
+
+class _AmbientWash extends StatelessWidget {
+  const _AmbientWash({required this.page, required this.breathe});
+
+  final double page;
+  final double breathe;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = page / math.max(1, _pages.length - 1);
+    final bob = breathe * 0.04;
+    // Brand paper + soft navy/teal washes only.
+    final top = Color.lerp(
+      const Color(0xFFE8EEF1), // soft navy mist
+      const Color(0xFFE2EFF0), // soft teal mist
+      t,
+    )!;
+    final bottom = Color.lerp(
+      const Color(0xFFEAF3F2),
+      const Color(0xFFF0EBE4),
+      t,
+    )!;
+
+    return Stack(
+      children: [
+        AnimatedContainer(
+          duration: AppMotion.slow,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment(-0.7 + t * 0.3, -1),
+              end: Alignment(0.8 - t * 0.2, 1.05),
+              colors: [top, AppTheme.paper, bottom],
+              stops: const [0.0, 0.48, 1.0],
+            ),
+          ),
+        ),
+        Positioned(
+          top: 36 + bob * 70,
+          right: -48 + t * 24,
+          child: _GlowOrb(
+            size: 210,
+            color: AppTheme.navy.withValues(alpha: 0.07),
+          ),
+        ),
+        Positioned(
+          bottom: 100 - bob * 50,
+          left: -56 - t * 16,
+          child: _GlowOrb(
+            size: 190,
+            color: AppTheme.accent.withValues(alpha: 0.09),
+          ),
+        ),
+        Positioned(
+          top: 210 - bob * 30,
+          left: 48 + t * 36,
+          child: _GlowOrb(
+            size: 100,
+            color: AppTheme.navy.withValues(alpha: 0.05),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _GlowOrb extends StatelessWidget {
+  const _GlowOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+          ),
+        ),
       ),
     );
   }
 }
 
 class _OnboardingHero extends StatelessWidget {
-  const _OnboardingHero({required this.kind});
+  const _OnboardingHero({
+    required this.kind,
+    required this.float,
+    required this.active,
+  });
 
   final _HeroKind kind;
+  final double float;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
     final child = switch (kind) {
-      _HeroKind.welcome => const _HeroWelcome(),
-      _HeroKind.scan => const _HeroScan(),
-      _HeroKind.review => const _HeroReview(),
-      _HeroKind.library => const _HeroLibrary(),
-      _HeroKind.tools => const _HeroTools(),
-      _HeroKind.theme => const _HeroTheme(),
-      _HeroKind.access => const _HeroAccess(),
-      _HeroKind.ready => const _HeroReady(),
+      _HeroKind.welcome => _HeroWelcome(float: float),
+      _HeroKind.tags => _HeroTags(float: float, active: active),
+      _HeroKind.ready => _HeroReady(float: float, active: active),
     };
     return ExcludeSemantics(
-      child: SizedBox(width: 340, height: 236, child: child),
+      child: SizedBox(width: 340, height: 248, child: child),
     );
   }
 }
 
 class _Stage extends StatelessWidget {
-  const _Stage({required this.child, this.padding = const EdgeInsets.all(18)});
+  const _Stage({required this.child});
 
   final Widget child;
-  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final light = Theme.of(context).brightness == Brightness.light;
     return Container(
       width: 340,
-      height: 236,
-      padding: padding,
+      height: 248,
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: scheme.surface,
+        color: Colors.white.withValues(alpha: 0.94),
         borderRadius: BorderRadius.circular(AppTheme.radiusXl),
         border: Border.all(
-          color: scheme.outlineVariant.withValues(alpha: light ? 0.7 : 0.9),
+          color: AppTheme.navy.withValues(alpha: 0.08),
         ),
-        boxShadow: light ? AppTheme.floatShadow() : null,
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.ink.withValues(alpha: 0.07),
+            blurRadius: 24,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: AppTheme.accent.withValues(alpha: 0.05),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: child,
     );
@@ -536,57 +752,73 @@ class _Stage extends StatelessWidget {
 }
 
 class _HeroWelcome extends StatelessWidget {
-  const _HeroWelcome();
+  const _HeroWelcome({required this.float});
+
+  final double float;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final sway = (float - 0.5) * 0.08;
     return _Stage(
       child: Stack(
         alignment: Alignment.center,
         children: [
           Transform.translate(
-            offset: const Offset(28, 10),
+            offset: Offset(30 + sway * 10, 12),
             child: Transform.rotate(
-              angle: 0.12,
-              child: _SheetFace(
-                color: scheme.primaryContainer.withValues(alpha: 0.65),
-              ),
+              angle: 0.14 + sway,
+              child: const _SheetFace(color: Color(0xFFD2E8EB)),
             ),
           ),
           Transform.translate(
-            offset: const Offset(-18, 4),
+            offset: Offset(-20 - sway * 8, 2),
             child: Transform.rotate(
-              angle: -0.08,
-              child: _SheetFace(
-                color: scheme.surface,
+              angle: -0.1 - sway * 0.5,
+              child: const _SheetFace(
+                color: Colors.white,
                 lined: true,
                 brackets: true,
               ),
             ),
           ),
           Positioned(
-            bottom: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: scheme.primary,
-                borderRadius: BorderRadius.circular(99),
-                boxShadow: AppTheme.floatShadow(),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.lock_rounded, size: 16, color: scheme.onPrimary),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Stays on this phone',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: scheme.onPrimary,
-                      fontWeight: FontWeight.w700,
+            bottom: 10,
+            child: Transform.scale(
+              scale: 1 + (math.sin(float * math.pi) * 0.04),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.navy,
+                  borderRadius: BorderRadius.circular(99),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.navy.withValues(alpha: 0.28),
+                      blurRadius: 14,
+                      offset: const Offset(0, 7),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.document_scanner_rounded,
+                      size: 17,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 7),
+                    Text(
+                      '100% offline',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -609,21 +841,20 @@ class _SheetFace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
       width: 132,
       height: 176,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.6)),
+        border: Border.all(color: AppTheme.navy.withValues(alpha: 0.1)),
         boxShadow: AppTheme.cardShadow(),
       ),
       child: CustomPaint(
         painter: lined || brackets
             ? _SheetPainter(
-                line: scheme.onSurface.withValues(alpha: 0.12),
-                corner: scheme.primary,
+                line: AppTheme.ink.withValues(alpha: 0.1),
+                corner: AppTheme.accent,
                 lined: lined,
                 brackets: brackets,
               )
@@ -681,579 +912,134 @@ class _SheetPainter extends CustomPainter {
       old.line != line || old.corner != corner;
 }
 
-class _HeroScan extends StatelessWidget {
-  const _HeroScan();
+class _HeroTags extends StatelessWidget {
+  const _HeroTags({required this.float, required this.active});
 
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return _Stage(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 14),
-      child: Column(
-        children: [
-          const Spacer(),
-          SizedBox(
-            height: 88,
-            child: Stack(
-              alignment: Alignment.topCenter,
-              clipBehavior: Clip.none,
-              children: [
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: 64,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHighest.withValues(
-                        alpha: 0.55,
-                      ),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: scheme.outlineVariant.withValues(alpha: 0.7),
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(10, 10, 10, 6),
-                      child: Row(
-                        children: [
-                          _NavGlyph(
-                            icon: Icons.home_rounded,
-                            label: 'Home',
-                            dim: true,
-                          ),
-                          _NavGlyph(
-                            icon: Icons.photo_outlined,
-                            label: 'Photo',
-                            dim: true,
-                          ),
-                          const Spacer(),
-                          _NavGlyph(
-                            icon: Icons.swap_horiz,
-                            label: 'Convert',
-                            dim: true,
-                          ),
-                          _NavGlyph(
-                            icon: Icons.person_outline,
-                            label: 'Me',
-                            dim: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  top: 0,
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 84,
-                        height: 84,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: scheme.primary.withValues(alpha: 0.18),
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: scheme.primary,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: scheme.primary.withValues(alpha: 0.4),
-                              blurRadius: 18,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.22),
-                            width: 2,
-                          ),
-                        ),
-                        child: Icon(
-                          Icons.document_scanner_rounded,
-                          color: scheme.onPrimary,
-                          size: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NavGlyph extends StatelessWidget {
-  const _NavGlyph({required this.icon, required this.label, this.dim = false});
-
-  final IconData icon;
-  final String label;
-  final bool dim;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final color = dim ? scheme.onSurfaceVariant : scheme.primary;
-    return SizedBox(
-      width: 52,
-      child: Column(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              color: color,
-              fontFamily: 'PlusJakartaSans',
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroReview extends StatelessWidget {
-  const _HeroReview();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return _Stage(
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: CustomPaint(
-                painter: _SheetPainter(
-                  line: scheme.onSurface.withValues(alpha: 0.14),
-                  corner: scheme.primary,
-                  lined: true,
-                  brackets: true,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Enhance',
-                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                const _FilterPill(label: 'Original'),
-                const SizedBox(height: 8),
-                const _FilterPill(label: 'B&W', selected: true),
-                const SizedBox(height: 8),
-                const _FilterPill(label: 'Vivid'),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Save PDF',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: scheme.onPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterPill extends StatelessWidget {
-  const _FilterPill({required this.label, this.selected = false});
-
-  final String label;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: selected
-            ? scheme.primary.withValues(alpha: 0.12)
-            : scheme.surface,
-        borderRadius: BorderRadius.circular(99),
-        border: Border.all(
-          color: selected ? scheme.primary : scheme.outlineVariant,
-        ),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: selected ? scheme.primary : scheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroLibrary extends StatelessWidget {
-  const _HeroLibrary();
+  final double float;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final text = Theme.of(context).textTheme;
+    final pills = const [
+      (label: 'Work', color: AppTheme.navy),
+      (label: 'Receipt', color: AppTheme.accent),
+      (label: 'ID', color: Color(0xFF3D6B4F)),
+    ];
+    final swatches = const [
+      AppTheme.navy,
+      AppTheme.accent,
+      Color(0xFF2D6A4F),
+      Color(0xFF0F6C7A),
+      Color(0xFF3D5A80),
+    ];
+
     return _Stage(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Container(
-            height: 36,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(99),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.search, size: 16, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  'Search files',
-                  style: text.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: const [
-              _Shortcut(icon: Icons.download_outlined, label: 'Import'),
-              SizedBox(width: 8),
-              _Shortcut(icon: Icons.qr_code_2, label: 'QR'),
-              SizedBox(width: 8),
-              _Shortcut(icon: Icons.photo_outlined, label: 'Photo'),
-              SizedBox(width: 8),
-              _Shortcut(icon: Icons.picture_as_pdf_outlined, label: 'PDF'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: scheme.outlineVariant.withValues(alpha: 0.7),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 40,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Icon(
-                      Icons.description_outlined,
-                      size: 20,
-                      color: scheme.primary,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Lease · page 1',
-                          style: text.labelLarge?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'PDF · today',
-                          style: text.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.bookmark_rounded, color: scheme.primary, size: 18),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Shortcut extends StatelessWidget {
-  const _Shortcut({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Column(
-        children: [
-          Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: scheme.primary.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, size: 18, color: scheme.primary),
-          ),
-          const SizedBox(height: 4),
           Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 10,
-            ),
+            'Tags',
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _HeroTools extends StatelessWidget {
-  const _HeroTools();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _Stage(
-      child: Column(
-        children: [
-          Row(
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _ToolTile(icon: Icons.swap_horiz, label: 'Convert'),
-              SizedBox(width: 10),
-              _ToolTile(icon: Icons.crop_outlined, label: 'Edit photo'),
+              for (var i = 0; i < pills.length; i++)
+                Transform.translate(
+                  offset: Offset(
+                    0,
+                    active ? math.sin((float + i * 0.3) * math.pi) * 3 : 0,
+                  ),
+                  child: FadeRiseIn(
+                    delay: Duration(milliseconds: 80 * i),
+                    offset: 12,
+                    scaleFrom: 0.8,
+                    child: _TagPill(
+                      label: pills[i].label,
+                      color: pills[i].color,
+                    ),
+                  ),
+                ),
             ],
           ),
-          SizedBox(height: 10),
-          Row(
-            children: [
-              _ToolTile(icon: Icons.call_merge, label: 'Merge PDF'),
-              SizedBox(width: 10),
-              _ToolTile(icon: Icons.qr_code_scanner, label: 'QR reader'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ToolTile extends StatelessWidget {
-  const _ToolTile({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Container(
-        height: 90,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: scheme.outlineVariant.withValues(alpha: 0.7),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: scheme.primary, size: 22),
-            const Spacer(),
-            Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroTheme extends StatelessWidget {
-  const _HeroTheme();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    const swatches = [
-      Color(0xFF1B3A4B),
-      Color(0xFF2A7A86),
-      Color(0xFF3D6B4F),
-      Color(0xFF8B4A3A),
-      Color(0xFF5B4B8A),
-    ];
-    return _Stage(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const Spacer(),
           Text(
             'Themes',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: text.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 4),
           Text(
-            'Single · dual · triple · yours',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            'Light, dark, or your colors',
+            style: text.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
           ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
               for (var i = 0; i < swatches.length; i++)
-                Container(
-                  width: i == 0 ? 44 : 38,
-                  height: i == 0 ? 44 : 38,
-                  decoration: BoxDecoration(
-                    color: swatches[i],
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: i == 0 ? scheme.primary : Colors.transparent,
-                      width: 3,
+                Transform.scale(
+                  scale: 1 + (active && i == 0 ? float * 0.08 : 0),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: swatches[i],
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: i == 0 ? AppTheme.navy : Colors.white,
+                        width: i == 0 ? 3 : 2,
+                      ),
+                      boxShadow: AppTheme.cardShadow(),
                     ),
-                    boxShadow: i == 0 ? AppTheme.cardShadow() : null,
                   ),
                 ),
             ],
           ),
-          const Spacer(),
-          Row(
-            children: [
-              Expanded(child: _ModeChip(label: 'Light', selected: true)),
-              const SizedBox(width: 8),
-              const Expanded(child: _ModeChip(label: 'Dark')),
-              const SizedBox(width: 8),
-              const Expanded(child: _ModeChip(label: 'System')),
-            ],
-          ),
         ],
       ),
     );
   }
 }
 
-class _ModeChip extends StatelessWidget {
-  const _ModeChip({required this.label, this.selected = false});
+class _TagPill extends StatelessWidget {
+  const _TagPill({required this.label, required this.color});
 
   final String label;
-  final bool selected;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(
-        color: selected ? scheme.primary : scheme.surface,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: selected ? scheme.primary : scheme.outlineVariant,
-        ),
-      ),
-      child: Text(
-        label,
-        textAlign: TextAlign.center,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-          color: selected ? scheme.onPrimary : scheme.onSurfaceVariant,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _HeroAccess extends StatelessWidget {
-  const _HeroAccess();
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    Widget bubble(IconData icon, String label) {
-      return Column(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: scheme.primaryContainer,
-            foregroundColor: scheme.onPrimaryContainer,
-            child: Icon(icon),
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(99),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.18),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
-          const SizedBox(height: 8),
-          Text(label, style: Theme.of(context).textTheme.labelMedium),
         ],
-      );
-    }
-
-    return _Stage(
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          bubble(Icons.photo_camera_outlined, 'Camera'),
-          bubble(Icons.photo_library_outlined, 'Photos'),
-          bubble(Icons.folder_open_outlined, 'Files'),
+          CircleAvatar(radius: 4, backgroundColor: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -1261,37 +1047,74 @@ class _HeroAccess extends StatelessWidget {
 }
 
 class _HeroReady extends StatelessWidget {
-  const _HeroReady();
+  const _HeroReady({required this.float, required this.active});
+
+  final double float;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final pulse = active ? 1 + (math.sin(float * math.pi) * 0.06) : 1.0;
+    final ring = active ? 1 + (float * 0.35) : 1.0;
+
     return _Stage(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            width: 88,
-            height: 88,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: scheme.primary.withValues(alpha: 0.14),
+          SizedBox(
+            width: 110,
+            height: 110,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Transform.scale(
+                  scale: ring,
+                  child: Container(
+                    width: 96,
+                    height: 96,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppTheme.accent.withValues(
+                          alpha: active ? (0.4 * (1 - float)) : 0.2,
+                        ),
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                ),
+                Transform.scale(
+                  scale: pulse,
+                  child: Container(
+                    width: 76,
+                    height: 76,
+                    decoration: BoxDecoration(
+                      color: AppTheme.navy,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.navy.withValues(alpha: 0.28),
+                          blurRadius: 22,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.document_scanner_rounded,
+                      size: 34,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: Icon(Icons.check_rounded, size: 44, color: scheme.primary),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Text(
-            'ScanMe is ready',
+            '100% offline',
             style: Theme.of(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Tap Scan when you are',
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -1299,7 +1122,7 @@ class _HeroReady extends StatelessWidget {
   }
 }
 
-/// Brief branded hold while onboarding prefs load.
+/// Brief gate while onboarding prefs load.
 class OnboardingSplash extends StatelessWidget {
   const OnboardingSplash({super.key});
 
@@ -1307,44 +1130,7 @@ class OnboardingSplash extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      body: Stack(
-        children: [
-          const Positioned.fill(child: _AmbientWash()),
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: scheme.primary,
-                    shape: BoxShape.circle,
-                    boxShadow: AppTheme.floatShadow(),
-                  ),
-                  child: Icon(
-                    Icons.document_scanner_rounded,
-                    size: 34,
-                    color: scheme.onPrimary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'ScanMe',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Private document scanner',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      body: Center(child: CircularProgressIndicator(color: scheme.primary)),
     );
   }
 }

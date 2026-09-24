@@ -130,7 +130,7 @@ class _MainShellScreenState extends ConsumerState<MainShellScreen> {
       floatingActionButton: _ScanFab(
         color: scheme.primary,
         foreground: scheme.onPrimary,
-        onPressed: () => HomeFlows.startScan(context),
+        onPressed: () => HomeFlows.startScan(context, ref),
       ),
       bottomNavigationBar: BottomAppBar(
         elevation: isDark ? 0 : 10,

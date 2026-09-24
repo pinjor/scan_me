@@ -305,7 +305,7 @@ abstract final class DocumentConverterService {
       throw StateError('Text file is empty.');
     }
 
-    final logo = await WatermarkService.pdfLogoImage();
+    await WatermarkService.ensurePdfFonts();
     final format = PdfPageFormat.a4;
     final pdf = pw.Document();
     final paragraphs = text
@@ -333,13 +333,8 @@ abstract final class DocumentConverterService {
               ),
             ),
         ],
-        footer: (context) => pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Opacity(
-            opacity: WatermarkService.pdfOpacity,
-            child: pw.Image(logo, width: format.width * 0.12),
-          ),
-        ),
+        footer: (context) =>
+            WatermarkService.pdfFooterBlock(pageWidth: format.width),
       ),
     );
 
@@ -399,7 +394,7 @@ abstract final class DocumentConverterService {
       }
     }
 
-    final logo = await WatermarkService.pdfLogoImage();
+    await WatermarkService.ensurePdfFonts();
     final pdf = pw.Document();
     for (final slideFile in slides) {
       final xml = XmlDocument.parse(
@@ -484,7 +479,6 @@ abstract final class DocumentConverterService {
                   children: widgets,
                 ),
                 WatermarkService.pdfCornerMark(
-                  logo: logo,
                   pageWidth: format.width,
                   pageHeight: format.height,
                 ),
@@ -646,7 +640,7 @@ abstract final class DocumentConverterService {
       throw StateError('No readable text in this Word file.');
     }
 
-    final logo = await WatermarkService.pdfLogoImage();
+    await WatermarkService.ensurePdfFonts();
     final format = PdfPageFormat.a4;
     final pdf = pw.Document();
     pdf.addPage(
@@ -663,13 +657,8 @@ abstract final class DocumentConverterService {
               ),
             ),
         ],
-        footer: (context) => pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Opacity(
-            opacity: WatermarkService.pdfOpacity,
-            child: pw.Image(logo, width: format.width * 0.12),
-          ),
-        ),
+        footer: (context) =>
+            WatermarkService.pdfFooterBlock(pageWidth: format.width),
       ),
     );
 
@@ -713,7 +702,7 @@ abstract final class DocumentConverterService {
     if (table.isEmpty) {
       throw StateError('Spreadsheet is empty.');
     }
-    final logo = await WatermarkService.pdfLogoImage();
+    await WatermarkService.ensurePdfFonts();
     final format = PdfPageFormat.a4.landscape;
     final pdf = pw.Document();
     final colCount = table.map((r) => r.length).fold<int>(0, (a, b) => a > b ? a : b);
@@ -738,13 +727,8 @@ abstract final class DocumentConverterService {
             },
           ),
         ],
-        footer: (context) => pw.Align(
-          alignment: pw.Alignment.centerRight,
-          child: pw.Opacity(
-            opacity: WatermarkService.pdfOpacity,
-            child: pw.Image(logo, width: format.width * 0.1),
-          ),
-        ),
+        footer: (context) =>
+            WatermarkService.pdfFooterBlock(pageWidth: format.width),
       ),
     );
     final out = await _outFile(

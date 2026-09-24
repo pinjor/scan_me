@@ -392,14 +392,14 @@ abstract final class PdfToolsService {
         imagePath: imagePaths[i],
         rotation: 0,
         alreadyCompressed: false,
-        applyWatermark: false,
+        applyWatermark: true,
       );
       jpegs.add(jpeg);
     }
     onProgress?.call('Building PDF…', 0.95);
     final bytes = await PdfExportService.buildPdfFromJpegs(
       jpegPages: jpegs,
-      drawCornerWatermark: true,
+      drawCornerWatermark: false,
     );
     return _writePdf(
       sourcePath: imagePaths.first,

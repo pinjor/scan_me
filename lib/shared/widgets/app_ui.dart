@@ -886,11 +886,11 @@ typedef AppIconButton = AppCircleIconButton;
 /// Alias — design-system name for [SectionHeader].
 typedef AppSectionHeader = SectionHeader;
 
-/// Privacy / offline trust chip — “stays on this device”.
+/// Offline trust chip — “stays on this device”.
 class PrivacyBadge extends StatelessWidget {
   const PrivacyBadge({
     super.key,
-    this.label = 'Private · On this device',
+    this.label = 'On this device',
     this.compact = false,
   });
 

@@ -3,24 +3,23 @@
 > Living status / task log: [`PROJECT_LOG.md`](PROJECT_LOG.md)  
 > Capability list (what app does): [`FEATURES.md`](FEATURES.md)  
 > **Single file** for every in-app page’s UI detail (no per-screen splits).  
-> Last aligned: **2026-08-18** Premium visual pass (warm paper · floating nav · elevated cards).
+> Last aligned: **2026-08-20** — scan-only chrome (`kScanOnlySurface`).
 
 **Brand:** ScanMe / Apptriangle · Plus Jakarta Sans · navy `#1B3A4B` · accent `#2A7A86` · warm paper `#F4F0EA` · light / dark / system
 
 ## Navigation map
 
 ```
-First launch → Onboarding (scan pages; toolkit skipped) → MainShell
-Replay: Me → About → Replay tutorial
+First launch → Onboarding (3 pages) → MainShell
 
-MainShell while kScanOnlySurface (default)
-├── Home — brand · search · scan shortcuts · scan library
-├── Scan FAB — elevated in the bar’s center notch → capture
-└── Me — Appearance · Storage · Tags · About (Replay tutorial)
-    (Photo / Convert inner slots + nav picker hidden; widgets still in IndexedStack)
+MainShell (kScanOnlySurface = true)
+├── Home — brand · search · Tagged filters · scan library
+├── Scan FAB → capture
+└── Me — Appearance · Storage · Tags · About (100% offline footer)
 
-Open-with (OS) → File viewer (convert actions gated)
-Home Shortcuts → Import · Favorites · Tags · Trash
+Hidden (code kept): Convert · Edit photo · PDF Tools · QR · Shortcuts · Replay · inner nav
+
+Open-with (OS) → File viewer only
 ```
 
 ## Contents

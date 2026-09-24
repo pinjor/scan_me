@@ -103,12 +103,12 @@ enum LibrarySort {
 
 extension LibrarySortX on LibrarySort {
   String get label => switch (this) {
-        LibrarySort.recentlyModified => 'Recently modified',
-        LibrarySort.recentlyCreated => 'Recently created',
+        LibrarySort.recentlyModified => 'Modified',
+        LibrarySort.recentlyCreated => 'Created',
         LibrarySort.nameAsc => 'Name A–Z',
         LibrarySort.nameDesc => 'Name Z–A',
-        LibrarySort.pageCount => 'Number of pages',
-        LibrarySort.fileSize => 'File size',
+        LibrarySort.pageCount => 'Pages',
+        LibrarySort.fileSize => 'Size',
       };
 }
 

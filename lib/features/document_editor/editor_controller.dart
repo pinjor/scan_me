@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -8,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/providers.dart';
 import '../../core/services/device_save_service.dart';
+import '../../core/services/watermark_service.dart';
 import '../../core/services/scan_compression.dart';
 import '../../core/storage/document_storage_service.dart';
 import '../../shared/models/library_models.dart';
@@ -83,15 +85,22 @@ class EditorController extends StateNotifier<EditorSession?> {
     final pages = <ScannedPage>[];
 
     try {
-      for (var i = 0; i < paths.length; i++) {
-        final pageId = _uuid.v4();
-        final dest = await _storage.importOriginal(
-          documentId: docId,
-          sourcePath: paths[i],
-          pageId: pageId,
-        );
+      final pageIds = List.generate(paths.length, (_) => _uuid.v4());
+      final dests = await Future.wait([
+        for (var i = 0; i < paths.length; i++)
+          _storage.importOriginal(
+            documentId: docId,
+            sourcePath: paths[i],
+            pageId: pageIds[i],
+          ),
+      ]);
+      for (var i = 0; i < dests.length; i++) {
         pages.add(
-          ScannedPage(id: pageId, originalImagePath: dest, pageIndex: i),
+          ScannedPage(
+            id: pageIds[i],
+            originalImagePath: dests[i],
+            pageIndex: i,
+          ),
         );
       }
     } catch (e) {
@@ -99,8 +108,15 @@ class EditorController extends StateNotifier<EditorSession?> {
       rethrow;
     }
 
-    state = EditorSession(documentId: docId, name: name, pages: pages);
-    await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
+    state = EditorSession(
+      documentId: docId,
+      name: name,
+      pages: pages,
+      isProcessing: true,
+      processingLabel: 'Applying filter…',
+    );
+    // Do not block Preparing / navigation — B&W runs on Review overlay.
+    unawaited(applyFilter(PageFilter.blackAndWhite, applyToAll: true));
   }
 
   /// Retake-all: reuse same document id, replace page files (no orphan folder).
@@ -143,8 +159,14 @@ class EditorController extends StateNotifier<EditorSession?> {
       await _storage.deleteQuietly(old.processedImagePath);
     }
 
-    state = EditorSession(documentId: docId, name: name, pages: pages);
-    await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
+    state = EditorSession(
+      documentId: docId,
+      name: name,
+      pages: pages,
+      isProcessing: true,
+      processingLabel: 'Applying filter…',
+    );
+    unawaited(applyFilter(PageFilter.blackAndWhite, applyToAll: true));
   }
 
   /// Append newly scanned pages to the current draft (Add page).
@@ -176,9 +198,14 @@ class EditorController extends StateNotifier<EditorSession?> {
       );
     }
 
-    state = s.copyWith(pages: pages, selectedIndex: pages.length - 1);
+    state = s.copyWith(
+      pages: pages,
+      selectedIndex: pages.length - 1,
+      isProcessing: true,
+      processingLabel: 'Applying filter…',
+    );
     // applyToAll skips pages already B&W; new pages get CamScan filter.
-    await applyFilter(PageFilter.blackAndWhite, applyToAll: true);
+    unawaited(applyFilter(PageFilter.blackAndWhite, applyToAll: true));
   }
 
   /// Clear session. Deletes draft folder only if never exported (no meta.json).
@@ -367,7 +394,12 @@ class EditorController extends StateNotifier<EditorSession?> {
 
   /// Library export. [deviceSavedCount] = how many system “Save as” dialogs
   /// completed (0 if toggle off or user cancelled every one).
-  Future<({ScannedDocument doc, int deviceSavedCount})> export({
+  /// [pdfPreviewPaths] = watermarked page JPEGs for in-app PDF preview.
+  Future<({
+    ScannedDocument doc,
+    int deviceSavedCount,
+    List<String> pdfPreviewPaths,
+  })> export({
     required ExportSettings settings,
     void Function(String label)? onProgress,
   }) async {
@@ -379,35 +411,48 @@ class EditorController extends StateNotifier<EditorSession?> {
       throw StateError('Select PDF and/or images');
     }
 
-    final pdfReady = <Uint8List>[];
+    final prepared = <Uint8List>[];
     for (var i = 0; i < s.pages.length; i++) {
       final page = s.pages[i];
       onProgress?.call('Preparing page ${i + 1} of ${s.pages.length}…');
-      final alreadyCompressed =
-          page.selectedFilter.isProcessed && page.processedImagePath != null;
-      pdfReady.add(
+      prepared.add(
         await prepareExportJpeg(
           imagePath: page.displayPath,
           rotation: page.rotation,
-          alreadyCompressed: alreadyCompressed,
-          maxLongEdge: settings.pdfQuality.maxLongEdge,
-          quality: settings.pdfQuality.jpegQuality,
-          // Corner mark drawn in PDF layer so every page shows in any viewer.
+          alreadyCompressed: true,
+          compress: false,
           applyWatermark: false,
         ),
       );
     }
 
+    final pdfReady = <Uint8List>[];
+    for (final bytes in prepared) {
+      pdfReady.add(
+        await WatermarkService.applyToJpegBytes(bytes, quality: 95),
+      );
+    }
+
     String? pdfPath;
     final exportImages = <String>[];
+    final pdfPreviewPaths = <String>[];
 
     if (settings.createPdf) {
+      for (var i = 0; i < prepared.length; i++) {
+        pdfPreviewPaths.add(
+          await _storage.writePdfPreviewPage(
+            documentId: s.documentId,
+            index0: i,
+            bytes: prepared[i],
+          ),
+        );
+      }
       onProgress?.call('Creating PDF…');
       final pdfBytes = await PdfExportService.buildPdfFromJpegs(
         jpegPages: pdfReady,
         pageSize: settings.pdfPageSize,
         orientation: settings.pdfOrientation,
-        drawCornerWatermark: true,
+        drawCornerWatermark: false,
         onProgress: (cur, total) {
           onProgress?.call('Creating PDF… Page $cur of $total');
         },
@@ -505,7 +550,11 @@ class EditorController extends StateNotifier<EditorSession?> {
       }
     }
 
-    return (doc: doc, deviceSavedCount: deviceSavedCount);
+    return (
+      doc: doc,
+      deviceSavedCount: deviceSavedCount,
+      pdfPreviewPaths: pdfPreviewPaths,
+    );
   }
 
   List<int> _imageIndexes(ExportSettings settings, int pageCount) {

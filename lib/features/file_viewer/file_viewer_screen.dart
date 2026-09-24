@@ -11,8 +11,10 @@ import 'package:share_plus/share_plus.dart';
 import 'package:xml/xml.dart';
 
 import '../../core/services/device_save_service.dart';
+import '../../core/storage/document_storage_service.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
+import '../../shared/widgets/watermarked_pages_scroll.dart';
 import '../../core/theme/app_theme.dart';
 
 enum FileViewerKind { txt, pdf, image, pptx, docx, unknown }
@@ -189,22 +191,42 @@ class _TxtBodyState extends State<_TxtBody> {
   }
 }
 
-class _PdfBody extends StatelessWidget {
+class _PdfBody extends StatefulWidget {
   const _PdfBody({required this.path});
   final String path;
 
   @override
+  State<_PdfBody> createState() => _PdfBodyState();
+}
+
+class _PdfBodyState extends State<_PdfBody> {
+  late final Future<List<String>> _previewFuture = DocumentStorageService()
+      .listPdfPreviewPages(pdfPath: widget.path);
+
+  @override
   Widget build(BuildContext context) {
-    return PdfPreview(
-      build: (_) => File(path).readAsBytes(),
-      allowPrinting: false,
-      allowSharing: false,
-      canChangePageFormat: false,
-      canChangeOrientation: false,
-      canDebug: false,
-      useActions: false,
-      pdfFileName: p.basename(path),
-      loadingWidget: const Center(child: CircularProgressIndicator()),
+    return FutureBuilder<List<String>>(
+      future: _previewFuture,
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final pages = snap.data ?? const <String>[];
+        if (pages.isNotEmpty) {
+          return WatermarkedPagesScroll(pagePaths: pages);
+        }
+        return PdfPreview(
+          build: (_) => File(widget.path).readAsBytes(),
+          allowPrinting: false,
+          allowSharing: false,
+          canChangePageFormat: false,
+          canChangeOrientation: false,
+          canDebug: false,
+          useActions: false,
+          pdfFileName: p.basename(widget.path),
+          loadingWidget: const Center(child: CircularProgressIndicator()),
+        );
+      },
     );
   }
 }

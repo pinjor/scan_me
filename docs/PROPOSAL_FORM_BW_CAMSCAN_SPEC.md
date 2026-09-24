@@ -2,7 +2,8 @@
 
 > **ScanMe usage:** This pipeline runs on **every page** after scan/import (default B&W).
 > Implementation: `lib/features/filters/cam_scan_bw_filter.dart` (`CamScanBwFilter`).
-> Copied from SLI_APP; keep constants/math identical.
+> Pipeline steps match this doc; **ScanMe ship constants are softened** (~25% less wash/threshold)
+> vs the SLI table below — see live values in `CamScanBwFilter`.
 
 
 **Source of truth in this repo**

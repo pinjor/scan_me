@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 
 import '../../shared/models/scanned_document.dart';
 import '../../core/theme/app_theme.dart';
@@ -12,7 +13,7 @@ import '../../core/services/access_permission.dart';
 import '../../core/providers.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
-import '../../shared/widgets/apptriangle_watermark_overlay.dart';
+import '../../core/services/text_watermark.dart';
 import 'editor_controller.dart';
 
 class ReviewScreen extends ConsumerStatefulWidget {
@@ -26,9 +27,51 @@ class ReviewScreen extends ConsumerStatefulWidget {
 }
 
 class _ReviewScreenState extends ConsumerState<ReviewScreen> {
+  late final PageController _pageController;
+
+  @override
+  void initState() {
+    super.initState();
+    final index = ref.read(editorSessionProvider)?.selectedIndex ?? 0;
+    _pageController = PageController(initialPage: index);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goToPage(int index, {bool animate = true}) {
+    ref.read(editorSessionProvider.notifier).selectPage(index);
+    if (!_pageController.hasClients) return;
+    final current = _pageController.page?.round() ?? index;
+    if (current == index) return;
+    if (animate) {
+      _pageController.animateToPage(
+        index,
+        duration: AppMotion.quick,
+        curve: AppMotion.emphasizedDecelerate,
+      );
+    } else {
+      _pageController.jumpToPage(index);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = ref.watch(editorSessionProvider);
+
+    ref.listen(editorSessionProvider, (prev, next) {
+      if (next == null || next.pages.isEmpty) return;
+      if (!_pageController.hasClients) return;
+      final target = next.selectedIndex.clamp(0, next.pages.length - 1);
+      final shown = _pageController.page?.round() ?? target;
+      if (shown != target) {
+        _pageController.jumpToPage(target);
+      }
+    });
+
     if (session == null || session.pages.isEmpty) {
       return Scaffold(
         appBar: AppBar(
@@ -72,19 +115,6 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
             ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: FilledButton(
-              onPressed: session.isProcessing
-                  ? null
-                      : () {
-                          AppPageRoute.push(context, const ExportScreen());
-                        },
-              child: const Text('Finish'),
-            ),
-          ),
-        ],
       ),
       body: Stack(
         children: [
@@ -98,34 +128,39 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        ColoredBox(
-                          color: scheme.surfaceContainerHighest.withValues(
-                            alpha: 0.45,
-                          ),
-                          child: RotatedBox(
-                            quarterTurns: (page.rotation ~/ 90) % 4,
-                            child: PhotoView(
-                              key: ValueKey(
-                                '${page.id}_${page.selectedFilter.wire}_'
-                                '${page.displayPath}_${page.rotation}',
-                              ),
-                              imageProvider:
-                                  FileImage(File(page.displayPath)),
-                              backgroundDecoration: const BoxDecoration(
-                                color: Colors.transparent,
-                              ),
-                              initialScale:
-                                  PhotoViewComputedScale.contained,
-                              minScale: PhotoViewComputedScale.contained,
-                              maxScale: PhotoViewComputedScale.covered * 3,
-                              filterQuality: FilterQuality.high,
-                              enableRotation: false,
-                              gestureDetectorBehavior:
-                                  HitTestBehavior.opaque,
+                        PhotoViewGallery.builder(
+                          pageController: _pageController,
+                          itemCount: session.pages.length,
+                          backgroundDecoration: BoxDecoration(
+                            color: scheme.surfaceContainerHighest.withValues(
+                              alpha: 0.45,
                             ),
                           ),
+                          onPageChanged: (i) {
+                            ref
+                                .read(editorSessionProvider.notifier)
+                                .selectPage(i);
+                          },
+                          builder: (context, index) {
+                            final p = session.pages[index];
+                            return PhotoViewGalleryPageOptions.customChild(
+                              child: RotatedBox(
+                                key: ValueKey(
+                                  '${p.id}_${p.selectedFilter.wire}_'
+                                  '${p.displayPath}_${p.rotation}',
+                                ),
+                                quarterTurns: (p.rotation ~/ 90) % 4,
+                                child: TextWatermark.pageImageInViewport(
+                                  p.displayPath,
+                                  quarterTurns: (p.rotation ~/ 90) % 4,
+                                ),
+                              ),
+                              initialScale: PhotoViewComputedScale.contained,
+                              minScale: PhotoViewComputedScale.contained,
+                              maxScale: PhotoViewComputedScale.covered * 3,
+                            );
+                          },
                         ),
-                        const ApptriangleWatermarkOverlay(),
                       ],
                     ),
                   ),
@@ -139,8 +174,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
               _ThumbnailStrip(
                 pages: session.pages,
                 selectedIndex: session.selectedIndex,
-                onSelect: (i) =>
-                    ref.read(editorSessionProvider.notifier).selectPage(i),
+                onSelect: _goToPage,
                 onReorder: (oldI, newI) =>
                     ref.read(editorSessionProvider.notifier).reorder(oldI, newI),
                 onAddPage: session.isProcessing
@@ -156,6 +190,8 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                 onRetake: () => _retakePage(context),
                 onDelete: () => _confirmDeletePage(context),
                 onRetakeAll: () => _retakeAll(context),
+                onDone: () =>
+                    AppPageRoute.push(context, const ExportScreen()),
               ),
             ],
           ),
@@ -254,9 +290,9 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     grayscalePreview: f.previewAsGrey,
                     onTap: () => Navigator.pop(ctx, (filter: f, all: false)),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                 ],
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 Text(
                   'All pages',
                   style: text.titleSmall?.copyWith(
@@ -275,7 +311,7 @@ class _ReviewScreenState extends ConsumerState<ReviewScreen> {
                     grayscalePreview: f.previewAsGrey,
                     onTap: () => Navigator.pop(ctx, (filter: f, all: true)),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6),
                 ],
               ],
             ),
@@ -439,16 +475,16 @@ class _EnhanceOptionCard extends StatelessWidget {
     return AppCard(
       elevated: false,
       onTap: onTap,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      borderRadius: BorderRadius.circular(AppTheme.radiusSm),
       child: Row(
         children: [
           if (path != null)
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(6),
               child: SizedBox(
-                width: 40,
-                height: 48,
+                width: 32,
+                height: 38,
                 child: ColorFiltered(
                   colorFilter: grayscalePreview
                       ? const ColorFilter.matrix(<double>[
@@ -464,32 +500,38 @@ class _EnhanceOptionCard extends StatelessWidget {
                   child: Image.file(
                     File(path),
                     fit: BoxFit.cover,
-                    cacheWidth: 96,
+                    cacheWidth: 72,
                   ),
                 ),
               ),
             )
           else
-            Icon(icon, color: scheme.primary),
-          const SizedBox(width: 12),
+            Icon(icon, color: scheme.primary, size: 20),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: text.titleMedium),
+                Text(
+                  title,
+                  style: text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                ),
                 if (subtitle != null) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 1),
                   Text(
                     subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: text.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
+                      fontSize: 11,
                     ),
                   ),
                 ],
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: scheme.onSurfaceVariant, size: 20),
+          Icon(Icons.chevron_right, color: scheme.onSurfaceVariant, size: 18),
         ],
       ),
     );
@@ -525,33 +567,57 @@ class _PageFilterBar extends StatelessWidget {
         border: Border(top: BorderSide(color: scheme.outlineVariant)),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+        padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
               'This page',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
                     color: scheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: [
-                for (final f in _quick)
-                  ChoiceChip(
-                    label: Text(f.label),
-                    selected: filter == f,
-                    onSelected: busy
-                        ? null
-                        : (_) {
-                            // Always apply — even re-tap selected filter.
-                            onChanged(f);
-                          },
-                  ),
-              ],
+            const SizedBox(height: 6),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final f in _quick) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: ChoiceChip(
+                        label: Text(
+                          f.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            height: 1.1,
+                            fontWeight: filter == f
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                        selected: filter == f,
+                        visualDensity: const VisualDensity(
+                          horizontal: -4,
+                          vertical: -4,
+                        ),
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        labelPadding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                        ),
+                        onSelected: busy
+                            ? null
+                            : (_) {
+                                // Always apply — even re-tap selected filter.
+                                onChanged(f);
+                              },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
@@ -682,6 +748,7 @@ class _EditToolbar extends StatelessWidget {
     required this.onRetake,
     required this.onDelete,
     required this.onRetakeAll,
+    required this.onDone,
   });
 
   final bool busy;
@@ -691,6 +758,7 @@ class _EditToolbar extends StatelessWidget {
   final VoidCallback onRetake;
   final VoidCallback onDelete;
   final VoidCallback onRetakeAll;
+  final VoidCallback onDone;
 
   @override
   Widget build(BuildContext context) {
@@ -718,36 +786,51 @@ class _EditToolbar extends StatelessWidget {
               side: BorderSide(color: scheme.outlineVariant),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _Tool(
-                    icon: Icons.tune,
-                    label: 'Enhance',
-                    onTap: busy ? null : onFilter,
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.tune,
+                      label: 'Enhance',
+                      onTap: busy ? null : onFilter,
+                    ),
                   ),
-                  _Tool(
-                    icon: Icons.rotate_90_degrees_ccw,
-                    label: 'Rotate',
-                    onTap: busy ? null : onRotate,
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.rotate_90_degrees_ccw,
+                      label: 'Rotate',
+                      onTap: busy ? null : onRotate,
+                    ),
                   ),
-                  _Tool(
-                    icon: Icons.document_scanner_outlined,
-                    label: 'Retake',
-                    onTap: busy ? null : onRetake,
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.document_scanner_outlined,
+                      label: 'Retake',
+                      onTap: busy ? null : onRetake,
+                    ),
                   ),
-                  _Tool(
-                    icon: Icons.delete_outline,
-                    label: 'Delete',
-                    onTap: busy || !canDelete ? null : onDelete,
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.delete_outline,
+                      label: 'Delete',
+                      onTap: busy || !canDelete ? null : onDelete,
+                    ),
                   ),
-                  _Tool(
-                    icon: Icons.more_horiz,
-                    label: 'More',
-                    onTap: busy
-                        ? null
-                        : () => _showMore(context),
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.more_horiz,
+                      label: 'More',
+                      onTap: busy ? null : () => _showMore(context),
+                    ),
+                  ),
+                  Expanded(
+                    child: _Tool(
+                      icon: Icons.check_circle_rounded,
+                      label: 'Done',
+                      emphasize: true,
+                      onTap: busy ? null : onDone,
+                    ),
                   ),
                 ],
               ),
@@ -784,16 +867,23 @@ class _Tool extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.emphasize = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final bool emphasize;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final enabled = onTap != null;
+    final color = !enabled
+        ? scheme.onSurface.withValues(alpha: 0.38)
+        : emphasize
+            ? scheme.primary
+            : scheme.onSurface;
     return Semantics(
       button: true,
       label: label,
@@ -802,26 +892,20 @@ class _Tool extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: SizedBox(
-          width: 68,
           height: 68,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                size: 24,
-                color: enabled
-                    ? scheme.onSurface
-                    : scheme.onSurface.withValues(alpha: 0.38),
-              ),
+              Icon(icon, size: emphasize ? 26 : 24, color: color),
               const SizedBox(height: 4),
               Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: enabled
-                          ? scheme.onSurfaceVariant
-                          : scheme.onSurface.withValues(alpha: 0.38),
-                      fontWeight: FontWeight.w600,
+                      color: color,
+                      fontWeight:
+                          emphasize ? FontWeight.w800 : FontWeight.w600,
                     ),
               ),
             ],

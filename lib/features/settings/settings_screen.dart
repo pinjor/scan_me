@@ -10,7 +10,6 @@ import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
 import '../../shared/widgets/tag_sheets.dart';
 import '../home/nav_catalog.dart';
-import '../onboarding/onboarding_screen.dart';
 import 'theme_studio_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -25,7 +24,7 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _trashDays = 30;
-  String _versionLabel = 'Apptriangle';
+  String _version = '';
 
   @override
   void initState() {
@@ -39,9 +38,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final info = await PackageInfo.fromPlatform();
       if (!mounted) return;
       final v = info.version.trim();
-      setState(() {
-        _versionLabel = v.isEmpty ? 'Apptriangle' : 'Apptriangle · v$v';
-      });
+      setState(() => _version = v);
     } catch (_) {}
   }
 
@@ -190,10 +187,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   color: scheme.primary,
                 ),
                 title: const Text('Trash retention'),
-                subtitle: Text(
-                  'Recently deleted documents are kept for $_trashDays days, then removed automatically.',
-                ),
-                isThreeLine: true,
+                subtitle: Text('Change timing · $_trashDays days'),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () async {
                   final picked = await showDialog<int>(
@@ -268,38 +262,43 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             AppCard(
               elevated: true,
               bordered: false,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('ScanMe', style: text.titleMedium),
-                  const SizedBox(height: 2),
                   Text(
-                    _versionLabel,
+                    '100% offline',
+                    style: text.labelLarge?.copyWith(
+                      color: scheme.primary,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.6,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'ScanMe',
+                    style: text.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      height: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Powered by Apptriangle Limited',
+                    textAlign: TextAlign.center,
                     style: text.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const PrivacyBadge(
-                    label:
-                        'Stored privately on this device · No account required',
-                    compact: true,
-                  ),
-                  const SizedBox(height: 8),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.school_outlined, color: scheme.primary),
-                    title: const Text('Replay tutorial'),
-                    subtitle: const Text(
-                      'Feature walkthrough from first launch',
+                  if (_version.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'v$_version',
+                      style: text.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => AppPageRoute.push(
-                      context,
-                      const OnboardingScreen(replay: true),
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -317,7 +316,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final ok = await showConfirmSheet(
       context: context,
       title: 'Delete “${tag.name}”?',
-      message: 'Removes this tag from Settings and from every document.',
+      message: 'Removes this tag from every scan.',
       confirmLabel: 'Delete',
       destructive: true,
     );

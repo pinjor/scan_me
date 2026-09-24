@@ -16,7 +16,6 @@ import 'package:scanme/features/document_editor/review_screen.dart';
 import 'package:scanme/features/export/export_screen.dart';
 import 'package:scanme/features/converters/converters_hub_screen.dart';
 import 'package:scanme/features/scanner/document_scanner_service.dart';
-import 'package:scanme/features/scanner/scan_capture_screen.dart';
 import 'package:scanme/features/settings/settings_screen.dart';
 import 'package:scanme/main.dart';
 import 'package:scanme/shared/models/library_models.dart';
@@ -151,7 +150,7 @@ class _FakeScanner extends DocumentScannerService {
   int calls = 0;
 
   @override
-  Future<ScanOutcome> scan({int pageLimit = 1}) async {
+  Future<ScanOutcome> scan({int pageLimit = 50}) async {
     calls++;
     return outcome ?? ScanCancelled();
   }
@@ -229,12 +228,13 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('ScanMe'), findsWidgets);
-      expect(find.text('SHORTCUTS'), findsOneWidget);
       expect(find.text('Nothing here yet'), findsOneWidget);
       expect(find.byTooltip('Scan Document'), findsOneWidget);
       expect(find.text('Files'), findsNothing);
-      expect(find.widgetWithText(FilterChip, 'All'), findsOneWidget);
-      expect(find.widgetWithText(FilterChip, 'Deleted'), findsOneWidget);
+      expect(find.text('All'), findsWidgets);
+      expect(find.text('Deleted'), findsOneWidget);
+      expect(find.text('Tagged'), findsOneWidget);
+      expect(find.text('SHORTCUTS'), findsNothing);
       expect(find.text('Photo'), findsNothing);
       expect(find.text('Convert'), findsNothing);
     });
@@ -283,12 +283,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
       expect(scanner.calls, greaterThan(0));
-      expect(find.text('SHORTCUTS'), findsOneWidget);
+      expect(find.text('Nothing here yet'), findsOneWidget);
     });
 
-    testWidgets('Scan Document (empty) opens ScanCapture then cancels back', (
-      tester,
-    ) async {
+    testWidgets('Scan FAB cancel stays on Home', (tester) async {
       await tallSurface(tester);
       final scanner = _FakeScanner(outcome: ScanCancelled());
       await tester.pumpWidget(
@@ -307,7 +305,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
       expect(scanner.calls, greaterThan(0));
-      expect(find.text('SHORTCUTS'), findsOneWidget);
+      expect(find.text('Nothing here yet'), findsOneWidget);
     });
   });
 
@@ -408,8 +406,10 @@ void main() {
       expect(find.text('Themes'), findsOneWidget);
       expect(find.text('Left of Scan'), findsNothing);
       expect(find.text('Right of Scan'), findsNothing);
-      await scrollMeTo(tester, find.textContaining('Apptriangle'));
-      expect(find.textContaining('Apptriangle'), findsOneWidget);
+      expect(find.text('Replay tutorial'), findsNothing);
+      await scrollMeTo(tester, find.text('100% offline'));
+      expect(find.text('100% offline'), findsOneWidget);
+      expect(find.textContaining('Apptriangle Limited'), findsWidgets);
     });
 
     testWidgets('Themes page shows single dual triple and Create', (
@@ -431,69 +431,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Primary'), findsWidgets);
       expect(find.text('Save'), findsOneWidget);
-    });
-  });
-
-  group('Scan capture', () {
-    testWidgets('Add Page / Continue labels; cancel first scan pops', (
-      tester,
-    ) async {
-      await tallSurface(tester);
-      final scanner = _FakeScanner(outcome: ScanCancelled());
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            ..._libraryOverrides(),
-            documentScannerProvider.overrideWithValue(scanner),
-          ],
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const ScanCaptureScreen(autoStart: true),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(scanner.calls, 1);
-    });
-
-    testWidgets('with pages: shows Continue and Add Page', (tester) async {
-      await tallSurface(tester);
-      final container = ProviderContainer(
-        overrides: [
-          documentScannerProvider.overrideWithValue(
-            _FakeScanner(outcome: ScanCancelled()),
-          ),
-        ],
-      );
-      addTearDown(container.dispose);
-
-      container.read(editorSessionProvider.notifier).state = EditorSession(
-        documentId: 'draft-1',
-        name: 'Draft',
-        pages: [
-          ScannedPage(
-            id: 'p1',
-            originalImagePath: '/nonexistent/page.jpg',
-            pageIndex: 0,
-          ),
-        ],
-      );
-
-      await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
-          child: MaterialApp(
-            theme: AppTheme.light(),
-            home: const ScanCaptureScreen(autoStart: false),
-          ),
-        ),
-      );
-      await tester.pump(const Duration(milliseconds: 50));
-
-      expect(find.text('Scanning'), findsOneWidget);
-      expect(find.text('Add page'), findsOneWidget);
-      expect(find.text('Continue'), findsOneWidget);
-      expect(find.textContaining('Page 1 of 1'), findsOneWidget);
     });
   });
 
@@ -546,20 +483,22 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    testWidgets('toolbar + B&W/Original + Finish visible; rotate works', (
+    testWidgets('toolbar + B&W/Original + Done visible; rotate works', (
       tester,
     ) async {
       await pumpReview(tester);
 
       expect(find.text('Review'), findsOneWidget);
+      expect(find.byType(PageView), findsOneWidget);
       expect(find.text('Enhance'), findsOneWidget);
       expect(find.text('Rotate'), findsOneWidget);
       expect(find.text('Retake'), findsWidgets);
       expect(find.text('Delete'), findsOneWidget);
       expect(find.text('More'), findsOneWidget);
+      expect(find.text('Done'), findsOneWidget);
       expect(find.text('B&W'), findsOneWidget);
       expect(find.byType(ChoiceChip), findsNWidgets(6));
-      expect(find.text('Finish'), findsOneWidget);
+      expect(find.text('Finish'), findsNothing);
 
       final before = container
           .read(editorSessionProvider)!
@@ -599,19 +538,20 @@ void main() {
       expect(find.text('Retake all pages?'), findsOneWidget);
     });
 
-    testWidgets('Finish opens Export screen', (tester) async {
+    testWidgets('Done opens Export screen', (tester) async {
       await pumpReview(tester);
-      await tester.ensureVisible(find.text('Finish'));
-      await tester.tap(find.text('Finish'));
-      await tester.pump(); // start navigation
+      await tester.ensureVisible(find.text('Done'));
+      await tester.tap(find.text('Done'));
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
-      expect(find.text('Save document'), findsOneWidget);
-      expect(find.text('Save'), findsOneWidget);
+      expect(find.text('Export'), findsOneWidget);
+      expect(find.text('Export as PDF'), findsWidgets);
+      expect(find.text('Export as image'), findsOneWidget);
     });
   });
 
   group('Export screen', () {
-    testWidgets('PDF/JPEG toggles and Save button state', (tester) async {
+    testWidgets('PDF / image opens page and Back to Home', (tester) async {
       await tallSurface(tester);
       final container = ProviderContainer();
       addTearDown(container.dispose);
@@ -623,6 +563,11 @@ void main() {
             id: 'p1',
             originalImagePath: '/nonexistent/e.jpg',
             pageIndex: 0,
+          ),
+          ScannedPage(
+            id: 'p2',
+            originalImagePath: '/nonexistent/e2.jpg',
+            pageIndex: 1,
           ),
         ],
       );
@@ -638,17 +583,30 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('Save document'), findsOneWidget);
-      expect(find.text('PDF'), findsOneWidget);
-      expect(find.text('Images'), findsOneWidget);
-      expect(find.text('Save'), findsOneWidget);
+      expect(find.text('Export'), findsOneWidget);
+      expect(find.text('Export as PDF'), findsOneWidget);
+      expect(find.text('Export as image'), findsOneWidget);
+      expect(find.text('Back to Home'), findsOneWidget);
 
-      await tester.tap(find.text('PDF'));
-      await tester.pump(const Duration(milliseconds: 50));
-      final saveBtn = tester.widget<FilledButton>(
-        find.widgetWithText(FilledButton, 'Save'),
-      );
-      expect(saveBtn.onPressed, isNull);
+      await tester.tap(find.text('Export as image'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Export as image'), findsWidgets);
+      expect(find.text('Pages to save'), findsOneWidget);
+      expect(find.text('Page 1'), findsOneWidget);
+      expect(find.text('Page 2'), findsOneWidget);
+      expect(find.text('Save images'), findsOneWidget);
+
+      Navigator.of(tester.element(find.text('Save images'))).pop();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Back to Home'), findsOneWidget);
+
+      await tester.tap(find.text('Back to Home'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Leave without saving?'), findsOneWidget);
+      expect(find.text('Discard & go Home'), findsOneWidget);
     });
   });
 
@@ -802,7 +760,12 @@ void main() {
       expect(find.text('Favorite doc'), findsOneWidget);
       expect(find.text('Plain doc'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilterChip, 'Favorites'));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('library-filter-bar')),
+          matching: find.text('Favorites'),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Favorite doc'), findsOneWidget);
       expect(find.text('Plain doc'), findsNothing);
@@ -845,11 +808,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('In trash'), findsNothing);
 
-      await tester.tap(find.widgetWithText(FilterChip, 'Deleted'));
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const Key('library-filter-bar')),
+          matching: find.text('Deleted'),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('In trash'), findsOneWidget);
       expect(find.text('Favorite doc'), findsNothing);
-      expect(find.textContaining('automatically removed'), findsOneWidget);
+      expect(find.textContaining('auto-remove'), findsOneWidget);
     });
   });
 
@@ -877,11 +845,11 @@ void main() {
 
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
-      expect(find.text('Scan from the middle button'), findsOneWidget);
+      expect(find.text('Tags & themes'), findsOneWidget);
 
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-      expect(find.text('SHORTCUTS'), findsOneWidget);
+      expect(find.text('Nothing here yet'), findsOneWidget);
       expect(find.byTooltip('Scan Document'), findsOneWidget);
     });
 
@@ -907,24 +875,7 @@ void main() {
       expect(find.text("You're ready"), findsOneWidget);
       await tester.tap(find.text('Get started'));
       await tester.pumpAndSettle();
-      expect(find.text('SHORTCUTS'), findsOneWidget);
-    });
-
-    testWidgets('Me Replay tutorial reopens walkthrough', (tester) async {
-      await tallSurface(tester);
-      await tester.pumpWidget(
-        ProviderScope(overrides: _libraryOverrides(), child: const ScanMeApp()),
-      );
-      await tester.pumpAndSettle();
-      await openMeTab(tester);
-      await scrollMeTo(tester, find.text('Replay tutorial'));
-      await tester.tap(find.text('Replay tutorial'));
-      await tester.pumpAndSettle();
-      expect(find.text('Welcome to ScanMe'), findsOneWidget);
-      expect(find.text('Close'), findsOneWidget);
-      await tester.tap(find.text('Close'));
-      await tester.pumpAndSettle();
-      expect(find.text('Replay tutorial'), findsOneWidget);
+      expect(find.text('Nothing here yet'), findsOneWidget);
     });
   });
 

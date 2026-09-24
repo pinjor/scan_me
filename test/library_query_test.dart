@@ -76,11 +76,19 @@ void main() {
       trash: true,
       updated: DateTime(2026, 8, 9),
     ),
+    _doc(
+      id: 'e',
+      name: 'Untagged scan',
+      pages: 1,
+      size: 800,
+      updated: DateTime(2026, 8, 14),
+      created: DateTime(2026, 8, 14),
+    ),
   ];
 
   test('library excludes trash by default', () {
     final list = filterAndSortDocuments(docs, const LibraryQuery());
-    expect(list.map((d) => d.id), ['a', 'b', 'c']);
+    expect(list.map((d) => d.id).toSet(), {'a', 'b', 'c', 'e'});
   });
 
   test('trash mode shows only deleted', () {
@@ -110,7 +118,16 @@ void main() {
       docs,
       const LibraryQuery(unfiledOnly: true),
     );
-    expect(unfiled.map((d) => d.id), ['b']);
+    expect(unfiled.map((d) => d.id).toSet(), {'b', 'e'});
+  });
+
+  test('tagsPickerOpen shows only docs with tags', () {
+    final list = filterAndSortDocuments(
+      docs,
+      const LibraryQuery(tagsPickerOpen: true),
+    );
+    expect(list.map((d) => d.id).toSet(), {'a', 'b', 'c'});
+    expect(list.any((d) => d.id == 'e'), isFalse);
   });
 
   test('tag and search filters', () {
@@ -150,19 +167,20 @@ void main() {
       docs,
       const LibraryQuery(sort: LibrarySort.nameAsc, favoritesFirst: false),
     );
-    expect(az.map((d) => d.id), ['a', 'b', 'c']);
+    expect(az.map((d) => d.id), ['a', 'b', 'c', 'e']);
 
     final pages = filterAndSortDocuments(
       docs,
       const LibraryQuery(sort: LibrarySort.pageCount, favoritesFirst: false),
     );
-    expect(pages.map((d) => d.id), ['a', 'c', 'b']);
+    expect(pages.map((d) => d.id).take(2), ['a', 'c']);
+    expect(pages.map((d) => d.id).skip(2).toSet(), {'b', 'e'});
 
     final size = filterAndSortDocuments(
       docs,
       const LibraryQuery(sort: LibrarySort.fileSize, favoritesFirst: false),
     );
-    expect(size.map((d) => d.id), ['a', 'c', 'b']);
+    expect(size.map((d) => d.id), ['a', 'c', 'b', 'e']);
 
     final modified = filterAndSortDocuments(
       docs,
@@ -171,7 +189,7 @@ void main() {
         favoritesFirst: false,
       ),
     );
-    expect(modified.map((d) => d.id), ['b', 'a', 'c']);
+    expect(modified.map((d) => d.id), ['e', 'b', 'a', 'c']);
   });
 
   test('favoritesFirst pins starred docs', () {

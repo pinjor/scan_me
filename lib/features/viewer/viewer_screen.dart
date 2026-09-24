@@ -4,20 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:photo_view/photo_view.dart';
-import 'package:photo_view/photo_view_gallery.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/providers.dart';
 import '../../core/services/device_save_service.dart';
-import '../../core/theme/app_theme.dart';
 import '../../shared/models/library_models.dart';
 import '../../shared/models/scanned_document.dart';
 import '../../shared/widgets/app_ui.dart';
 import '../../shared/widgets/app_transitions.dart';
-import '../../shared/widgets/apptriangle_watermark_overlay.dart';
 import '../../shared/widgets/tag_sheets.dart';
+import '../../shared/widgets/watermarked_pages_scroll.dart';
+import '../export/export_pdf_ready_screen.dart';
 import '../file_viewer/file_viewer_screen.dart';
 
 class ViewerScreen extends ConsumerStatefulWidget {
@@ -31,10 +29,9 @@ class ViewerScreen extends ConsumerStatefulWidget {
 
 class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   ScannedDocument? _doc;
-  int _index = 0;
+  List<String> _pagePaths = const [];
   bool _loading = true;
   String? _error;
-  PageController? _pageController;
 
   @override
   void initState() {
@@ -42,28 +39,32 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     _load();
   }
 
-  @override
-  void dispose() {
-    _pageController?.dispose();
-    super.dispose();
-  }
-
   Future<void> _load() async {
-    final doc = await ref
-        .read(documentStorageProvider)
-        .loadDocument(widget.documentId);
+    final storage = ref.read(documentStorageProvider);
+    final doc = await storage.loadDocument(widget.documentId);
+    if (!mounted) return;
+
+    var pagePaths = <String>[];
+    if (doc != null) {
+      pagePaths = await storage.listPdfPreviewPages(documentId: doc.id);
+      if (pagePaths.isEmpty) {
+        pagePaths = [
+          for (final page in doc.pages)
+            if (File(page.displayPath).existsSync()) page.displayPath,
+        ];
+      }
+    }
+
     if (!mounted) return;
     setState(() {
       _doc = doc;
+      _pagePaths = pagePaths;
       _loading = false;
       _error = doc == null
           ? "We couldn't find this document. It may have been removed."
-          : (doc.pages.isEmpty
+          : (pagePaths.isEmpty
               ? 'This document has no pages to show.'
               : null);
-      if (doc != null && doc.pages.isNotEmpty) {
-        _pageController ??= PageController(initialPage: 0);
-      }
     });
   }
 
@@ -87,7 +88,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       );
     }
     final doc = _doc;
-    if (doc == null || _error != null || _pageController == null) {
+    if (doc == null || _error != null) {
       return Scaffold(
         appBar: AppBar(leading: scanMeAppBarLeading(context)),
         body: AppEmptyState(
@@ -108,7 +109,18 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: scanMeAppBarLeading(context),
-        title: Text(doc.name),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(doc.name, maxLines: 1, overflow: TextOverflow.ellipsis),
+            Text(
+              '${_pagePaths.length} page${_pagePaths.length == 1 ? '' : 's'}',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: doc.isFavorite ? 'Unfavorite' : 'Favorite',
@@ -146,11 +158,34 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                 case 'pdf':
                   final pdf = doc.pdfPath;
                   if (pdf != null && File(pdf).existsSync()) {
-                    await FileViewerScreen.open(
-                      context,
-                      pdf,
-                      title: '${doc.name}.pdf',
+                    final storage = ref.read(documentStorageProvider);
+                    var previews = await storage.listPdfPreviewPages(
+                      documentId: doc.id,
                     );
+                    if (previews.isEmpty) {
+                      previews = [
+                        for (final page in doc.pages)
+                          if (File(page.displayPath).existsSync())
+                            page.displayPath,
+                      ];
+                    }
+                    if (!context.mounted) return;
+                    if (previews.isNotEmpty) {
+                      await AppPageRoute.push(
+                        context,
+                        ExportPdfReadyScreen(
+                          path: pdf,
+                          title: doc.name,
+                          previewPagePaths: previews,
+                        ),
+                      );
+                    } else {
+                      await FileViewerScreen.open(
+                        context,
+                        pdf,
+                        title: '${doc.name}.pdf',
+                      );
+                    }
                   }
                 case 'rename':
                   await _rename(doc);
@@ -198,101 +233,10 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
               ),
             ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-              child: Hero(
-                tag: 'doc-thumb-${doc.id}',
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
-                    child: Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        PhotoViewGallery.builder(
-                          itemCount: doc.pages.length,
-                          pageController: _pageController!,
-                          onPageChanged: (i) => setState(() => _index = i),
-                          backgroundDecoration: BoxDecoration(
-                            color: scheme.surfaceContainerHighest
-                                .withValues(alpha: 0.4),
-                          ),
-                          builder: (context, index) {
-                            final page = doc.pages[index];
-                            final file = File(page.displayPath);
-                            if (!file.existsSync()) {
-                              return PhotoViewGalleryPageOptions.customChild(
-                                child: Center(
-                                  child: Text(
-                                    "This page's image couldn't be found.",
-                                    style:
-                                        Theme.of(context).textTheme.bodyLarge,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              );
-                            }
-                            return PhotoViewGalleryPageOptions(
-                              imageProvider: FileImage(file),
-                              minScale: PhotoViewComputedScale.contained,
-                              maxScale: PhotoViewComputedScale.covered * 3,
-                            );
-                          },
-                        ),
-                        const ApptriangleWatermarkOverlay(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: AppCard(
-                elevated: false,
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Row(
-                  children: [
-                    IconButton(
-                      tooltip: 'Previous page',
-                      onPressed: _index <= 0
-                          ? null
-                          : () {
-                              _pageController!.previousPage(
-                                duration: AppMotion.quick,
-                                curve: AppMotion.emphasizedDecelerate,
-                              );
-                            },
-                      icon: const Icon(Icons.chevron_left),
-                    ),
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: AppMotion.quick,
-                        child: Text(
-                          'Page ${_index + 1} of ${doc.pages.length}',
-                          key: ValueKey(_index),
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      tooltip: 'Next page',
-                      onPressed: _index >= doc.pages.length - 1
-                          ? null
-                          : () {
-                              _pageController!.nextPage(
-                                duration: AppMotion.quick,
-                                curve: AppMotion.emphasizedDecelerate,
-                              );
-                            },
-                      icon: const Icon(Icons.chevron_right),
-                    ),
-                  ],
-                ),
+            child: FadeRiseIn(
+              child: WatermarkedPagesScroll(
+                pagePaths: _pagePaths,
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
               ),
             ),
           ),

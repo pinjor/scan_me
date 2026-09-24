@@ -3,8 +3,8 @@
 > What the app **does** (capabilities), not screen layouts.  
 > UI detail: [`UI_PAGES.md`](UI_PAGES.md) · Status / history: [`PROJECT_LOG.md`](PROJECT_LOG.md)  
 > **Package:** `app.atl.scanme` · **Offline-first** · No account · Data stays on device  
-> Aligned: **2026-08-19** · Version `1.0.2+9`  
-> **Chrome now:** scan-only surface (`kScanOnlySurface` in `lib/core/product_surface.dart`). Convert / QR / PDF Tools / Edit photo / inner nav **stay in code**, hidden from shell. Flip flag `false` to show full toolkit.
+> Aligned: **2026-08-20** · Version `1.0.2+12`  
+> **Shipped chrome:** scan-only (`kScanOnlySurface = true`). Treat product as scanner. Convert / QR / PDF Tools / Edit photo / Shortcuts **code kept, UI off**.
 
 ---
 
@@ -13,24 +13,22 @@
 | Area | What you get |
 |------|----------------|
 | Scan | Native document camera → multi-page draft → enhance → save PDF/images |
-| Library | Search, filter, sort, favorites, tags, trash + restore |
-| Convert | **Hidden in UI** — still in codebase (hub, Office/PDF tools, Edit photo) |
-| Open with | Viewer only while scan-only; convert aliases remain in OS but open viewer |
-| QR | **Hidden in UI** — `QrReaderScreen` still in tree |
-| Privacy | Local storage · Apptriangle watermark on PDF exports · no cloud account |
-| First run | Scan-focused walkthrough (toolkit page skipped); replay from Me → About |
-| Updates | Soft Play Store reminder (optional · Remind later 3d · Update now) |
+| Library | Search · All / Favorites / Tagged / Deleted · favorites · tags · trash |
+| Convert / QR / PDF Tools | **Not in UI** (code retained) |
+| Open with | Viewer only (convert aliases gated) |
+| Privacy | Local · 100% offline · Apptriangle watermark on PDF |
+| First run | 3 pages: Welcome · Tags&themes · Ready (no Replay) |
+| Updates | Soft Play Store reminder (Android) |
 
 ---
 
 ## 1. Navigation shell
 
-- **Home** — search, shortcut tiles (Import · Favorites · Tags · Trash), full scan library
-- **Inner slots** — code + prefs remain; **not shown** while `kScanOnlySurface`
-- **Scan** — center FAB, docked in a notch on one nav bar
-- **Me** — appearance · trash retention, tags, about (nav-slot picker hidden)
-- **Back** — on every *pushed* screen when the stack can pop (tab roots have no back)
-- **First launch** — walkthrough before Home (prefs `onboarding_done_v1`). Access page can Allow camera/photos; Scan/import still ask at use (Guideline 5.1.1).
+- **Home** — search · Tagged filters · scan library (no Shortcuts)
+- **Scan** — center FAB
+- **Me** — themes · trash · tags · About
+- No Convert tab / Photo tab / QR while scan-only
+- **First launch** — 3-page tour; camera/photos asked at use
 
 ---
 

@@ -5,33 +5,39 @@ import 'package:image/image.dart' as img;
 import '../../core/services/scan_compression.dart';
 import '../../shared/models/scanned_document.dart';
 
-/// CamScan B&W — exact SLI proposal-form constants + integer math.
-/// Spec: `docs/PROPOSAL_FORM_BW_CAMSCAN_SPEC.md` (from SLI_APP).
+/// CamScan B&W — same SLI pipeline, softened constants (less crush / more detail).
+/// Spec baseline: `docs/PROPOSAL_FORM_BW_CAMSCAN_SPEC.md`.
 ///
 /// Applied to **every scanned / imported page** by default (editor auto-B&W).
+///
+/// Resolution/JPEG are higher than generic export (1600/q82): adaptive threshold
+/// + low JPEG looks pixelated when Review zooms the page.
 abstract final class CamScanBwFilter {
   CamScanBwFilter._();
 
-  static const int maxEdge = kExportMaxLongEdge; // 1600
-  static const int jpegQuality = kExportJpegQuality; // 82
+  /// Keep sharpness without 2800px CamScan cost (was slowing Preparing/filter).
+  static const int maxEdge = 2200;
+  /// Near-binary pages need decent JPEG quality or DCT blocks read as pixels.
+  static const int jpegQuality = 92;
+  // Softened vs SLI proposal-form (was 26/12/30) — milder threshold, keep ink.
   static const int adaptiveHalfWindow = 26;
-  static const num adaptiveSubtract = 12;
-  static const int softBand = 30;
-  static const int colorDesatPct = 78;
-  static const int whiteWashPct = 90;
+  static const num adaptiveSubtract = 8;
+  static const int softBand = 48;
+  static const int colorDesatPct = 65;
+  static const int whiteWashPct = 68;
   static const int inkFloor = 70;
   static const int washCeil = 215;
-  static const int midLiftPct = 80;
-  static const int watermarkClearFloor = 115;
+  static const int midLiftPct = 55;
+  static const int watermarkClearFloor = 140;
   static const int paperMeanFloor = 128;
   static const int chromaWashStart = 8;
   static const int chromaWashFull = 42;
-  static const int chromaWashBoostPct = 95;
+  static const int chromaWashBoostPct = 70;
   static const int localContrastPct = 0;
   static const int localContrastHalf = 1;
   static const int bgNormHalfWindow = 48;
-  static const int bgNearMeanSlack = 36;
-  static const int bgNearMeanLiftPct = 88;
+  static const int bgNearMeanSlack = 26;
+  static const int bgNearMeanLiftPct = 65;
 
   /// Sync path — used by tests and isolate. Matches SLI `processBlackAndWhiteBytes`.
   static Uint8List processBytes(
@@ -44,7 +50,7 @@ abstract final class CamScanBwFilter {
     }
     // Always work in opaque RGB — RGBA/alpha-0 from Flutter codec whites out ink.
     var im = _asOpaqueRgb(decoded);
-    im = ImageCompressionService.resizeIfLarge(im, maxEdge);
+    im = _resizeForBw(im);
     im = _fadeColorsForFormWatermark(im);
     im = img.grayscale(im);
     im = _backgroundNormalize(im);
@@ -58,16 +64,26 @@ abstract final class CamScanBwFilter {
     return Uint8List.fromList(img.encodeJpg(im, quality: quality));
   }
 
-  /// Async — same math as sync (isolate for large pages). Do **not** pre-decode
-  /// with Flutter `instantiateImageCodec(targetWidth:)` — that upscales and
-  /// fed RGBA into this pipeline, producing full-white pages.
+  /// Linear downsample — cubic was too slow on multi-page prepare.
+  static img.Image _resizeForBw(img.Image src) {
+    final w = src.width;
+    final h = src.height;
+    final longEdge = w > h ? w : h;
+    if (longEdge <= maxEdge) return src;
+    final scale = maxEdge / longEdge;
+    return img.copyResize(
+      src,
+      width: (w * scale).round().clamp(1, maxEdge),
+      height: (h * scale).round().clamp(1, maxEdge),
+      interpolation: img.Interpolation.linear,
+    );
+  }
+
+  /// Always isolate — keeps UI free while CamScan runs.
   static Future<Uint8List> processBytesAsync(
     Uint8List bytes, {
     int quality = jpegQuality,
-  }) async {
-    if (bytes.length < 250 * 1024) {
-      return processBytes(bytes, quality: quality);
-    }
+  }) {
     return compute(_bwIsolate, (bytes: bytes, quality: quality));
   }
 }

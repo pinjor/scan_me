@@ -22,7 +22,7 @@ class ScanError extends ScanOutcome {
 class DocumentScannerService {
   static const _iosChannel = MethodChannel('app.atl.scanme/document_scanner');
 
-  Future<ScanOutcome> scan({int pageLimit = 1}) async {
+  Future<ScanOutcome> scan({int pageLimit = 50}) async {
     try {
       if (Platform.isAndroid) {
         return await _scanAndroid(pageLimit: pageLimit);

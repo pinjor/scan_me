@@ -491,6 +491,45 @@ class DocumentStorageService {
     return dest;
   }
 
+  Future<String> writePdfPreviewPage({
+    required String documentId,
+    required int index0,
+    required List<int> bytes,
+  }) async {
+    final dir = await subdir(documentId, 'export');
+    final dest = p.join(
+      dir.path,
+      'preview_${index0.toString().padLeft(3, '0')}.jpg',
+    );
+    await File(dest).writeAsBytes(bytes, flush: true);
+    return dest;
+  }
+
+  /// Clean export preview JPEGs (`preview_###.jpg`) for in-app PDF scroll.
+  Future<List<String>> listPdfPreviewPages({
+    String? documentId,
+    String? pdfPath,
+  }) async {
+    Directory? exportDir;
+    if (documentId != null && documentId.isNotEmpty) {
+      exportDir = await subdir(documentId, 'export');
+    } else if (pdfPath != null && pdfPath.isNotEmpty) {
+      exportDir = Directory(p.dirname(pdfPath));
+    }
+    if (exportDir == null || !await exportDir.exists()) return const [];
+
+    final files = <File>[];
+    await for (final entity in exportDir.list()) {
+      if (entity is! File) continue;
+      final base = p.basename(entity.path).toLowerCase();
+      if (RegExp(r'^preview_\d{3}\.jpg$').hasMatch(base)) {
+        files.add(entity);
+      }
+    }
+    files.sort((a, b) => a.path.compareTo(b.path));
+    return files.map((f) => f.path).toList();
+  }
+
   Future<String> writePdf({
     required String documentId,
     required String name,

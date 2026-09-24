@@ -4,11 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/product_surface.dart';
 import '../../core/providers.dart';
 import '../../core/services/convert_outputs_service.dart';
-import '../../core/theme/app_theme.dart';
 import '../../shared/models/library_models.dart';
 import '../../shared/widgets/app_transitions.dart';
 
-/// All · Favorites · Tags · Deleted + sort. Tag chips wrap when Tags is on.
+/// All · Favorites · Tagged · Deleted + sort.
 class LibraryFilterBar extends ConsumerWidget {
   const LibraryFilterBar({super.key});
 
@@ -43,18 +42,19 @@ class LibraryFilterBar extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 12, 8),
+          padding: const EdgeInsets.fromLTRB(16, 4, 4, 2),
           child: Row(
             children: [
               Expanded(
                 child: Container(
                   key: const Key('library-filter-bar'),
-                  padding: const EdgeInsets.all(4),
+                  height: 30,
+                  padding: const EdgeInsets.all(2),
                   decoration: BoxDecoration(
                     color: scheme.surfaceContainerHighest.withValues(
-                      alpha: 0.7,
+                      alpha: 0.65,
                     ),
-                    borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
                     children: [
@@ -65,7 +65,7 @@ class LibraryFilterBar extends ConsumerWidget {
                         onTap: n.showFavorites,
                       ),
                       _Seg(
-                        label: 'Tags',
+                        label: 'Tagged',
                         selected: tagsOn,
                         onTap: () {
                           if (tagsOn) {
@@ -84,21 +84,61 @@ class LibraryFilterBar extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
-              PopupMenuButton<LibrarySort>(
-                tooltip: query.sort.label,
-                padding: EdgeInsets.zero,
-                icon: const Icon(Icons.sort, size: 22),
-                initialValue: query.sort,
-                onSelected: n.setSort,
-                itemBuilder: (_) => [
-                  for (final s in LibrarySort.values)
-                    CheckedPopupMenuItem(
-                      value: s,
-                      checked: query.sort == s,
-                      child: Text(s.label),
-                    ),
-                ],
+              SizedBox(
+                width: 32,
+                height: 30,
+                child: PopupMenuButton<LibrarySort>(
+                  tooltip: 'Sort: ${query.sort.label}',
+                  padding: EdgeInsets.zero,
+                  iconSize: 18,
+                  icon: Icon(
+                    Icons.sort,
+                    size: 18,
+                    color: scheme.onSurfaceVariant,
+                  ),
+                  initialValue: query.sort,
+                  onSelected: n.setSort,
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  itemBuilder: (_) => [
+                    for (final s in LibrarySort.values)
+                      PopupMenuItem<LibrarySort>(
+                        value: s,
+                        height: 34,
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 20,
+                              child: query.sort == s
+                                  ? Icon(
+                                      Icons.check,
+                                      size: 15,
+                                      color: scheme.primary,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              s.label,
+                              style: TextStyle(
+                                fontSize: 13,
+                                height: 1.15,
+                                fontWeight: query.sort == s
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: query.sort == s
+                                    ? scheme.primary
+                                    : scheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -109,28 +149,38 @@ class LibraryFilterBar extends ConsumerWidget {
           alignment: Alignment.topCenter,
           child: tagsOn && !deletedOn
               ? Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 2),
                   child: tags.isEmpty
                       ? Text(
-                          'No tags yet. Add them from a document’s ⋯ menu.',
+                          'No tags yet.',
                           style: Theme.of(context).textTheme.bodySmall
                               ?.copyWith(color: scheme.onSurfaceVariant),
                         )
                       : Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
+                          spacing: 6,
+                          runSpacing: 4,
                           children: [
                             for (final tag in tags)
                               FilterChip(
-                                visualDensity: VisualDensity.compact,
+                                visualDensity: const VisualDensity(
+                                  horizontal: -4,
+                                  vertical: -4,
+                                ),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                labelPadding: const EdgeInsets.only(right: 6),
                                 selected: query.tag == tag.id,
                                 avatar: CircleAvatar(
                                   backgroundColor: Color(tag.color),
-                                  radius: 7,
+                                  radius: 5,
                                 ),
                                 label: Text(
                                   tag.name,
                                   style: TextStyle(
+                                    fontSize: 11,
                                     color: query.tag == tag.id
                                         ? Colors.white
                                         : scheme.onSurface,
@@ -149,9 +199,9 @@ class LibraryFilterBar extends ConsumerWidget {
         ),
         if (deletedOn)
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 16, 4),
+            padding: const EdgeInsets.fromLTRB(20, 4, 16, 2),
             child: Text(
-              'Documents stay here until they are automatically removed.',
+              'Kept until auto-remove.',
               style: Theme.of(
                 context,
               ).textTheme.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
@@ -177,32 +227,24 @@ class _Seg extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Expanded(
-      child: FilterChip(
-        visualDensity: const VisualDensity(horizontal: -2, vertical: -4),
-        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        selected: selected,
-        onSelected: (_) => onTap(),
-        showCheckmark: false,
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        labelPadding: EdgeInsets.zero,
-        selectedColor: scheme.primary,
-        backgroundColor: Colors.transparent,
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide.none,
-        ),
-        label: SizedBox(
-          width: double.infinity,
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 12,
-              color: selected ? scheme.onPrimary : scheme.onSurface,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+      child: Material(
+        color: selected ? scheme.primary : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(6),
+          child: Center(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10,
+                height: 1.0,
+                color: selected ? scheme.onPrimary : scheme.onSurface,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              ),
             ),
           ),
         ),

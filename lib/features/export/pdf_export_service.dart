@@ -16,9 +16,8 @@ abstract final class PdfExportService {
 
   /// Build PDF from JPEG page bytes.
   ///
-  /// Every page gets an Apptriangle logo in the bottom-right corner as a real
-  /// PDF draw (visible in any external PDF viewer), plus pixels may already
-  /// include a baked stamp from [prepareExportJpeg].
+  /// Watermark should already be baked into [jpegPages] via [prepareExportJpeg].
+  /// Set [drawCornerWatermark] only for legacy / toolkit paths that skip baking.
   static Future<Uint8List> buildPdfFromJpegs({
     required List<Uint8List> jpegPages,
     PdfPageSizeOption pageSize = PdfPageSizeOption.original,
@@ -28,8 +27,9 @@ abstract final class PdfExportService {
   }) async {
     final doc = pw.Document();
     final total = jpegPages.length;
-    final logo =
-        drawCornerWatermark ? await WatermarkService.pdfLogoImage() : null;
+    if (drawCornerWatermark) {
+      await WatermarkService.ensurePdfFonts();
+    }
 
     for (var i = 0; i < jpegPages.length; i++) {
       onProgress?.call(i + 1, total);
@@ -38,34 +38,25 @@ abstract final class PdfExportService {
       final w = decoded?.width ?? 1;
       final h = decoded?.height ?? 1;
       final image = pw.MemoryImage(bytes);
-      final pageFormat = _pageFormat(
-        imageW: w,
-        imageH: h,
-        pageSize: pageSize,
-        orientation: orientation,
-      );
+      final pageFormat = pageSize == PdfPageSizeOption.original
+          ? PdfPageFormat(w.toDouble(), h.toDouble(), marginAll: 0)
+          : _pageFormat(
+              imageW: w,
+              imageH: h,
+              pageSize: pageSize,
+              orientation: orientation,
+            );
 
       doc.addPage(
         pw.Page(
           pageFormat: pageFormat,
           margin: pw.EdgeInsets.zero,
-          build: (context) {
-            return pw.Stack(
-              children: [
-                pw.Positioned.fill(
-                  child: pw.Center(
-                    child: pw.Image(image, fit: pw.BoxFit.contain),
-                  ),
-                ),
-                if (logo != null)
-                  WatermarkService.pdfCornerMark(
-                    logo: logo,
-                    pageWidth: pageFormat.width,
-                    pageHeight: pageFormat.height,
-                  ),
-              ],
-            );
-          },
+          build: (context) => pw.Image(
+            image,
+            fit: pw.BoxFit.fill,
+            width: pageFormat.width,
+            height: pageFormat.height,
+          ),
         ),
       );
     }
@@ -116,7 +107,7 @@ abstract final class PdfExportService {
   }
 }
 
-/// Prepare one page for export: compress → rotate → Apptriangle watermark.
+/// Prepare one page for export: optional compress → rotate → ScanMe watermark.
 Future<Uint8List> prepareExportJpeg({
   required String imagePath,
   required int rotation,
@@ -124,31 +115,38 @@ Future<Uint8List> prepareExportJpeg({
   int maxLongEdge = kExportMaxLongEdge,
   int quality = kExportJpegQuality,
   bool applyWatermark = true,
+  /// When false (PDF path), keep full-res bytes — no downscale / recompress.
+  bool compress = true,
 }) async {
   var bytes = await File(imagePath).readAsBytes();
-  if (!alreadyCompressed) {
-    bytes = await ImageCompressionService.compressJpegBytesAsync(
-      bytes,
-      maxLongEdge: maxLongEdge,
-      quality: quality,
-    );
-  } else if (maxLongEdge != kExportMaxLongEdge ||
-      quality != kExportJpegQuality) {
-    bytes = await ImageCompressionService.compressJpegBytesAsync(
-      bytes,
-      maxLongEdge: maxLongEdge,
-      quality: quality,
-    );
+  if (compress) {
+    if (!alreadyCompressed) {
+      bytes = await ImageCompressionService.compressJpegBytesAsync(
+        bytes,
+        maxLongEdge: maxLongEdge,
+        quality: quality,
+      );
+    } else if (maxLongEdge != kExportMaxLongEdge ||
+        quality != kExportJpegQuality) {
+      bytes = await ImageCompressionService.compressJpegBytesAsync(
+        bytes,
+        maxLongEdge: maxLongEdge,
+        quality: quality,
+      );
+    }
   }
   final deg = ((rotation % 360) + 360) % 360;
   if (deg != 0) {
     bytes = await compute(
       _rotateJpeg,
-      (bytes: bytes, degrees: deg, quality: quality),
+      (bytes: bytes, degrees: deg, quality: compress ? quality : 95),
     );
   }
   if (applyWatermark) {
-    return WatermarkService.applyToJpegBytes(bytes);
+    return WatermarkService.applyToJpegBytes(
+      bytes,
+      quality: compress ? quality : 95,
+    );
   }
   return bytes;
 }
